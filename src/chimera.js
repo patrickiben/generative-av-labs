@@ -91,7 +91,7 @@
   const isSafari = /safari/i.test(navigator.userAgent) && !/chrome|chromium|crios|edg|android/i.test(navigator.userAgent);
   const isFirefox = /firefox/i.test(navigator.userAgent);
   const MIDI_TEXT = {
-    idle: ['idle', 'Not connected', 'Press Connect, then choose your USB-MIDI interface.'],
+    idle: ['idle', 'Not connected', 'Press Connect, then choose your MIDI keyboard.'],
     requesting: ['wait', 'Waiting for permission', 'Answer the browser prompt to continue.'],
     denied: ['bad', 'Permission denied', ''],
     'no-device': ['bad', 'No MIDI device', ''],
@@ -111,7 +111,7 @@
     if (!midi.inputs.length) {
       const wasOpen = midi.state === 'live' || midi.state === 'no-signal';
       midi.label = '';
-      setMidi(wasOpen ? 'lost' : 'no-device', wasOpen ? 'The MIDI interface went away. Plug it back in; it reconnects by itself.' : 'No MIDI input found. Plug in your USB-MIDI interface; it appears here by itself.');
+      setMidi(wasOpen ? 'lost' : 'no-device', wasOpen ? 'The MIDI device went away. Plug it back in; it reconnects by itself.' : 'No MIDI input found. Plug in a MIDI keyboard; it appears here by itself.');
     } else {
       if (midi.inputId !== 'all' && !selected) midi.inputId = 'all';
       midi.label = selected ? selected.name : midi.inputs.length === 1 ? midi.inputs[0].name : `All ${midi.inputs.length} inputs`;
@@ -121,7 +121,7 @@
   async function connectMidi() {
     ensureAudio();                       // the click is a gesture, so the notes that follow can sound at once
     if (!navigator.requestMIDIAccess) {
-      return setMidi('unsupported', isSafari ? 'Safari has no Web MIDI. Use Chrome or Edge for your kit. The computer keys work here.' : isFirefox ? 'Firefox needs a site permission add-on for MIDI. Chrome and Edge need only a prompt. The computer keys work here.' : 'This browser has no Web MIDI. Use Chrome or Edge. The computer keys work here.');
+      return setMidi('unsupported', isSafari ? 'Safari has no Web MIDI. Use Chrome or Edge for MIDI. The computer keys work here.' : isFirefox ? 'Firefox needs a site permission add-on for MIDI. Chrome and Edge need only a prompt. The computer keys work here.' : 'This browser has no Web MIDI. Use Chrome or Edge. The computer keys work here.');
     }
     if (!window.isSecureContext) return setMidi('insecure', 'Web MIDI needs HTTPS or localhost.');
     setMidi('requesting', isFirefox ? 'Firefox asks to install a small site permission add-on for MIDI. Answer its prompt, or use Chrome or Edge.' : 'Answer the browser prompt to continue.');
@@ -137,7 +137,6 @@
     if (access) { access.onstatechange = null; access.inputs.forEach((p) => { p.onmidimessage = null; }); }
     access = null; midi.inputs = []; midi.label = ''; setMidi('idle');
   }
-  const DRUM_NAME = { 35: 'kick', 36: 'kick', 37: 'side stick', 38: 'snare', 40: 'snare rim', 42: 'hat closed', 44: 'hat pedal', 46: 'hat open', 22: 'hat edge', 23: 'brush', 41: 'floor tom', 43: 'floor tom', 45: 'low tom', 47: 'mid tom', 48: 'high tom', 50: 'high tom', 49: 'crash', 55: 'splash', 57: 'crash 2', 52: 'china', 51: 'ride', 53: 'ride bell', 59: 'ride 2' };
   const semiText = (s) => (s === 0 ? 'root' : `${s > 0 ? '+' : ''}${s}`);
   function onMidiMessage(data) {
     const status = data[0];
@@ -147,16 +146,10 @@
     if (midi.state !== 'live' && (midi.state === 'no-signal' || midi.state === 'idle' || midi.state === 'lost')) setMidi('live');
     let line = '';
     if (type === 0x90 && d2 > 0) {
-      window.__midiNote(d1, d2, ch);
-      const drum = ch === 9 || DRUMMAP[d1];
-      line = drum ? `note ${d1} vel ${d2} ch ${ch + 1} · ${DRUM_NAME[d1] || 'drum'} → ${semiText(ST.noteSt)}` : `note ${d1} vel ${d2} ch ${ch + 1} · key → ${semiText(ST.noteSt)}`;
+      window.__midiNote(d1, d2, ch); line = `note ${d1} vel ${d2} ch ${ch + 1} → ${semiText(ST.noteSt)}`;
     } else if (type === 0x80 || (type === 0x90 && d2 === 0)) {
       window.__midiOff(d1, ch); line = `note off ${d1} ch ${ch + 1}`;
-    } else if (type === 0xa0) {
-      window.__midiChoke(d1, d2); line = `pressure ${d1} = ${d2} · ${d2 >= 32 ? 'choke' : 'too light to choke'}`;
-    } else if (type === 0xb0 && d1 === 4) {
-      window.__hatPedal(d2); line = `CC4 hat pedal = ${d2} · ${d2 > 96 ? 'closed' : d2 < 32 ? 'open' : 'half'}`;
-    } else line = `${type === 0xb0 ? `CC${d1} = ${d2}` : `status ${type.toString(16)}`} · not used`;
+    } else line = `${type === 0xb0 ? `CC${d1} = ${d2}` : type === 0xe0 ? 'pitch bend' : type === 0xa0 || type === 0xd0 ? 'pressure' : `status ${type.toString(16)}`} · not used`;
     midi.log.unshift(line); midi.log.length = Math.min(midi.log.length, 16);
     if ($('connect-sheet').open) $('midi-monitor').textContent = midi.log.slice(0, 5).join('\n');
   }
@@ -168,11 +161,6 @@
     if (!store.get('reconnect', false) || !navigator.requestMIDIAccess || !navigator.permissions) return;
     try { const p = await navigator.permissions.query({ name: 'midi', sysex: false }); if (p.state === 'granted') connectMidi(); } catch (e) { /* no permission query here */ }
   })();
-  // the drum table, from the engine's own map
-  $('drum-table').innerHTML = '<thead><tr><th>Pad</th><th>Notes</th><th>Plays</th></tr></thead><tbody>' + [
-    ['Kick', [35, 36]], ['Snare', [38, 40]], ['Side stick', [37]], ['Hi-hat', [42, 44, 22]], ['Hi-hat open', [46]], ['Toms, low to high', [41, 43, 45, 47, 48, 50]], ['Crash and china', [49, 55, 57, 52]], ['Ride', [51, 53, 59]],
-  ].map(([n, notes]) => `<tr><th>${n}</th><td>${notes.join(', ')}</td><td>${[...new Set(notes.map((x) => semiText(DRUMMAP[x][0])))].join(', ')} semitones</td></tr>`).join('') + '</tbody>';
-
   /* ---------------- demo ---------------- */
   let demo = null;
   const DEMO_RIFF = [[0, 1], [0, 0], [7, 1], [0, 0], [12, 1], [0, 0], [10, 1], [7, 1], [0, 1], [0, 0], [3, 1], [0, 0], [5, 1], [7, 1], [0, 0], [10, 1]];
@@ -566,7 +554,7 @@ void main(){
     // MIDI
     let mv;
     if (midi.state === 'live') mv = ['good', `MIDI · ${midi.log[0] ? midi.log[0].split(' · ')[0] : 'live'}`, `Signal · ${midi.count} message${midi.count === 1 ? '' : 's'}`, midi.label];
-    else if (midi.state === 'no-signal') { const q = midi.lastT ? ` for ${Math.round((performance.now() - midi.lastT) / 1000)} s` : ' yet'; mv = ['warn', 'MIDI · no notes', `Device open · no notes${q}`, `${midi.label}. Hit a pad or a key. Check that the cable runs from the module's MIDI OUT to the interface's MIDI IN.`]; }
+    else if (midi.state === 'no-signal') { const q = midi.lastT ? ` for ${Math.round((performance.now() - midi.lastT) / 1000)} s` : ' yet'; mv = ['warn', 'MIDI · no notes', `Device open · no notes${q}`, `${midi.label}. Play a key. Check the USB cable, or the MIDI cable into your interface.`]; }
     else { const t = MIDI_TEXT[midi.state] || MIDI_TEXT.idle; mv = [t[0], `MIDI · ${t[1].toLowerCase()}`, t[1], midi.detail || t[2]]; }
     $('chip-midi').dataset.tone = mv[0]; $('chip-midi-text').textContent = mv[1];
     $('midi-info').dataset.tone = mv[0]; $('midi-state').textContent = mv[2]; $('midi-why').textContent = mv[3];
@@ -587,7 +575,6 @@ void main(){
     if (demo) [src, label] = ['demo', 'Demo · the page is playing itself, not your input'];
     else if (!AC) [src, label] = ['ambient', 'Silent · press Start sound'];
     else if (AC.state !== 'running') [src, label] = ['open', 'Paused · click anywhere to let the browser play'];
-    else if (recent && NOTE_EVT.src === 'drums') [src, label] = ['live', 'Live · your drums play the genome'];
     else if (recent && NOTE_EVT.src === 'midi-keys') [src, label] = ['live', 'Live · MIDI keys'];
     else if (recent && NOTE_EVT.src === 'keys') [src, label] = ['live', 'Live · computer keys'];
     else if (ST.seq.on) [src, label] = ['live', 'Live · sequencer riff'];

@@ -749,11 +749,11 @@ void main(){
     ['jungle king roar', '🦁', '🐺', 'Jungle roar'], ['night owl hoot', '🦉', '🐋', 'Night hoot'], ['hive swarm buzz', '🐝', '🦗', 'Hive buzz'], ['dry desert rattle hiss', '🐍', '🦗', 'Desert rattle']];
 
   document.body.insertAdjacentHTML('beforeend', [
-    sheet('connect', 'Play it.', 'Your kit or keyboard plays over MIDI, and the computer keys play too. The sound comes out of this page, so turn on your speakers or headphones.', `
+    sheet('connect', 'Play it.', 'A MIDI keyboard plays it, and so do the computer keys. The sound comes out of this page, so turn on your speakers or headphones.', `
       ${card('Inputs', `
         ${dev('wave', 'sound', 'Sound', 'Off', 'Browsers start sound only after a click. Start quietly: the sub can be loud on big speakers.', '<button class="pill" id="sound-toggle">Start</button>')}
         <div class="vol">${knob('vol', 'Volume', 'vol-val', 0, 100, 70, '70 %')}</div>
-        ${dev('midi', 'midi', 'MIDI input', 'Not connected', 'Press Connect, then choose your USB-MIDI interface.', '<button class="pill" id="midi-connect">Connect</button>')}
+        ${dev('midi', 'midi', 'MIDI input', 'Not connected', 'Press Connect, then choose your MIDI keyboard.', '<button class="pill" id="midi-connect">Connect</button>')}
         <div class="controls-grid" id="midi-controls" hidden>
           <label class="field">MIDI input<select id="midi-port"></select></label>
           <div class="field"><span>Last messages</span><pre class="monitor" id="midi-monitor" aria-live="off">Nothing received yet.</pre></div>
@@ -763,13 +763,12 @@ void main(){
       ${card('Just exploring?', `<button class="pill primary wide" id="demo-sheet">Run demo</button>
         <p class="hint">The demo plays a riff through the garden by itself, and it is labeled on screen the whole time.</p>`)}
       ${card('Settings', row('Reconnect MIDI', 'When this page opens, if the browser already allows it', sw('reconnect', 'Reconnect MIDI when this page opens')))}
-      ${dcard('Wiring: Pearl Mimic Pro', `<ol>
-          <li><b>MIDI.</b> Run a 5-pin cable from the module's MIDI OUT into a USB-MIDI interface, and plug that into the computer. The Mimic Pro's USB slot is for installing samples, and the Apollo Solo has no MIDI ports. The browser lists the interface's name, not the module's.</li>
+      ${dcard('Connecting a MIDI keyboard', `<ol>
+          <li><b>Plug in.</b> A USB MIDI keyboard plugs straight into the computer. A keyboard with a 5-pin MIDI OUT needs a USB-MIDI interface. The browser lists the device's name.</li>
           <li><b>Browser.</b> Chrome or Edge. Safari has no Web MIDI, and Firefox asks for a site permission add-on. The computer keys work everywhere.</li>
-          <li><b>Sound.</b> This page makes the sound, so it plays through the computer's output, such as the Apollo's monitors or headphones. It never listens to your microphone or inputs.</li>
-        </ol>`, { id: 'wiring' })}
-      ${dcard('What each drum plays', `<p>A stated mapping, a musical choice and not a learned one. Each drum leans toward its own pitch, so with per-note branches on in Garden, every pad also leans the genome toward its own bud. Other notes play as keys, with middle C as the root.</p>
-        <table class="maptable" id="drum-table"></table>`, { id: 'drum-details' })}`),
+          <li><b>Notes.</b> Middle C is the root, and every channel plays the same way. With per-note branches on in Garden, each note leans the genome toward its own bud.</li>
+          <li><b>Sound.</b> This page makes the sound and plays it through the computer's output. It never listens to your microphone or inputs.</li>
+        </ol>`, { id: 'wiring' })}`),
 
     sheet('voices', 'Choose the animals.', `Each voice is an FM core through a bank of formant filters, the resonances that make a duck sound like a duck, plus a breath of noise. ${LIVE}`, `
       ${card('Morph', `<canvas id="morphviz" class="viz" role="img" aria-label="The formants of animal A, animal B and the blend now, on a log-frequency axis"></canvas>
@@ -1047,7 +1046,7 @@ function glitchBurst(el,intensity){
   PULSE=Math.min(1,0.5*(intensity||1));
 }
 // the last note played, for the stage and the readouts
-const NOTE_EVT={semi:0,t:-1e9,src:'none',drum:null};
+const NOTE_EVT={semi:0,t:-1e9,src:'none'};
 // text fields take letters; ranges, checkboxes and buttons leave them to the keyboard instrument
 const typingInto=el=>!!el&&(el.tagName==='TEXTAREA'||el.tagName==='SELECT'||(el.tagName==='INPUT'&&!['range','checkbox','radio','button'].includes(el.type)));
 // a switch shows its state on the control itself; its label lives in the row beside it
@@ -1785,42 +1784,15 @@ window.addEventListener('keyup',e=>{
     setGenome(GARDEN.seed,{glide:0.05});      // release: settle back to the seed
   }
 });
-/* DRUM PADS → the genome instrument. Each drum maps to a DISTINCT pitch class, so with
-   per-note branches ON every pad leans the genome toward its own branch: the kit plays
-   the creature. Stated mapping (musical choice, not learned): kick=root, toms walk up,
-   cymbals sit in the upper classes. [semitone, accent, gate ms] — drums hold no keys,
-   so a timer settles the genome back to the seed after the gate. */
-const DRUMMAP={36:[-12,1.25,220],35:[-12,1.25,220],38:[2,1.1,160],40:[2,1.1,160],37:[3,0.9,120],
-  42:[10,0.7,90],44:[10,0.7,80],46:[11,0.85,280],22:[10,0.7,90],23:[2,0.6,220],
-  41:[-8,1.0,240],43:[-8,1.0,240],
-  45:[-5,1.0,240],47:[-5,1.0,240],48:[-3,1.0,220],50:[-3,1.0,220],
-  49:[5,1.15,650],55:[5,1.1,550],57:[5,1.15,650],52:[5,1.0,550],51:[6,0.8,320],53:[6,0.85,320],59:[6,0.8,320]};
-// 22 = hat closed edge, 23 = brush sweep (Pearl Mimic Pro; non-GM). Mimic sends ONLY closed-hat
-// notes — openness arrives as CC#4 (0=open..127=closed), so the hat gate stretches with the pedal.
-let _hatOpen=0;
-window.__hatPedal=function(val){ _hatOpen=1-Math.min(1,val/127); };
-let _drumRel=0;
-window.__midiNote=function(note,vel,ch){
+/* MIDI notes play as keys, with middle C as the root, on every channel. */
+window.__midiNote=function(note,vel){
   const v=Math.min(1,vel/127);
-  if(ch===9||DRUMMAP[note]){                       // GM percussion channel or recognized drum
-    const m=DRUMMAP[note]||[((note%12)+12)%12,1,160];
-    const isHat=(note===42||note===44||note===46||note===22);
-    const gate=isHat?Math.round(80+380*_hatOpen):m[2];   // open pedal = the hat branch rings longer
-    NOTE_EVT.src='drums'; NOTE_EVT.drum=note;
-    setNote(m[0],(0.55+v*0.65)*m[1]*(isHat?(0.85+0.3*_hatOpen):1));
-    clearTimeout(_drumRel);
-    _drumRel=setTimeout(()=>{ if(ST.genomeMode&&GARDEN.perNote) setGenome(GARDEN.seed,{glide:0.05}); },gate);
-  } else { NOTE_EVT.src='midi-keys'; NOTE_EVT.drum=null; setNote(note-60,0.6+v*0.6); }
+  NOTE_EVT.src='midi-keys';
+  setNote(note-60,0.6+v*0.6);
 };
 // a key released on a MIDI keyboard settles the genome back to the seed, as letting go of a computer key does
-window.__midiOff=function(note,ch){
-  if(ch===9||DRUMMAP[note]) return;
+window.__midiOff=function(note){
   if(ST.genomeMode&&GARDEN.perNote&&ST.noteSt===note-60) setGenome(GARDEN.seed,{glide:0.05});
-};
-window.__midiChoke=function(note,pressure){    // cymbal grab: release the branch lean right now
-  if(pressure<32) return;
-  clearTimeout(_drumRel);
-  if(ST.genomeMode&&GARDEN.perNote) setGenome(GARDEN.seed,{glide:0.02});
 };
 
 /* ============================== LAB RACK BINDINGS ============================== */
@@ -2492,7 +2464,7 @@ renderAnimals(); refreshMorphLabels(); updateChips(); reseed(ST.seed); renderSeq
   const isSafari = /safari/i.test(navigator.userAgent) && !/chrome|chromium|crios|edg|android/i.test(navigator.userAgent);
   const isFirefox = /firefox/i.test(navigator.userAgent);
   const MIDI_TEXT = {
-    idle: ['idle', 'Not connected', 'Press Connect, then choose your USB-MIDI interface.'],
+    idle: ['idle', 'Not connected', 'Press Connect, then choose your MIDI keyboard.'],
     requesting: ['wait', 'Waiting for permission', 'Answer the browser prompt to continue.'],
     denied: ['bad', 'Permission denied', ''],
     'no-device': ['bad', 'No MIDI device', ''],
@@ -2512,7 +2484,7 @@ renderAnimals(); refreshMorphLabels(); updateChips(); reseed(ST.seed); renderSeq
     if (!midi.inputs.length) {
       const wasOpen = midi.state === 'live' || midi.state === 'no-signal';
       midi.label = '';
-      setMidi(wasOpen ? 'lost' : 'no-device', wasOpen ? 'The MIDI interface went away. Plug it back in; it reconnects by itself.' : 'No MIDI input found. Plug in your USB-MIDI interface; it appears here by itself.');
+      setMidi(wasOpen ? 'lost' : 'no-device', wasOpen ? 'The MIDI device went away. Plug it back in; it reconnects by itself.' : 'No MIDI input found. Plug in a MIDI keyboard; it appears here by itself.');
     } else {
       if (midi.inputId !== 'all' && !selected) midi.inputId = 'all';
       midi.label = selected ? selected.name : midi.inputs.length === 1 ? midi.inputs[0].name : `All ${midi.inputs.length} inputs`;
@@ -2522,7 +2494,7 @@ renderAnimals(); refreshMorphLabels(); updateChips(); reseed(ST.seed); renderSeq
   async function connectMidi() {
     ensureAudio();                       // the click is a gesture, so the notes that follow can sound at once
     if (!navigator.requestMIDIAccess) {
-      return setMidi('unsupported', isSafari ? 'Safari has no Web MIDI. Use Chrome or Edge for your kit. The computer keys work here.' : isFirefox ? 'Firefox needs a site permission add-on for MIDI. Chrome and Edge need only a prompt. The computer keys work here.' : 'This browser has no Web MIDI. Use Chrome or Edge. The computer keys work here.');
+      return setMidi('unsupported', isSafari ? 'Safari has no Web MIDI. Use Chrome or Edge for MIDI. The computer keys work here.' : isFirefox ? 'Firefox needs a site permission add-on for MIDI. Chrome and Edge need only a prompt. The computer keys work here.' : 'This browser has no Web MIDI. Use Chrome or Edge. The computer keys work here.');
     }
     if (!window.isSecureContext) return setMidi('insecure', 'Web MIDI needs HTTPS or localhost.');
     setMidi('requesting', isFirefox ? 'Firefox asks to install a small site permission add-on for MIDI. Answer its prompt, or use Chrome or Edge.' : 'Answer the browser prompt to continue.');
@@ -2538,7 +2510,6 @@ renderAnimals(); refreshMorphLabels(); updateChips(); reseed(ST.seed); renderSeq
     if (access) { access.onstatechange = null; access.inputs.forEach((p) => { p.onmidimessage = null; }); }
     access = null; midi.inputs = []; midi.label = ''; setMidi('idle');
   }
-  const DRUM_NAME = { 35: 'kick', 36: 'kick', 37: 'side stick', 38: 'snare', 40: 'snare rim', 42: 'hat closed', 44: 'hat pedal', 46: 'hat open', 22: 'hat edge', 23: 'brush', 41: 'floor tom', 43: 'floor tom', 45: 'low tom', 47: 'mid tom', 48: 'high tom', 50: 'high tom', 49: 'crash', 55: 'splash', 57: 'crash 2', 52: 'china', 51: 'ride', 53: 'ride bell', 59: 'ride 2' };
   const semiText = (s) => (s === 0 ? 'root' : `${s > 0 ? '+' : ''}${s}`);
   function onMidiMessage(data) {
     const status = data[0];
@@ -2548,16 +2519,10 @@ renderAnimals(); refreshMorphLabels(); updateChips(); reseed(ST.seed); renderSeq
     if (midi.state !== 'live' && (midi.state === 'no-signal' || midi.state === 'idle' || midi.state === 'lost')) setMidi('live');
     let line = '';
     if (type === 0x90 && d2 > 0) {
-      window.__midiNote(d1, d2, ch);
-      const drum = ch === 9 || DRUMMAP[d1];
-      line = drum ? `note ${d1} vel ${d2} ch ${ch + 1} · ${DRUM_NAME[d1] || 'drum'} → ${semiText(ST.noteSt)}` : `note ${d1} vel ${d2} ch ${ch + 1} · key → ${semiText(ST.noteSt)}`;
+      window.__midiNote(d1, d2, ch); line = `note ${d1} vel ${d2} ch ${ch + 1} → ${semiText(ST.noteSt)}`;
     } else if (type === 0x80 || (type === 0x90 && d2 === 0)) {
       window.__midiOff(d1, ch); line = `note off ${d1} ch ${ch + 1}`;
-    } else if (type === 0xa0) {
-      window.__midiChoke(d1, d2); line = `pressure ${d1} = ${d2} · ${d2 >= 32 ? 'choke' : 'too light to choke'}`;
-    } else if (type === 0xb0 && d1 === 4) {
-      window.__hatPedal(d2); line = `CC4 hat pedal = ${d2} · ${d2 > 96 ? 'closed' : d2 < 32 ? 'open' : 'half'}`;
-    } else line = `${type === 0xb0 ? `CC${d1} = ${d2}` : `status ${type.toString(16)}`} · not used`;
+    } else line = `${type === 0xb0 ? `CC${d1} = ${d2}` : type === 0xe0 ? 'pitch bend' : type === 0xa0 || type === 0xd0 ? 'pressure' : `status ${type.toString(16)}`} · not used`;
     midi.log.unshift(line); midi.log.length = Math.min(midi.log.length, 16);
     if ($('connect-sheet').open) $('midi-monitor').textContent = midi.log.slice(0, 5).join('\n');
   }
@@ -2569,11 +2534,6 @@ renderAnimals(); refreshMorphLabels(); updateChips(); reseed(ST.seed); renderSeq
     if (!store.get('reconnect', false) || !navigator.requestMIDIAccess || !navigator.permissions) return;
     try { const p = await navigator.permissions.query({ name: 'midi', sysex: false }); if (p.state === 'granted') connectMidi(); } catch (e) { /* no permission query here */ }
   })();
-  // the drum table, from the engine's own map
-  $('drum-table').innerHTML = '<thead><tr><th>Pad</th><th>Notes</th><th>Plays</th></tr></thead><tbody>' + [
-    ['Kick', [35, 36]], ['Snare', [38, 40]], ['Side stick', [37]], ['Hi-hat', [42, 44, 22]], ['Hi-hat open', [46]], ['Toms, low to high', [41, 43, 45, 47, 48, 50]], ['Crash and china', [49, 55, 57, 52]], ['Ride', [51, 53, 59]],
-  ].map(([n, notes]) => `<tr><th>${n}</th><td>${notes.join(', ')}</td><td>${[...new Set(notes.map((x) => semiText(DRUMMAP[x][0])))].join(', ')} semitones</td></tr>`).join('') + '</tbody>';
-
   /* ---------------- demo ---------------- */
   let demo = null;
   const DEMO_RIFF = [[0, 1], [0, 0], [7, 1], [0, 0], [12, 1], [0, 0], [10, 1], [7, 1], [0, 1], [0, 0], [3, 1], [0, 0], [5, 1], [7, 1], [0, 0], [10, 1]];
@@ -2967,7 +2927,7 @@ void main(){
     // MIDI
     let mv;
     if (midi.state === 'live') mv = ['good', `MIDI · ${midi.log[0] ? midi.log[0].split(' · ')[0] : 'live'}`, `Signal · ${midi.count} message${midi.count === 1 ? '' : 's'}`, midi.label];
-    else if (midi.state === 'no-signal') { const q = midi.lastT ? ` for ${Math.round((performance.now() - midi.lastT) / 1000)} s` : ' yet'; mv = ['warn', 'MIDI · no notes', `Device open · no notes${q}`, `${midi.label}. Hit a pad or a key. Check that the cable runs from the module's MIDI OUT to the interface's MIDI IN.`]; }
+    else if (midi.state === 'no-signal') { const q = midi.lastT ? ` for ${Math.round((performance.now() - midi.lastT) / 1000)} s` : ' yet'; mv = ['warn', 'MIDI · no notes', `Device open · no notes${q}`, `${midi.label}. Play a key. Check the USB cable, or the MIDI cable into your interface.`]; }
     else { const t = MIDI_TEXT[midi.state] || MIDI_TEXT.idle; mv = [t[0], `MIDI · ${t[1].toLowerCase()}`, t[1], midi.detail || t[2]]; }
     $('chip-midi').dataset.tone = mv[0]; $('chip-midi-text').textContent = mv[1];
     $('midi-info').dataset.tone = mv[0]; $('midi-state').textContent = mv[2]; $('midi-why').textContent = mv[3];
@@ -2988,7 +2948,6 @@ void main(){
     if (demo) [src, label] = ['demo', 'Demo · the page is playing itself, not your input'];
     else if (!AC) [src, label] = ['ambient', 'Silent · press Start sound'];
     else if (AC.state !== 'running') [src, label] = ['open', 'Paused · click anywhere to let the browser play'];
-    else if (recent && NOTE_EVT.src === 'drums') [src, label] = ['live', 'Live · your drums play the genome'];
     else if (recent && NOTE_EVT.src === 'midi-keys') [src, label] = ['live', 'Live · MIDI keys'];
     else if (recent && NOTE_EVT.src === 'keys') [src, label] = ['live', 'Live · computer keys'];
     else if (ST.seq.on) [src, label] = ['live', 'Live · sequencer riff'];

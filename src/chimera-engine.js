@@ -63,7 +63,7 @@ function glitchBurst(el,intensity){
   PULSE=Math.min(1,0.5*(intensity||1));
 }
 // the last note played, for the stage and the readouts
-const NOTE_EVT={semi:0,t:-1e9,src:'none',drum:null};
+const NOTE_EVT={semi:0,t:-1e9,src:'none'};
 // text fields take letters; ranges, checkboxes and buttons leave them to the keyboard instrument
 const typingInto=el=>!!el&&(el.tagName==='TEXTAREA'||el.tagName==='SELECT'||(el.tagName==='INPUT'&&!['range','checkbox','radio','button'].includes(el.type)));
 // a switch shows its state on the control itself; its label lives in the row beside it
@@ -801,42 +801,15 @@ window.addEventListener('keyup',e=>{
     setGenome(GARDEN.seed,{glide:0.05});      // release: settle back to the seed
   }
 });
-/* DRUM PADS → the genome instrument. Each drum maps to a DISTINCT pitch class, so with
-   per-note branches ON every pad leans the genome toward its own branch: the kit plays
-   the creature. Stated mapping (musical choice, not learned): kick=root, toms walk up,
-   cymbals sit in the upper classes. [semitone, accent, gate ms] — drums hold no keys,
-   so a timer settles the genome back to the seed after the gate. */
-const DRUMMAP={36:[-12,1.25,220],35:[-12,1.25,220],38:[2,1.1,160],40:[2,1.1,160],37:[3,0.9,120],
-  42:[10,0.7,90],44:[10,0.7,80],46:[11,0.85,280],22:[10,0.7,90],23:[2,0.6,220],
-  41:[-8,1.0,240],43:[-8,1.0,240],
-  45:[-5,1.0,240],47:[-5,1.0,240],48:[-3,1.0,220],50:[-3,1.0,220],
-  49:[5,1.15,650],55:[5,1.1,550],57:[5,1.15,650],52:[5,1.0,550],51:[6,0.8,320],53:[6,0.85,320],59:[6,0.8,320]};
-// 22 = hat closed edge, 23 = brush sweep (Pearl Mimic Pro; non-GM). Mimic sends ONLY closed-hat
-// notes — openness arrives as CC#4 (0=open..127=closed), so the hat gate stretches with the pedal.
-let _hatOpen=0;
-window.__hatPedal=function(val){ _hatOpen=1-Math.min(1,val/127); };
-let _drumRel=0;
-window.__midiNote=function(note,vel,ch){
+/* MIDI notes play as keys, with middle C as the root, on every channel. */
+window.__midiNote=function(note,vel){
   const v=Math.min(1,vel/127);
-  if(ch===9||DRUMMAP[note]){                       // GM percussion channel or recognized drum
-    const m=DRUMMAP[note]||[((note%12)+12)%12,1,160];
-    const isHat=(note===42||note===44||note===46||note===22);
-    const gate=isHat?Math.round(80+380*_hatOpen):m[2];   // open pedal = the hat branch rings longer
-    NOTE_EVT.src='drums'; NOTE_EVT.drum=note;
-    setNote(m[0],(0.55+v*0.65)*m[1]*(isHat?(0.85+0.3*_hatOpen):1));
-    clearTimeout(_drumRel);
-    _drumRel=setTimeout(()=>{ if(ST.genomeMode&&GARDEN.perNote) setGenome(GARDEN.seed,{glide:0.05}); },gate);
-  } else { NOTE_EVT.src='midi-keys'; NOTE_EVT.drum=null; setNote(note-60,0.6+v*0.6); }
+  NOTE_EVT.src='midi-keys';
+  setNote(note-60,0.6+v*0.6);
 };
 // a key released on a MIDI keyboard settles the genome back to the seed, as letting go of a computer key does
-window.__midiOff=function(note,ch){
-  if(ch===9||DRUMMAP[note]) return;
+window.__midiOff=function(note){
   if(ST.genomeMode&&GARDEN.perNote&&ST.noteSt===note-60) setGenome(GARDEN.seed,{glide:0.05});
-};
-window.__midiChoke=function(note,pressure){    // cymbal grab: release the branch lean right now
-  if(pressure<32) return;
-  clearTimeout(_drumRel);
-  if(ST.genomeMode&&GARDEN.perNote) setGenome(GARDEN.seed,{glide:0.02});
 };
 
 /* ============================== LAB RACK BINDINGS ============================== */
