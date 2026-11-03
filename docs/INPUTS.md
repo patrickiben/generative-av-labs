@@ -5,7 +5,6 @@ What each page listens to, and which browsers can provide it. Checked on 2026-11
 | Page | Listens to |
 |---|---|
 | Nebula | An electronic drum kit's audio and MIDI |
-| Endless Cockpit | Your cadence: a Bluetooth cadence sensor or smart trainer, the pedal button or Space, or a steady setting |
 | Enter | Pictures and sounds you open |
 | Chimera Synth | See its own page |
 
@@ -17,18 +16,14 @@ What each page listens to, and which browsers can provide it. Checked on 2026-11
 
 The capture request turns off echo cancellation, noise suppression and automatic gain, because each of those would flatten a drum's attack. How a browser maps an interface with many inputs onto its stereo capture varies, and was not found in any source. The level meter in the Connect sheet settles it: it should move on the first hit.
 
-## Cadence for Endless Cockpit
-
-Endless Cockpit reads the standard Bluetooth Cycling Speed and Cadence profile, or a smart trainer's Fitness Machine indoor bike data, through Web Bluetooth. It needs no other software.
-
 ## Browsers
 
-| Browser | Audio capture | Web MIDI | Web Bluetooth | Source |
-|---|---|---|---|---|
-| Chrome 43+ | Yes | Yes, behind a permission prompt since Chrome 124 | Yes, on a computer | [caniuse](https://caniuse.com/midi), [Chrome blog](https://developer.chrome.com/blog/web-midi-permission-prompt) |
-| Edge 79+ | Yes | Yes | Yes | [caniuse](https://caniuse.com/midi) |
-| Firefox 108+ | Yes | Only with a site permission add-on | No | [caniuse](https://caniuse.com/midi), [Mozilla bug 1795025](https://bugzilla.mozilla.org/show_bug.cgi?id=1795025) |
-| Safari | Yes | No, on macOS or iOS through 27.x | No | [caniuse](https://caniuse.com/midi) |
+| Browser | Audio capture | Web MIDI | Source |
+|---|---|---|---|
+| Chrome 43+ | Yes | Yes, behind a permission prompt since Chrome 124 | [caniuse](https://caniuse.com/midi), [Chrome blog](https://developer.chrome.com/blog/web-midi-permission-prompt) |
+| Edge 79+ | Yes | Yes | [caniuse](https://caniuse.com/midi) |
+| Firefox 108+ | Yes | Only with a site permission add-on | [caniuse](https://caniuse.com/midi), [Mozilla bug 1795025](https://bugzilla.mozilla.org/show_bug.cgi?id=1795025) |
+| Safari | Yes | No, on macOS or iOS through 27.x | [caniuse](https://caniuse.com/midi) |
 
 Capture and Web MIDI need a secure context ([MDN, Web MIDI](https://developer.mozilla.org/en-US/docs/Web/API/Web_MIDI_API), [MDN, getUserMedia](https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia)). GitHub Pages is HTTPS, and MDN counts `file://` and `localhost` as secure for capture.
 

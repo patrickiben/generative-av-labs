@@ -64,16 +64,13 @@ with sync_playwright() as p:
     # Chimera adds its own worst case: the sub held near 180 degrees so the measured cancellation shatters the
     # creature in red, full chaos, and per-note branches so every hit also lights a bud
     HARDER = {'chimera.html': "(()=>{const s=document.getElementById('k-phase');s.value=180;s.dispatchEvent(new Event('input'));const c=document.getElementById('ch-chaos');c.value=100;c.dispatchEvent(new Event('input'));__app.GARDEN.perNote=true})()"}
-    for page in (os.environ.get('FLASH_PAGES') or 'nebula.html endless-cockpit.html chimera.html').split():
+    for page in (os.environ.get('FLASH_PAGES') or 'nebula.html chimera.html').split():
         for motion in ('no-preference', 'reduce'):
             pg = b.new_context(viewport={'width': 1440, 'height': 900}, device_scale_factor=1, reduced_motion=motion).new_page()
             pg.goto(f'{BASE}/{page}'); pg.wait_for_timeout(1500)
             pg.click('#demo-button'); pg.wait_for_timeout(1500)
             r = analyze(pg.evaluate('__app.recordLuma(9000)'))
-            if page == 'endless-cockpit.html':
-                pg.evaluate("__app.S.steady = 130")        # the ride's hardest case: top cadence, a ring on every revolution
-            else:
-                pg.evaluate(HARD)
+            pg.evaluate(HARD)
             if page in HARDER: pg.evaluate(HARDER[page])
             h = analyze(pg.evaluate('__app.recordLuma(6000)'))
             print(page, motion, 'demo', json.dumps(r)); print(page, motion, 'hardest', json.dumps(h))

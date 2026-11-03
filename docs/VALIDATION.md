@@ -1,6 +1,6 @@
 # Validation
 
-Checked on 2026-11-02 and 2026-11-03 in Chrome 156 on an Apple M4 Max Mac. **No real drum kit or cadence sensor has been used with these pages yet.** The checks a person can do with real gear are listed under each page.
+Checked on 2026-11-02 and 2026-11-03 in Chrome 156 on an Apple M4 Max Mac. **No real drum kit has been used with Nebula yet.** The checks a person can do with real gear are listed below. Endless Cockpit moved to [Body Signal Labs](https://github.com/patrickiben/body-signal-labs) on 2026-11-03, and its checks moved with it.
 
 ## Nebula: input states
 
@@ -23,28 +23,9 @@ Checked on 2026-11-02 and 2026-11-03 in Chrome 156 on an Apple M4 Max Mac. **No 
 
 All 49 checks passed on the current build. The run also checks that the picture itself responds, as the mean change in real pixels over a quarter second, on a 0 to 255 scale. On 2026-11-02 that read 1.20 at rest, 30.69 under audio hits and 55.48 under MIDI hits. On the same day the audio estimator, on a synthetic loop of about 8 kicks, 8 snares and 16 hats, read 9, 9 and 15, and tempo from that loop, whose true value is 120 BPM, read 120.00.
 
-## Endless Cockpit: cadence states
-
-Endless Cockpit takes its speed from cadence only. `tests/endless_states.py` drives it on the rendered page.
-
-| State | How it was produced |
-|---|---|
-| At rest | Real |
-| Pedaling by hand | A real held Space key |
-| Steady cadence | A real slider |
-| Demo, and ending it | Real clicks |
-| A ride recorded and replayed | Recorded in the page and played back |
-| No Web Bluetooth | **Stubbed**, by removing the API |
-| Chooser closed with no sensor | **Stubbed** |
-| Sensor connected, sending nothing | **Stubbed** |
-| Live sensor at 80 rpm | **Stubbed**, with real CSC Measurement bytes |
-| Sensor disconnects | **Stubbed** |
-
-A browser test cannot pair a real Bluetooth sensor, and a real click on Connect opens a chooser that headless Chrome cannot show, so every sensor state uses a stub of `navigator.bluetooth`. All 17 checks passed, including one that the visible page says nothing about drums, MIDI or tempo. These checks found one defect, fixed on 2026-11-03: a sensor that connected in the page's first three seconds, before sending anything, read as live at 0 rpm. The check now connects right after load, where the old code failed every time.
-
 ## Flicker
 
-`tests/flash_check.py` records the rendered page's brightness on every frame and applies the WCAG 2.2 general flash definition: a flash is a pair of opposing changes of at least 10% of maximum relative luminance, with the darker image below 0.80, and the limit is three a second over no more than 25% of a 10 degree field. Each third of the screen stands in for that field. It runs each page's demo and a deliberately hard case, with and without reduced motion. Nebula's hard case is crash, kick and snare together at full velocity on every eighth note at 140 BPM. Endless Cockpit's is a steady 130 rpm.
+`tests/flash_check.py` records the rendered page's brightness on every frame and applies the WCAG 2.2 general flash definition: a flash is a pair of opposing changes of at least 10% of maximum relative luminance, with the darker image below 0.80, and the limit is three a second over no more than 25% of a 10 degree field. Each third of the screen stands in for that field. It runs each page's demo and a deliberately hard case, with and without reduced motion. Nebula's hard case is crash, kick and snare together at full velocity on every eighth note at 140 BPM.
 
 **The first published build failed this badly.** Up to 88% of a region flashed more than three times a second in the demo, and the whole frame flashed up to 7 times a second under the hard case, while the page claimed a cap that covered only the crash flash. It was live for about two hours on 2026-11-02 before the limiter described in [Methods](METHODS.md) replaced it. The check now passes and stays in this folder so that does not recur.
 
@@ -53,18 +34,16 @@ Worst share of any region flashing more than three times a second, on the curren
 | Page | Demo | Hard case | Demo, reduced motion | Hard, reduced motion |
 |---|---|---|---|---|
 | Nebula | 5% | 2% | 2% | 3% |
-| Endless Cockpit | 2% | 7% | 2% | 7% |
 
 The whole frame never flashed in any of these runs. It is a screen, not a certificate. It does not test saturated red flashes, and it says nothing about comfort.
 
 ## Numbers with known answers
 
 - Nebula: tempo from a known 120 BPM audio loop and from the demo's known 108 BPM, tempo known answers from hit lists with octave folding, note 36 kick, 38 snare, 22 hat, 48 high tom, 51 ride, velocity zero as a release, MIDI clock as not playing, CC4 at 127 closed and at 0 open, and poly aftertouch cutting a crash.
-- Endless Cockpit: the zoom curve is 0 below idle and 1 at the top, the grade's effect on speed is bounded, and distance does not count the idle drift.
 
 ## The app harness
 
-`App_Validation_Harness/web_gate.py` (`endless_cockpit`, `nebula_web`). Gates that need a person are PARTIAL until the author signs. A0, A4 and A8 need the author, A5 and A9's keyboard pass need a person, and A6 runs only on the deployed pages. Neither page is OWNER-APPROVED yet.
+`App_Validation_Harness/web_gate.py` (`nebula_web`). Gates that need a person are PARTIAL until the author signs. A0, A4 and A8 need the author, A5 and A9's keyboard pass need a person, and A6 runs only on the deployed page. Nebula is not OWNER-APPROVED yet.
 
 ## What only real gear can show
 
@@ -76,11 +55,6 @@ Nebula, with a drum kit:
 5. Grabbing a cymbal cuts its wash. Whether a module sends aftertouch varies.
 6. With audio alone, the estimated hits are believable on a real module's samples. The rule was tuned on synthetic drums.
 7. Hits feel immediate. The page measures hit to frame, and cannot measure the interface or the screen.
-
-Endless Cockpit, with a cadence sensor:
-1. The sensor appears in Chrome's chooser and connects.
-2. The cadence readout matches the sensor's own app.
-3. Stopping the crank brings the road to rest within about three seconds.
 
 ## Not tested
 

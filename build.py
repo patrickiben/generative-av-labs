@@ -53,7 +53,6 @@ def static(out, src, title, description):
 
 
 if __name__ == "__main__":
-    page("endless-cockpit.html", "Endless Cockpit", "A procedural road at dusk that keeps your pace: your cadence sets the speed, from a Bluetooth sensor, the keyboard or a steady setting.", ["endless.js"])
     if (SRC / "nebula.js").exists():
         page("nebula.html", "Nebula", "A particle nebula made from the last twelve seconds of live drums: time winds outward from the core and frequency sets the color.", ["nebula.js"])
     if (SRC / "enter.js").exists():
@@ -63,6 +62,6 @@ if __name__ == "__main__":
     if (SRC / "displacer.js").exists():
         page("displacer.html", "Displacer", "Blend two pictures or two sounds by optimal transport: the mass moves instead of two files ghosting at once.", ["displacer-engine.js", "displacer.js"], extra_css=(SRC / "displacer.css").read_text())
     if (SRC / "index.src.html").exists():
-        static("index.html", "index.src.html", "Generative AV Labs", "Nebula, Endless Cockpit, Enter, Chimera Synth and Displacer: browser instruments for light and sound, each with its own input.")
+        static("index.html", "index.src.html", "Generative AV Labs", "Nebula, Enter, Chimera Synth and Displacer: browser instruments for light and sound, each with its own input.")
     if (SRC / "field-guide.src.html").exists():
         static("field-guide.html", "field-guide.src.html", "Field Guide", "How to connect each page, what each status means, and what each input does.")

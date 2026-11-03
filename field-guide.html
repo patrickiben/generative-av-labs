@@ -263,7 +263,7 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
 <div class="site-wrap">
   <header class="site-head">
     <a class="site-brand" href="./"><svg viewBox="0 0 24 28" aria-hidden="true"><circle cx="12" cy="14" r="9"/><circle cx="12" cy="14" r="3"/></svg>Generative AV Labs</a>
-    <nav class="site-nav" aria-label="Pages"><a href="nebula.html">Nebula</a><a href="endless-cockpit.html">Endless Cockpit</a><a href="chimera.html">Chimera Synth</a><a href="displacer.html">Displacer</a></nav>
+    <nav class="site-nav" aria-label="Pages"><a href="nebula.html">Nebula</a><a href="chimera.html">Chimera Synth</a><a href="displacer.html">Displacer</a></nav>
   </header>
   <main class="guide">
     <div class="hero-title">
@@ -274,7 +274,7 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
 
     <section id="status">
       <h2>Where this stands</h2>
-      <p>Nebula was tested in Chrome on a Mac with a simulated audio input and a virtual MIDI port, using a synthetic drum loop. <b>No real drum kit has been played through it yet</b>, so its pad map and audio estimates are starting points. Endless Cockpit was tested with a simulated Bluetooth sensor, and <b>no real cadence sensor has been connected yet</b>.</p>
+      <p>Nebula was tested in Chrome on a Mac with a simulated audio input and a virtual MIDI port, using a synthetic drum loop. <b>No real drum kit has been played through it yet</b>, so its pad map and audio estimates are starting points.</p>
     </section>
 
     <section id="wiring">
@@ -288,20 +288,14 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
       </ol>
     </section>
 
-    <section id="endless">
-      <h2>Riding Endless Cockpit</h2>
-      <p>Endless Cockpit takes its speed from your cadence. Connect a Bluetooth cadence sensor or smart trainer from the Connect sheet, hold Space or the Hold to pedal button, or set a steady cadence. Each crank revolution sends a ring of light down the road, and the road's grade changes your speed by up to 40%.</p>
-      <p>The sensor's status reads not connected, no Bluetooth in this browser, none chosen, connected with no cadence yet, live, or disconnected. Some sensors send nothing until the crank turns.</p>
-    </section>
-
     <section id="browsers">
       <h2>Browsers</h2>
       <table>
-        <thead><tr><th>Browser</th><th>Audio</th><th>MIDI</th><th>Bluetooth cadence</th></tr></thead>
+        <thead><tr><th>Browser</th><th>Audio</th><th>MIDI</th></tr></thead>
         <tbody>
-          <tr><th>Chrome, Edge</th><td>Yes</td><td>Yes, after a permission prompt</td><td>Yes, on a computer</td></tr>
-          <tr><th>Firefox</th><td>Yes</td><td>Only with a site permission add-on</td><td>No</td></tr>
-          <tr><th>Safari</th><td>Yes</td><td>No. Safari has no Web MIDI, so hits come from audio</td><td>No</td></tr>
+          <tr><th>Chrome, Edge</th><td>Yes</td><td>Yes, after a permission prompt</td></tr>
+          <tr><th>Firefox</th><td>Yes</td><td>Only with a site permission add-on</td></tr>
+          <tr><th>Safari</th><td>Yes</td><td>No. Safari has no Web MIDI, so hits come from audio</td></tr>
         </tbody>
       </table>
       <p style="margin-top:12px">Only Chrome has been tested so far. Capture and MIDI both need a secure page, which the published pages are.</p>
@@ -314,9 +308,9 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
           <tr><th><span class="statechip"><i style="background:#8d93ad"></i>Ambient</span></th><td>Nothing is connected. The picture is idling, not responding to anything.</td></tr>
           <tr><th><span class="statechip"><i style="background:#f4a3a3"></i>Permission denied</span></th><td>The browser or the system refused. The Connect sheet says which and how to allow it.</td></tr>
           <tr><th><span class="statechip"><i style="background:#f4a3a3"></i>No device</span></th><td>The browser allowed it, and the computer shows no such input.</td></tr>
-          <tr><th><span class="statechip"><i style="background:#f1cf8e"></i>No signal</span></th><td>The device is open and nothing is arriving. Check the cable, the volume and the input gain. A cadence sensor may send nothing until the crank turns.</td></tr>
+          <tr><th><span class="statechip"><i style="background:#f1cf8e"></i>No signal</span></th><td>The device is open and nothing is arriving. Check the cable, the volume and the input gain.</td></tr>
           <tr><th><span class="statechip"><i style="background:#bfe8a6"></i>Live</span></th><td>Signal is arriving. In Nebula, the label says whether hits come from MIDI or are estimated from audio.</td></tr>
-          <tr><th><span class="statechip"><i style="background:#e6c7a3"></i>Demo</span></th><td>A synthetic performance or ride, not your input. The label stays up as long as it runs.</td></tr>
+          <tr><th><span class="statechip"><i style="background:#e6c7a3"></i>Demo</span></th><td>A synthetic performance, not your input. The label stays up as long as it runs.</td></tr>
           <tr><th><span class="statechip"><i style="background:#a8c6f4"></i>Replay</span></th><td>A session file you loaded. Nothing in it is live.</td></tr>
         </tbody>
       </table>
@@ -370,7 +364,7 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
     <section id="safety">
       <h2>Safety and privacy</h2>
       <p>A limiter slows any large change in brightness, and these pages measure under the WCAG limit of three flashes a second, even in each page's hardest tested case. That is a measured screen, not a medical guarantee. If flashing or moving light affects you, take care, and turn on your system's reduced-motion setting, which tightens the limiter, calms the camera and removes the flash.</p>
-      <p>Audio, MIDI and cadence are read in this browser and never sent anywhere. A session file holds hits, pedal moves, cadence and levels, with no audio in it.</p>
+      <p>Audio and MIDI are read in this browser and never sent anywhere. A session file holds hits, pedal moves and levels, with no audio in it.</p>
     </section>
 
     <section id="credits">
