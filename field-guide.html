@@ -342,11 +342,11 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
 
     <section id="chimera">
       <h2>Chimera Synth</h2>
-      <p>Chimera is the one page here that makes sound. Your kit or a keyboard plays it over MIDI, and it never listens to an audio input. Tested in Chrome on a Mac with a virtual MIDI port. <b>No real kit has played it yet.</b></p>
+      <p>Chimera is the one page here that makes sound. A MIDI keyboard or the computer keys play it, and it never listens to an audio input. Tested in Chrome on a Mac with a virtual MIDI port. <b>No real keyboard has played it yet.</b></p>
       <ul>
-        <li><b>Wiring.</b> The same MIDI route as above. Only the MIDI cable matters here. The sound plays through the computer's output, such as the Apollo's monitors or headphones.</li>
-        <li><b>What each drum plays.</b> A stated mapping, a musical choice: the kick plays the root an octave down, the snare +2, the side stick +3, the hi-hat +10, or +11 open, the toms -8, -5 and -3 from low to high, crashes +5 and rides +6. The hi-hat pedal (CC4) lets an open hat ring longer, and grabbing a cymbal cuts its lean short. Other notes play as keys, with middle C as the root.</li>
-        <li><b>Status.</b> Sound reads off, ready, playing, or paused by the browser, which starts sound only after a click. MIDI reads as on the other pages: not connected, waiting, permission denied, no device, open with no notes, live, or disconnected. The demo says the page is playing itself.</li>
+        <li><b>Connecting.</b> A USB MIDI keyboard plugs straight in, and a keyboard with a 5-pin MIDI OUT needs a USB-MIDI interface. The sound plays through the computer's output.</li>
+        <li><b>Notes.</b> Middle C is the root, and every channel plays the same way. From the computer, Z to M and Q to U play two octaves.</li>
+        <li><b>Status.</b> Sound reads off, ready, playing, or paused by the browser, which starts sound only after a click. MIDI reads not connected, waiting, permission denied, no device, open with no notes, live, or disconnected. The demo says the page is playing itself.</li>
         <li><b>Files.</b> Samples are decoded in the browser. Chrome and Firefox open WAV, MP3, M4A, FLAC and Ogg but not AIFF or CAF, so convert those first. Safari opens all of them, but has no Web MIDI.</li>
       </ul>
     </section>

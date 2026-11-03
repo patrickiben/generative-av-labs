@@ -125,20 +125,20 @@ Not tested: Safari, Firefox, Edge, phone hardware, a real browser without WebGPU
 
 ## Chimera Synth
 
-Checked on 2026-11-02 in Chrome on the same Apple M4 Max Mac. **No real kit and no outside visitor has played it yet.**
+Checked on 2026-11-02 and 2026-11-03 in Chrome on the same Apple M4 Max Mac. **No real keyboard and no outside visitor has played it yet.** Since 2026-11-03 it has no drum kit, at the author's word: MIDI notes play as keys on every channel.
 
 `tests/chimera_states.py` passed 39 of 39, all by real clicks and keys:
 
 - At load nothing claims to play, and no audio context exists until a click. Start sound plays the seed, and its low end is measured at about -4.5 dB with the sub reinforcing.
 - The demo is labeled as the page playing itself, and ending it stops the riff and the sound it started.
-- MIDI refused reads as permission denied. MIDI granted with no port reads as no device. A virtual CoreMIDI port from a separate process was picked up without a reload. Its 16 messages counted 13, because the three clock bytes are not playing. Drums landed on the stated map (kick -12, snare +2, hat edge +10), the hat pedal and a choke were read, and unplugging read as disconnected.
+- MIDI refused reads as permission denied. MIDI granted with no port reads as no device. A virtual CoreMIDI port from a separate process was picked up without a reload. Its 13 messages counted 10, because the three clock bytes are not playing. Notes played from middle C on channel 1 and channel 10 alike, a controller and pitch bend were shown as not used, and unplugging read as disconnected.
 - Arrow keys and Enter grew a seed, and undo stepped back. In Morph, a click put the puck where it landed.
 - One short sound in eight formats went through the real file input. Chrome decoded WAV, M4A, MP3, FLAC, Ogg and Opus, and said plainly that it could not open AIFF or CAF. Playwright's WebKit opened AIFF and CAF; its Firefox did not. A text file got a plain message. Growing a seed from an MP3 by differential evolution took 3.6 s.
 - The WAV render, a recording, the picture and the patch file all arrived as downloads. A share link restored the patch on a fresh load and in an open tab.
 - Playwright's WebKit, standing in for Safari and not Safari itself, said Safari has no Web MIDI and played sound from a click. Firefox waited on its MIDI add-on prompt, which a headless run never shows.
 
-`tests/flash_check.py` with Chimera's own worst case passed: hard hits, the sub held near 180° so the measured cancellation shatters the creature, full chaos, and per-note bud flashes. The worst region was 6.7 % against the 25 % limit, with no whole-frame flash, in both motion settings.
+`tests/flash_check.py` with Chimera's own worst case passed: rapid hard notes, the sub held near 180° so the measured cancellation shatters the creature, full chaos, and per-note bud flashes. The worst region was 6.7 % against the 25 % limit, with no whole-frame flash, in both motion settings.
 
 `App_Validation_Harness/web_gate.py` (`chimera_web`), on the local file: A1, A3 and A7 RUN, with no red and no amber. A0, A2, A4, A5, A8, A9 and A10 are PARTIAL until the author signs. A6 is NOT RUN until it is deployed. Sixteen known answers matched, among them the genome round trip, the log-frequency morph midpoint (671 Hz between 900 and 500), the sub's octave folding, E(5,16) and the phase verdict's range.
 
-Not tested: a real drum kit or keyboard, Safari itself, Edge, phone hardware and Bluetooth MIDI. The desktop app's own page is unchanged and is kept in `legacy/`.
+Not tested: a real MIDI keyboard, Safari itself, Edge, phone hardware and Bluetooth MIDI. The desktop app's own page is unchanged and is kept in `legacy/`.
