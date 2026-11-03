@@ -1,6 +1,6 @@
 # Methods
 
-Everything in Nebula and Endless Cockpit is a stated rule. Nothing is learned, and neither page uses a model. Enter's depth estimate is the one model in this collection.
+Everything in Nebula is a stated rule. Nothing is learned, and it uses no model. Enter's depth estimate is the one model in this collection. Endless Cockpit's methods moved with it to [Body Signal Labs](https://github.com/patrickiben/body-signal-labs/blob/main/docs/METHODS.md).
 
 ## Nebula: one bus for every source
 
@@ -43,22 +43,14 @@ Each drum pushes the particles in its stated way (see the About sheet). Hits als
 
 Form mode carries over the desktop Nebula's method. A picture lifts to a cloud by a stated rule (position from the pixel, depth from brightness). A sound lifts by matching pursuit into Gabor atoms (time, log-frequency, salience). The two clouds are matched by sliced optimal transport over position and color, 32 iterations in a Web Worker, and the slider moves the mass along those transport vectors. The picture's relief is a heuristic, not a reconstructed scene.
 
-## Endless Cockpit
-
-The road and its hills are a raymarched height field. The scene passes through a feedback loop like Milkdrop's: the last frame is zoomed toward the vanishing point, slightly warped, and mixed under the new frame. Only emitters leave long trails, tracked in the alpha channel, so the sun and sky never smear over the land.
-
-`motion01(rpm)` maps cadence to a 0 to 1 motion value with a set idle, top and response curve. Zoom per frame is exactly that value times the maximum. The road's grade changes speed by a factor from 0.6 to 1.35 after the mapping, so the curve stays truthful. Motion runs on a fixed 1/120 s step, so a replay lands in the same place at any frame rate. Distance counts driven speed only, never the slow drift shown at rest.
-
-Cadence comes from a Bluetooth CSC or FTMS sensor, the hold-to-pedal button at 88 rpm, or a steady setting, in that order. A sensor reading older than 3 seconds counts as stopped. Each full crank revolution sends one ring of light down the road, and the road's dashes are spaced one per revolution. The ridge on the horizon is stated value noise that drifts past as you ride. It is not a measurement.
-
 ## What is stored
 
-In Nebula, a session file holds hit times, velocities, pedal moves and 30 Hz spectrum levels. In Endless Cockpit, it holds cadence and scene and route changes. Neither holds audio. Video capture runs only if you tick it, and saves to your own computer. Settings, such as Nebula's device choice and pad map, stay in the browser's local storage.
+In Nebula, a session file holds hit times, velocities, pedal moves and 30 Hz spectrum levels. It holds no audio. Video capture runs only if you tick it, and saves to your own computer. Settings, such as Nebula's device choice and pad map, stay in the browser's local storage.
 
 ## Safety
 
 A limiter in the final pass holds each region of the finished picture, on a grid 128 cells wide, to a change of 0.36 in relative luminance per second, in either direction, whatever caused it. A 10% swing therefore takes more than a quarter of a second, which keeps a large area under three flashes a second by construction. Small sparks barely move a region's mean, so they stay instant. The limit tightens to 0.16 under the system's reduced-motion setting, which also removes the crash flash and reduces the camera's shake, surge and rotation.
 
-Nebula's gas follows slow averages of the bands instead of each hit, and older sound blurs as it winds outward, so bright bands dissolve rather than sweeping across a fixed spot at the hit rate. Endless Cockpit's far range is slow procedural noise rather than live sound, and its rings of light fade before they reach the horizon, where they would stack.
+Nebula's gas follows slow averages of the bands instead of each hit, and older sound blurs as it winds outward, so bright bands dissolve rather than sweeping across a fixed spot at the hit rate.
 
 `tests/flash_check.py` measures the result on the rendered page with the WCAG 2.2 general flash definition. See [Validation](VALIDATION.md).

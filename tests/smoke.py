@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A short check for CI: each page boots, says it is ambient, runs the demo, and the demo really produces hits, or cadence on the road.
+"""A short check for CI: each page boots, says it is ambient, runs the demo, and the demo really produces hits.
 Chimera is a synth, so its demo is checked by the riff steps it really played instead of drum hits."""
 import http.server, sys, threading
 from pathlib import Path
@@ -13,7 +13,7 @@ srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Q)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 bad = []
 with sync_playwright() as p:
-    for page in ('nebula.html', 'endless-cockpit.html', 'chimera.html'):
+    for page in ('nebula.html', 'chimera.html'):
         # a browser of its own for each page: under software rendering, a page left running starves the next one,
         # and on Linux closing one page's GL context stalled the next page's
         b = p.chromium.launch(args=['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'])
@@ -24,8 +24,8 @@ with sync_playwright() as p:
         if pg.get_attribute('#source-badge', 'data-source') != 'ambient': bad.append(f'{page}: not ambient at load')
         pg.click('#demo-button'); pg.wait_for_timeout(4000)
         if pg.get_attribute('#source-badge', 'data-source') != 'demo': bad.append(f'{page}: demo is not labeled')
-        hits = pg.evaluate('seqStep' if page == 'chimera.html' else 'Math.round(__app.S.rpm)' if page == 'endless-cockpit.html' else '__app.kit.hits')
-        if hits < 3: bad.append(f'{page}: the demo produced {hits} ' + ('rpm' if page == 'endless-cockpit.html' else 'hits'))
+        hits = pg.evaluate('seqStep' if page == 'chimera.html' else '__app.kit.hits')
+        if hits < 3: bad.append(f'{page}: the demo produced {hits} hits')
         if errors: bad.append(f'{page}: {errors[0]}')
         print(f'{page}: {hits} hits, {len(errors)} page errors')
         b.close()
