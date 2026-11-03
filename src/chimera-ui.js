@@ -111,11 +111,11 @@
     ['jungle king roar', '🦁', '🐺', 'Jungle roar'], ['night owl hoot', '🦉', '🐋', 'Night hoot'], ['hive swarm buzz', '🐝', '🦗', 'Hive buzz'], ['dry desert rattle hiss', '🐍', '🦗', 'Desert rattle']];
 
   document.body.insertAdjacentHTML('beforeend', [
-    sheet('connect', 'Play it.', 'Your kit or keyboard plays over MIDI, and the computer keys play too. The sound comes out of this page, so turn on your speakers or headphones.', `
+    sheet('connect', 'Play it.', 'A MIDI keyboard plays it, and so do the computer keys. The sound comes out of this page, so turn on your speakers or headphones.', `
       ${card('Inputs', `
         ${dev('wave', 'sound', 'Sound', 'Off', 'Browsers start sound only after a click. Start quietly: the sub can be loud on big speakers.', '<button class="pill" id="sound-toggle">Start</button>')}
         <div class="vol">${knob('vol', 'Volume', 'vol-val', 0, 100, 70, '70 %')}</div>
-        ${dev('midi', 'midi', 'MIDI input', 'Not connected', 'Press Connect, then choose your USB-MIDI interface.', '<button class="pill" id="midi-connect">Connect</button>')}
+        ${dev('midi', 'midi', 'MIDI input', 'Not connected', 'Press Connect, then choose your MIDI keyboard.', '<button class="pill" id="midi-connect">Connect</button>')}
         <div class="controls-grid" id="midi-controls" hidden>
           <label class="field">MIDI input<select id="midi-port"></select></label>
           <div class="field"><span>Last messages</span><pre class="monitor" id="midi-monitor" aria-live="off">Nothing received yet.</pre></div>
@@ -125,13 +125,12 @@
       ${card('Just exploring?', `<button class="pill primary wide" id="demo-sheet">Run demo</button>
         <p class="hint">The demo plays a riff through the garden by itself, and it is labeled on screen the whole time.</p>`)}
       ${card('Settings', row('Reconnect MIDI', 'When this page opens, if the browser already allows it', sw('reconnect', 'Reconnect MIDI when this page opens')))}
-      ${dcard('Wiring: Pearl Mimic Pro', `<ol>
-          <li><b>MIDI.</b> Run a 5-pin cable from the module's MIDI OUT into a USB-MIDI interface, and plug that into the computer. The Mimic Pro's USB slot is for installing samples, and the Apollo Solo has no MIDI ports. The browser lists the interface's name, not the module's.</li>
+      ${dcard('Connecting a MIDI keyboard', `<ol>
+          <li><b>Plug in.</b> A USB MIDI keyboard plugs straight into the computer. A keyboard with a 5-pin MIDI OUT needs a USB-MIDI interface. The browser lists the device's name.</li>
           <li><b>Browser.</b> Chrome or Edge. Safari has no Web MIDI, and Firefox asks for a site permission add-on. The computer keys work everywhere.</li>
-          <li><b>Sound.</b> This page makes the sound, so it plays through the computer's output, such as the Apollo's monitors or headphones. It never listens to your microphone or inputs.</li>
-        </ol>`, { id: 'wiring' })}
-      ${dcard('What each drum plays', `<p>A stated mapping, a musical choice and not a learned one. Each drum leans toward its own pitch, so with per-note branches on in Garden, every pad also leans the genome toward its own bud. Other notes play as keys, with middle C as the root.</p>
-        <table class="maptable" id="drum-table"></table>`, { id: 'drum-details' })}`),
+          <li><b>Notes.</b> Middle C is the root, and every channel plays the same way. With per-note branches on in Garden, each note leans the genome toward its own bud.</li>
+          <li><b>Sound.</b> This page makes the sound and plays it through the computer's output. It never listens to your microphone or inputs.</li>
+        </ol>`, { id: 'wiring' })}`),
 
     sheet('voices', 'Choose the animals.', `Each voice is an FM core through a bank of formant filters, the resonances that make a duck sound like a duck, plus a breath of noise. ${LIVE}`, `
       ${card('Morph', `<canvas id="morphviz" class="viz" role="img" aria-label="The formants of animal A, animal B and the blend now, on a log-frequency axis"></canvas>
