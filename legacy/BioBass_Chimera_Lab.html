@@ -1,0 +1,2149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bio-Bass Chimera Lab — Beast-to-Bass Synthesis</title>
+<style>
+  :root{
+    --bg:#0a0e14; --panel:#121821; --panel2:#0e141d; --ink:#e6edf3; --dim:#8b98a9;
+    --line:#1f2a37; --cyan:#22d3ee; --amber:#f5a623; --green:#34d399; --red:#f87171;
+    --violet:#a78bfa; --pink:#f472b6; --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+    --sans:"Avenir Next","Helvetica Neue",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --disp:"Futura","Avenir Next Condensed","Avenir Next",system-ui,sans-serif;
+    /* maximalist tokens (engineering = all decoration off) */
+    --fx:1; --glow1:transparent; --glow2:transparent; --glow3:transparent;
+    --grain-op:0; --scan-op:0; --chroma:0px; --titlegrad:linear-gradient(92deg,var(--cyan),var(--violet));
+  }
+  /* ===== ART-DIRECTION THEMES (token swaps; layout unchanged) ===== */
+  body[data-theme="orangemilk"]{
+    --bg:#0B0518; --panel:#190b27; --panel2:#130820; --ink:#FCEFE3; --dim:#cbb0d8; --line:#3c2150;
+    --cyan:#00E5D4; --violet:#b07bff; --amber:#FFD23F; --green:#2BFF88; --red:#FF3B6B; --pink:#FF2EA6;
+    --glow1:#FF2EA6; --glow2:#00E5D4; --glow3:#7B2FF7; --grain-op:.085; --scan-op:0; --chroma:1.4px;
+    --titlegrad:linear-gradient(92deg,#FF2EA6,#FFD23F,#00E5D4);
+  }
+  body[data-theme="vaporwave"]{
+    --bg:#161325; --panel:#1e1836; --panel2:#19132c; --ink:#EAF6FF; --dim:#a6b7d8; --line:#34315c;
+    --cyan:#7DF9FF; --violet:#8A7CFF; --amber:#FFD23F; --green:#7CFFB2; --red:#FF7AC6; --pink:#FF9FE5;
+    --glow1:#FF9FE5; --glow2:#7DF9FF; --glow3:#8A7CFF; --grain-op:.04; --scan-op:.07; --chroma:1px;
+    --titlegrad:linear-gradient(92deg,#FF9FE5,#7DF9FF,#B8C6FF);
+  }
+  body[data-theme="glitch"]{
+    --bg:#0A0A0F; --panel:#15151e; --panel2:#101017; --ink:#E8E8F0; --dim:#9aa0b5; --line:#262638;
+    --cyan:#00FFC2; --violet:#2A6BFF; --amber:#FFD23F; --green:#00FFC2; --red:#FF003C; --pink:#FF00E5;
+    --glow1:#FF003C; --glow2:#00FFC2; --glow3:#2A6BFF; --grain-op:.05; --scan-op:.09; --chroma:2px;
+    --titlegrad:linear-gradient(92deg,#FF003C,#00FFC2,#2A6BFF);
+  }
+  /* oeksound studio — shared family theme (selectable) */
+  body[data-theme="studio"]{ --bg:#0c0d10; --panel:#15171b; --panel2:#101216; --ink:#d7dbe2; --dim:#79808c; --line:#23262d;
+    --cyan:#35d6c6; --violet:#7aa2ff; --amber:#f0a830; --green:#46d39a; --red:#ef5b6a; --pink:#e08bc8;
+    --glow1:transparent; --glow2:transparent; --glow3:transparent; --grain-op:0; --scan-op:0; --chroma:0px; --titlegrad:linear-gradient(92deg,#35d6c6,#7aa2ff); }
+  body[data-theme="studio"] button:hover{border-color:var(--cyan)}
+  body[data-theme="studio"] button.on{background:rgba(53,214,198,.16);border-color:var(--cyan)}
+  body[data-theme="studio"] .skinbar .seg button.on{background:var(--cyan);color:#0c0d10}
+  body[data-theme="studio"] .knob label b{color:var(--cyan)}
+  body[data-theme="studio"] input[type=range]::-webkit-slider-thumb{background:var(--cyan);box-shadow:none;border:2px solid var(--bg)}
+  #spec{background:#0b0512}
+  body[data-theme="studio"] #spec{background:var(--panel2)}
+  input[type=range]{background:linear-gradient(90deg,var(--violet) calc(var(--val,50)*1%),var(--line) calc(var(--val,50)*1%))}
+  body[data-theme="studio"] input[type=range]{background:linear-gradient(90deg,var(--cyan) calc(var(--val,50)*1%),var(--line) calc(var(--val,50)*1%))}
+  .gauge .v,.stat,.big-n,.knob label b{font-variant-numeric:tabular-nums}
+  .ulabel{font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);font-family:var(--sans);font-weight:600}
+  .statusline-sm{font-family:var(--mono);font-size:10px;letter-spacing:.02em;color:var(--dim)}
+  *{box-sizing:border-box}
+  html{background:var(--bg)}
+  body{margin:0;background:transparent;color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5}
+  /* decorative layers — pointer-events:none, gated by --fx + theme */
+  #bg-mesh{position:fixed;inset:0;z-index:-3;pointer-events:none;overflow:hidden}
+  #bg-mesh i{position:absolute;border-radius:50%;filter:blur(95px);opacity:calc(.55*var(--fx));mix-blend-mode:screen;animation:drift 34s ease-in-out infinite}
+  #bg-mesh i:nth-child(1){width:58vw;height:58vw;left:-12vw;top:-16vw;background:radial-gradient(circle,var(--glow1),transparent 70%)}
+  #bg-mesh i:nth-child(2){width:52vw;height:52vw;right:-14vw;top:8vh;background:radial-gradient(circle,var(--glow2),transparent 70%);animation-duration:42s}
+  #bg-mesh i:nth-child(3){width:50vw;height:50vw;left:28vw;bottom:-20vw;background:radial-gradient(circle,var(--glow3),transparent 70%);animation-duration:38s}
+  @keyframes drift{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(6vw,4vh) scale(1.12)}66%{transform:translate(-5vw,-3vh) scale(.94)}}
+  #bg-grain{position:fixed;inset:0;z-index:9990;pointer-events:none;opacity:calc(var(--grain-op)*var(--fx));mix-blend-mode:overlay;background-size:200px 200px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+  #bg-scan{position:fixed;inset:0;z-index:9991;pointer-events:none;opacity:calc(var(--scan-op)*var(--fx));background:repeating-linear-gradient(0deg,transparent 0 2px,rgba(0,0,0,.5) 2px 3px)}
+  /* faked display type on hero title (maximalist themes only) */
+  body[data-theme="orangemilk"] header h1, body[data-theme="vaporwave"] header h1, body[data-theme="glitch"] header h1{
+    background:var(--titlegrad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+    letter-spacing:-.012em;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))}
+  body[data-theme="orangemilk"] header h1 .tag, body[data-theme="vaporwave"] header h1 .tag, body[data-theme="glitch"] header h1 .tag{
+    -webkit-text-fill-color:var(--pink)}
+  /* theme switcher + intensity */
+  .skinbar{display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:10px}
+  .skinbar .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .skinbar .seg button{border:0;border-radius:0;padding:5px 8px;font-size:10px;background:transparent;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+  .skinbar .seg button.on{background:var(--violet);color:#fff}
+  .skinbar input[type=range]{width:64px}
+  /* standalone segmented control (reuses the skinbar look outside the header) */
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;font-family:var(--mono)}
+  .seg button{border:0;border-radius:0;padding:5px 9px;font-size:10px;background:transparent;color:var(--dim);text-transform:uppercase;letter-spacing:.5px}
+  .seg button.on{background:var(--violet);color:#fff}
+  body[data-theme="studio"] .seg button.on{background:var(--cyan);color:#0c0d10}
+  .glitching{animation:gl .34s steps(3) 1}
+  @keyframes gl{0%{transform:translate(0,0);filter:none}20%{transform:translate(-3px,1px);filter:hue-rotate(40deg) saturate(1.6)}40%{transform:translate(3px,-1px)}60%{transform:translate(-2px,0)}100%{transform:translate(0,0)}}
+  @media (prefers-reduced-motion: reduce){
+    #bg-mesh i{animation:none} .glitching{animation:none}
+  }
+  header{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:linear-gradient(180deg,#0d131c,#0a0e14)}
+  header h1{font-size:18px;margin:0}
+  header h1 .tag{color:var(--violet)}
+  .sub{color:var(--dim);font-size:12.5px;max-width:720px}
+  .statuspill{margin-left:auto;font-family:var(--mono);font-size:11px;padding:5px 10px;border:1px solid var(--line);border-radius:20px;color:var(--dim)}
+  .statuspill.on{color:var(--green)} .statuspill .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#444;margin-right:6px}
+  .statuspill.on .dot{background:var(--green);box-shadow:0 0 8px var(--green)}
+  .wrap{padding:18px;display:grid;gap:18px;max-width:1320px;margin:0 auto}
+  .row{display:grid;gap:18px}
+  @media(min-width:980px){.row.two{grid-template-columns:1.25fr 1fr}.row.twoeq{grid-template-columns:1fr 1fr}.row.three{grid-template-columns:1fr 1fr 1fr}}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,.022),rgba(0,0,0,.12)),var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:0 1px 0 rgba(255,255,255,.03) inset,0 8px 22px -14px rgba(0,0,0,.7)}
+  .card h2{font-size:10.5px;text-transform:uppercase;letter-spacing:.16em;color:var(--dim);margin:0;padding:9px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.18)}
+  .card .body{padding:16px}
+  .badge{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.5px;padding:2px 7px;border-radius:5px;text-transform:uppercase}
+  .b-live{background:rgba(52,211,153,.14);color:var(--green);border:1px solid rgba(52,211,153,.35)}
+  .b-ot{background:rgba(167,139,250,.14);color:var(--violet);border:1px solid rgba(167,139,250,.34)}
+  .b-heur{background:rgba(245,166,35,.13);color:var(--amber);border:1px solid rgba(245,166,35,.32)}
+  button{font-family:var(--sans);font-size:12px;letter-spacing:.02em;color:var(--ink);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,0)),#1a2330;border:1px solid var(--line);border-radius:7px;padding:7px 12px;cursor:pointer;transition:border-color .12s,background .12s;display:inline-flex;align-items:center;gap:6px}
+  button:hover{border-color:var(--violet);color:#fff}
+  button.on{background:rgba(167,139,250,.18);border-color:var(--violet);color:#fff}
+  button.play{background:rgba(52,211,153,.18);border-color:var(--green);color:#fff;font-weight:700}
+  button.big{font-size:15px;padding:12px 18px}
+  .knobs{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:14px}
+  .knob{display:flex;flex-direction:column;gap:6px}
+  .knob label{font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;display:flex;justify-content:space-between}
+  .knob label b{color:var(--violet);font-family:var(--mono)}
+  input[type=range]{-webkit-appearance:none;appearance:none;height:5px;border-radius:5px;background:var(--line);outline:none;width:100%}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:15px;height:15px;border-radius:50%;background:var(--violet);cursor:pointer;box-shadow:0 0 6px rgba(167,139,250,.6)}
+  .animals{display:grid;grid-template-columns:repeat(auto-fit,minmax(108px,1fr));gap:9px}
+  .anim{border:1px solid var(--line);border-radius:9px;padding:9px;cursor:pointer;background:var(--panel2);text-align:center;transition:.15s}
+  .anim:hover{border-color:var(--cyan)}
+  .anim.selA{border-color:var(--cyan);box-shadow:inset 0 0 0 1px var(--cyan)}
+  .anim.selB{border-color:var(--pink);box-shadow:inset 0 0 0 1px var(--pink)}
+  .anim .emoji{font-size:22px}
+  .anim .nm{font-size:11.5px;margin-top:3px}
+  .anim .ab{font-family:var(--mono);font-size:9px;margin-top:3px;color:var(--dim)}
+  .morphbar{display:flex;align-items:center;gap:12px;margin:6px 0 2px}
+  .morphbar .end{font-size:12px;font-weight:700;width:120px}
+  .morphbar .end.a{color:var(--cyan)} .morphbar .end.b{color:var(--pink);text-align:right}
+  .chip{display:inline-block;font-family:var(--mono);font-size:10px;font-variant-numeric:tabular-nums;color:var(--dim);background:rgba(0,0,0,.25);border:1px solid var(--line);border-radius:5px;padding:2px 8px;margin:3px 4px 0 0}
+  .chip b{color:var(--ink)}
+  .viz{background:#05070b;border-radius:8px;display:block;width:100%;aspect-ratio:16/10;border:1px solid #000;box-shadow:inset 0 2px 12px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.04)}
+  .meter{height:14px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);overflow:hidden;position:relative}
+  .meter .fill{height:100%;width:0;transition:width .06s linear}
+  .phasewheel{display:block;margin:0 auto}
+  .row-inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .stat{font-family:var(--mono)}
+  .big-n{font-size:26px;font-weight:700}
+  .hbox{border:1px solid var(--line);border-radius:9px;padding:13px;background:var(--panel2)}
+  .hbox h3{margin:0 0 8px;font-size:12.5px}
+  .hbox ul{margin:0;padding-left:17px;color:var(--dim);font-size:12.5px}.hbox li{margin:5px 0}
+  .hcols{display:grid;gap:14px}@media(min-width:760px){.hcols{grid-template-columns:1fr 1fr}}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.6px}
+  .note{font-size:11.5px;color:var(--dim);padding:10px 16px;border-top:1px solid var(--line);background:var(--panel2)}
+  .vibe-in{width:100%;font-family:var(--sans);font-size:13px;color:var(--ink);background:#1a2330;border:1px solid var(--line);border-radius:8px;padding:10px;margin-bottom:9px}
+  .vibe-out{font-size:12.5px;color:var(--dim);min-height:20px}
+  .vibe-out b{color:var(--amber)}
+  .quickvibes button{font-size:11.5px;padding:5px 10px}
+  .overlay{position:fixed;inset:0;background:rgba(5,7,11,.92);display:flex;align-items:center;justify-content:center;z-index:50;flex-direction:column;gap:18px;text-align:center;padding:20px}
+  .overlay h2{font-size:22px;margin:0;border:0;padding:0;letter-spacing:0;text-transform:none;color:var(--ink)}
+  .overlay p{color:var(--dim);max-width:440px;margin:0}
+  footer{padding:22px;text-align:center;color:var(--dim);font-size:11.5px;border-top:1px solid var(--line)}
+  .lowmsg{font-size:11.5px;color:var(--dim);margin-top:8px}
+</style>
+</head>
+<body data-theme="orangemilk">
+<div id="bg-mesh"><i></i><i></i><i></i></div>
+<div id="bg-grain"></div>
+<div id="bg-scan"></div>
+
+<div class="overlay" id="gate">
+  <div style="font-size:46px">🦆⚡🔊</div>
+  <h2>Bio-Bass Chimera Lab</h2>
+  <p>A real Web Audio synth that turns animal voices into dubstep bass — morph two species, then watch the sub-bass phase-validator hunt for the alignment that makes the low end <i>boom</i> instead of <i>thin out</i>.</p>
+  <button class="play big" id="startBtn">▶ Start audio engine</button>
+  <p style="font-size:11px">Headphones or a speaker with low end recommended · turn it up a little</p>
+</div>
+
+<header>
+  <div>
+    <h1>Bio-Bass Chimera Lab <span class="tag">// beast-to-bass synthesis engine</span></h1>
+    <div class="sub">The "Chimera Engine" from the blueprint, actually running. FM + formant synthesis gives each animal its voice; the morph slider does <b>Optimal-Transport-style displacement</b> (formants migrate along the frequency axis, they don't crossfade); a live <b>phase cross-validator</b> aligns the sub so it reinforces instead of cancelling.</div>
+  </div>
+  <div class="skinbar" style="margin-left:auto">
+    <span style="color:var(--dim)">skin</span>
+    <div class="seg" id="themeseg">
+      <button data-theme="orangemilk" class="on">milk</button>
+      <button data-theme="vaporwave">vapor</button>
+      <button data-theme="glitch">glitch</button>
+      <button data-theme="engineering">eng</button>
+      <button data-theme="studio">studio</button>
+    </div>
+    <span style="color:var(--dim)" title="visual intensity — never touches the audio or measured numbers">fx</span>
+    <input type="range" id="fxlevel" min="0" max="100" value="100">
+  </div>
+  <div class="statuspill" id="engpill"><span class="dot"></span><span>engine idle</span></div>
+</header>
+
+<div class="wrap">
+
+  <!-- SEED GARDEN (genome instrument) -->
+  <div class="card" id="gardenCard">
+    <h2>🌱 Seed Garden <span class="badge b-ot">genetic synthesis</span>
+      <button id="genome-toggle" style="margin-left:12px;font-size:12px;padding:5px 11px">🌱 genome mode: off</button>
+      <span class="badge b-live" id="genome-badge" style="display:none;margin-left:8px">GENOME drives the sound — knobs edit this seed's DNA</span>
+    </h2>
+    <div class="body">
+      <div class="row two" style="align-items:flex-start">
+        <div>
+          <canvas id="garden" width="440" height="440" style="width:100%;max-width:440px;border-radius:14px;cursor:crosshair;touch-action:none;background:var(--panel2)"></canvas>
+        </div>
+        <div>
+          <div style="font-size:12px;color:var(--dim);line-height:1.5;margin-bottom:12px">A <b>genome</b> — 20 genes — grows the sound. The center is your <b>seed</b>; twelve buds are mutations. <b>Drag a bud toward the center</b> to evolve the seed that way and hear it move; let go to grow a new seed there. Play the keyboard (Z–M) to audition any seed.</div>
+          <div class="knobs">
+            <div class="knob"><label>Mutation amount <b id="g-amount-v">60%</b></label><input type="range" id="g-amount" min="0" max="100" value="60"></div>
+            <div class="knob"><label>Genetic temperature <b id="g-temp-v">35%</b></label><input type="range" id="g-temp" min="5" max="90" value="35"></div>
+          </div>
+          <div class="row-inline" style="margin-top:12px">
+            <button id="g-grow">grow (auto-drift)</button>
+            <button id="g-random">randomize seed</button>
+            <button id="g-undo" class="quiet">↶ undo</button>
+          </div>
+          <div class="row-inline" style="margin-top:9px">
+            <button id="g-mark">mark parent Ⓐ</button>
+            <button id="g-breed" disabled>breed with Ⓐ</button>
+            <button id="g-pernote">per-note branches: off</button>
+          </div>
+          <div style="margin-top:12px">
+            <div style="font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">Lineage <span style="text-transform:none">· click any ancestor to jump back — branching from there forks the tree</span></div>
+            <canvas id="lineage" width="420" height="96" style="width:100%;border-radius:9px;background:var(--panel2);cursor:pointer"></canvas>
+          </div>
+          <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+            <div style="font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Genopatch <span class="badge b-ot" style="font-size:8.5px">grow from a sample</span></div>
+            <div class="row-inline">
+              <button id="gp-load">grow seed from audio…</button>
+              <input type="file" id="gp-file" accept="audio/*" style="display:none">
+            </div>
+            <div style="height:8px;background:var(--panel2);border-radius:5px;margin-top:10px;overflow:hidden"><div id="gp-bar" style="height:100%;width:0;background:var(--cyan);transition:width .2s"></div></div>
+            <div id="gp-status" style="font-size:11px;color:var(--dim);margin-top:7px">Differential Evolution fits the synth to the sample's spectrum.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="note">🌱 <b>Play by breeding, not by knob-twisting.</b> Genopatch is a <b>transparent local analysis-by-synthesis approximation</b> of the sample's spectral character, seeded by DSP heuristics and refined by Differential Evolution against the real synth — <b>not</b> a neural clone, <b>not</b> a model, and never the sample itself. The genome stores extracted parameters only, never audio. The Body sub and phase validator stay anchored to the seed.</div>
+  </div>
+
+
+  <!-- TRANSPORT + ANIMALS -->
+  <div class="row two">
+    <div class="card">
+      <h2>① The animal voices <span class="badge b-live">live FM + formants</span></h2>
+      <div class="body">
+        <div class="row-inline" style="margin-bottom:13px">
+          <button class="play big" id="play">▶ Play drone</button>
+          <button class="big" id="pluck">◉ Pluck / retrigger</button>
+          <div class="stat" style="margin-left:auto;color:var(--dim);font-size:12px">click an animal to set <span style="color:var(--cyan)">A</span> · shift-click to set <span style="color:var(--pink)">B</span></div>
+        </div>
+        <div class="animals" id="animals"></div>
+        <div class="knobs" style="margin-top:16px">
+          <div class="knob"><label>Wub rate <b id="v-wub">3.2 Hz</b></label><input type="range" id="k-wub" min="0" max="120" value="32"></div>
+          <div class="knob"><label>Wub depth <b id="v-wubd">55 %</b></label><input type="range" id="k-wubd" min="0" max="100" value="55"></div>
+          <div class="knob"><label>Pitch <b id="v-oct">0 st</b></label><input type="range" id="k-oct" min="-24" max="12" value="0"></div>
+          <div class="knob"><label>Glide <b id="v-glide">40 ms</b></label><input type="range" id="k-glide" min="0" max="300" value="40"></div>
+        </div>
+        <!-- POLYPHONY (unison + chord stacks) -->
+        <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+          <div style="font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Polyphony <span class="badge b-live" style="font-size:8.5px">live voices</span> <span style="text-transform:none;color:#5b6675">· sub stays single &amp; anchored to root — only lead voices stack</span></div>
+          <div class="knobs">
+            <div class="knob"><label>Voices <b id="v-voices">1</b></label><input type="range" id="k-voices" min="1" max="5" value="1"></div>
+            <div class="knob"><label>Detune <b id="v-detune">0 &cent;</b></label><input type="range" id="k-detune" min="0" max="50" value="0"></div>
+            <div class="knob"><label>Spread <b id="v-spread">0 %</b></label><input type="range" id="k-spread" min="0" max="100" value="0"></div>
+          </div>
+          <div class="row-inline" style="margin-top:10px">
+            <span style="font-size:11px;color:var(--dim)">chord</span>
+            <div class="seg" id="chordseg">
+              <button data-chord="off" class="on">off</button>
+              <button data-chord="5th">5th</button>
+              <button data-chord="minor">min</button>
+              <button data-chord="major">maj</button>
+            </div>
+          </div>
+        </div>
+        <!-- SAMPLE IMPORT (audio-file voice) -->
+        <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+          <div class="row-inline">
+            <button id="samp-load">load sample voice</button>
+            <div class="seg" id="sampseg">
+              <button data-smode="formant" class="on">formant-extract</button>
+              <button data-smode="osc">raw sample osc</button>
+            </div>
+            <input type="file" id="samp-file" accept="audio/*" style="display:none">
+            <span class="chip" id="samp-status" style="margin-left:auto">no sample loaded</span>
+          </div>
+          <p id="samp-note" style="display:none;font-size:11px;color:var(--dim);margin:8px 0 0">🎤 <b>measured formants, parametric morph</b> — the estimated formants are a heuristic fit, <b>not</b> the sample itself; this is <b>not</b> a neural voice clone or model. Genome/patch stores the extracted params only, never audio.</p>
+        </div>
+      </div>
+      <div class="note">Each voice = an FM core (carrier + modulator) through a parallel <b>formant filter bank</b> — the resonances that make a duck sound "ducky" — plus a noise transient. This is the Synplant "Genopatch" role, done with deterministic DSP you can hear.</div>
+    </div>
+
+    <!-- MORPH (OT) -->
+    <div class="card">
+      <h2>② Manifold morph <span class="badge b-ot">OT displacement</span></h2>
+      <div class="body">
+        <div class="morphbar">
+          <div class="end a" id="endA">Duck</div>
+          <input type="range" id="morph" min="0" max="100" value="0" style="flex:1">
+          <div class="end b" id="endB">Wolf</div>
+        </div>
+        <div style="text-align:center;font-family:var(--mono);color:var(--violet);font-size:13px;margin:4px 0 10px">t = <span id="v-morph">0.00</span> &nbsp;→&nbsp; the chimera</div>
+        <div>
+          <span class="chip">f₀ <b id="c-f0">320 Hz</b></span>
+          <span class="chip">sub <b id="c-sub">80 Hz</b></span>
+          <span class="chip">OT displacement <b id="c-wd">0.00</b></span>
+          <span class="chip">curvature <b id="c-curv">flat</b></span>
+        </div>
+        <p style="font-size:12px;color:var(--dim);margin-top:12px">At <b>t = 0.5</b> you don't hear both animals at once (that's a crossfade / "ghosting"). You hear a <i>new creature</i> — the formants have physically slid from species A's frequencies to species B's, the way Optimal Transport moves spectral mass. The more chimeric the blend (furthest from any single animal), the higher the <i>Wasserstein-ish</i> displacement and the more the sculpture (panel ④) warps.</p>
+        <div style="margin-top:14px;border-top:1px solid var(--line);padding-top:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px">XY manifold — sit among four creatures</span>
+            <button id="padtoggle" style="font-size:11px;padding:4px 10px">pad: off</button>
+          </div>
+          <canvas id="xypad" width="320" height="220" style="width:100%;height:auto;display:block;background:#05070b;border:1px solid var(--line);border-radius:9px;cursor:crosshair;touch-action:none"></canvas>
+          <p style="font-size:11.5px;color:var(--dim);margin-top:8px">A <b>bilinear OT-displacement pad</b>: each corner is an animal, the puck blends all four on the log-frequency axis. Faint violet = displacement from the nearest pure animal. A parametric manifold — not a learned latent space.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE VALIDATOR + VISUALIZER -->
+  <div class="row two">
+    <div class="card">
+      <h2>④ Synesthetic data-sculpture <span class="badge b-live">reacts to audio</span></h2>
+      <div class="body" style="padding:12px">
+        <canvas id="viz" class="viz" width="720" height="450"></canvas>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;font-size:11px;color:var(--dim)">
+          <span class="chip">hue ⟵ formant freq</span>
+          <span class="chip">grain ⟵ noise / "diffusion variance"</span>
+          <span class="chip">warp ⟵ OT displacement</span>
+          <span class="chip" style="border-color:rgba(248,113,113,.4)">red shatter ⟵ measured phase cancel</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>③ Sub-bass phase cross-validator <span class="badge b-live">real low-end DSP</span></h2>
+      <div class="body">
+        <div class="row-inline" style="align-items:flex-start">
+          <canvas id="wheel" class="phasewheel" width="150" height="150"></canvas>
+          <div style="flex:1;min-width:160px">
+            <div class="knob" style="margin-bottom:12px"><label>Sub phase <b id="v-phase">0°</b></label><input type="range" id="k-phase" min="0" max="360" value="0"></div>
+            <div style="font-size:11px;color:var(--dim);margin-bottom:4px">Low-end energy (&lt;120 Hz)</div>
+            <div class="meter"><div class="fill" id="lowfill" style="background:var(--green)"></div></div>
+            <div class="stat" style="margin-top:6px"><span class="big-n" id="lowdb" style="color:var(--green)">–∞</span> <span style="color:var(--dim);font-size:12px">dB · mono-compat <span id="monoc">—</span></span></div>
+          </div>
+        </div>
+        <button class="on big" id="autophase" style="width:100%;margin-top:14px">auto-align sub — sweep &amp; lock the boom</button>
+        <div class="lowmsg" id="lowmsg">Play the drone, then drag the sub phase: near 180° the sub and the patch's low fundamental fall out of phase and the &lt;120 Hz energy drops sharply into a deep notch; auto-align sweeps every angle and locks the one that hits hardest. The ✓/✗ badge is read from the measured RMS, not the knob angle.</div>
+      </div>
+      <div class="note">This is the genuinely clever part of the blueprint, made real: the validator measures &lt;120 Hz RMS of (lead-low + sub) as it rotates the sub's phase, then locks the maximum — constructive interference. In the full rig this same logic runs as a Max <code>pfft~</code>/<code>allpass~</code> device so your drop never thins out on a club system.</div>
+    </div>
+  </div>
+
+  <!-- POWER STACK + CURATOR -->
+  <div class="row twoeq">
+    <div class="card">
+      <h2>⑤ The power stack <span class="badge b-live">signal chain</span></h2>
+      <div class="body">
+        <div class="knobs">
+          <div class="knob"><label>Sub level <b id="v-sub">-10 dB</b></label><input type="range" id="k-sublvl" min="0" max="100" value="70"></div>
+          <div class="knob"><label>Saturation (grit) <b id="v-drive">35 %</b></label><input type="range" id="k-drive" min="0" max="100" value="35"></div>
+          <div class="knob"><label>OTT glue <b id="v-ott">40 %</b></label><input type="range" id="k-ott" min="0" max="100" value="40"></div>
+          <div class="knob"><label>Noise fizz <b id="v-fizz">20 %</b></label><input type="range" id="k-fizz" min="0" max="100" value="20"></div>
+        </div>
+        <div style="margin-top:16px">
+          <div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">Amp envelope <span style="text-transform:none;color:#5b6675">· applies on start / pluck / render</span></div>
+          <div class="knobs">
+            <div class="knob"><label>Attack <b id="v-ea">40 ms</b></label><input type="range" id="k-ea" min="2" max="800" value="40"></div>
+            <div class="knob"><label>Decay <b id="v-ed">120 ms</b></label><input type="range" id="k-ed" min="5" max="1200" value="120"></div>
+            <div class="knob"><label>Sustain <b id="v-es">85 %</b></label><input type="range" id="k-es" min="0" max="100" value="85"></div>
+            <div class="knob"><label>Release <b id="v-er">180 ms</b></label><input type="range" id="k-er" min="10" max="2000" value="180"></div>
+          </div>
+        </div>
+        <table style="margin-top:16px">
+          <tr><td style="color:var(--cyan);font-weight:700;width:90px">Brain</td><td>the morphed animal patch — the character / "quack"</td></tr>
+          <tr><td style="color:var(--violet);font-weight:700">Body</td><td>phase-aligned sub sine (panel ③)</td></tr>
+          <tr><td style="color:var(--amber);font-weight:700">Nerve</td><td>saturation + OTT glue + high fizz → aggression</td></tr>
+        </table>
+        <button class="big" id="export" style="width:100%;margin-top:14px">render &amp; download chimera (.wav)</button>
+        <div class="row-inline" style="margin-top:10px">
+          <button id="poster">poster png</button>
+          <button id="patch-save">patch ↓</button>
+          <button id="patch-load">load ↑</button>
+          <button id="patch-link">copy link</button>
+          <button id="patch-mut">mutate</button>
+          <input type="file" id="patch-file" accept="application/json,.patch,.json" style="display:none">
+        </div>
+        <div style="margin-top:8px"><span class="chip">genome <b id="genome">…</b></span>
+          <span style="font-size:10.5px;color:var(--dim)">share link is offline — the whole patch lives in the URL #fragment, nothing uploaded</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>⑥ "Gemma" vibe curator <span class="badge b-heur">local heuristic stand-in</span></h2>
+      <div class="body">
+        <input class="vibe-in" id="vibe" placeholder='describe a vibe… e.g. "crunchy but wet swamp monster"'>
+        <div class="quickvibes" style="margin-bottom:10px">
+          <button data-v="crunchy but wet swamp monster">swamp monster</button>
+          <button data-v="screaming metallic high-end glitch">metallic glitch</button>
+          <button data-v="deep cinematic sub whale rumble">cinematic rumble</button>
+          <button data-v="aggressive growling predator wub">predator wub</button>
+        </div>
+        <div class="vibe-out" id="vibeout">The real pipeline sends this text to Gemma 4, which cross-references animal acoustics and returns the two species to blend + sub + grit. Here it's a transparent keyword matcher so the loop runs offline — same <i>shape</i>, no model.</div>
+        <p style="font-size:12px;color:var(--dim);margin-top:12px">Type a vibe and it auto-selects A, B, the morph point and the grit. It's intentionally dumb (keyword → preset), clearly labeled — the honest stand-in for the LLM curation step, not a claim to be one.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- LAB RACK: GRANULAR + SEQUENCER -->
+  <div class="row twoeq">
+    <div class="card">
+      <h2>⑧ Granular cloud <span class="badge b-live">live granular DSP</span></h2>
+      <div class="body">
+        <div class="row-inline" style="margin-bottom:12px">
+          <button id="gr-on" class="big">▶ grain cloud</button>
+          <button id="gr-freeze">freeze scan</button>
+          <button id="gr-bake">re-bake buffer</button>
+          <span class="chip" id="gr-buf" style="margin-left:auto">buffer: not baked</span>
+        </div>
+        <div class="knobs">
+          <div class="knob"><label>Position <b id="v-grpos">30 %</b></label><input type="range" id="gr-pos" min="0" max="100" value="30"></div>
+          <div class="knob"><label>Spray <b id="v-grjit">15 %</b></label><input type="range" id="gr-jit" min="0" max="100" value="15"></div>
+          <div class="knob"><label>Grain size <b id="v-grsize">90 ms</b></label><input type="range" id="gr-size" min="10" max="300" value="90"></div>
+          <div class="knob"><label>Density <b id="v-grdens">24 /s</b></label><input type="range" id="gr-dens" min="1" max="60" value="24"></div>
+          <div class="knob"><label>Pitch <b id="v-grpitch">0 st</b></label><input type="range" id="gr-pitch" min="-24" max="24" value="0"></div>
+          <div class="knob"><label>Pitch spray <b id="v-grpjit">0 st</b></label><input type="range" id="gr-pjit" min="0" max="12" value="0"></div>
+          <div class="knob"><label>Pan spread <b id="v-grpan">60 %</b></label><input type="range" id="gr-pan" min="0" max="100" value="60"></div>
+          <div class="knob"><label>Reverse grains <b id="v-grrev">0 %</b></label><input type="range" id="gr-rev" min="0" max="100" value="0"></div>
+        </div>
+      </div>
+      <div class="note">Sprays windowed grains from a 2.5 s render of the <b>current chimera</b> — the pluko / Foreign Family signature. Grains route through the lead chain (saturation, crush, space), so they bloom in the reverb. Re-bake after a big morph to capture the new beast.</div>
+    </div>
+
+    <div class="card">
+      <h2>⑨ IDM sequencer <span class="badge b-live">live sequencer · deterministic</span></h2>
+      <div class="body">
+        <div class="row-inline" style="margin-bottom:10px">
+          <button id="seq-on" class="big">▶ play riff</button>
+          <div class="knob" style="width:120px"><label>BPM <b id="v-bpm">140</b></label><input type="range" id="seq-bpm" min="60" max="200" value="140"></div>
+          <div class="knob" style="width:120px"><label>Swing <b id="v-swing">0 %</b></label><input type="range" id="seq-swing" min="0" max="60" value="0"></div>
+          <div class="knob" style="width:120px"><label>Gate <b id="v-gate">60 %</b></label><input type="range" id="seq-gate" min="10" max="100" value="60"></div>
+        </div>
+        <div style="font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;margin:4px 0 4px">note lane — click to toggle, drag pitch with ▲▼</div>
+        <div id="seqgrid" style="display:grid;grid-template-columns:repeat(16,1fr);gap:3px"></div>
+        <div class="row-inline" style="margin-top:12px">
+          <span style="font-size:11px;color:var(--dim)">Euclidean E(</span>
+          <input type="number" id="eu-k" min="0" max="16" value="5" style="width:46px;background:#1a2330;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px">
+          <span style="font-size:11px;color:var(--dim)">,16) rot</span>
+          <input type="number" id="eu-rot" min="0" max="15" value="0" style="width:46px;background:#1a2330;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px">
+          <button id="eu-gen">fill notes</button>
+          <button id="eu-glitch">fill glitch lane</button>
+          <button id="seq-clear">clear</button>
+        </div>
+        <div id="glitchrow" style="display:grid;grid-template-columns:repeat(16,1fr);gap:3px;margin-top:8px"></div>
+        <div style="font-size:10px;color:var(--dim);margin-top:4px">▲ glitch lane (stutter + grain burst)</div>
+      </div>
+      <div class="note">Transposes the <b>lead only</b>; the sub stays anchored to the root and the phase-lock holds. Euclidean E(k,16) spreads k hits evenly — the Autechre/Ramon-Pang grammar. Deterministic: same pattern → same render.</div>
+    </div>
+  </div>
+
+  <!-- LAB RACK: FX + SPECTROGRAM -->
+  <div class="row twoeq">
+    <div class="card">
+      <h2>⑩ FX rack <span class="badge b-live">lead-path DSP</span></h2>
+      <div class="body">
+        <div class="row-inline" style="margin-bottom:10px"><button id="crush-on">▶ bitcrush + SRR</button>
+          <span style="font-size:11px;color:var(--dim)">lo-fi destroyer — lead only, sub/validator untouched</span></div>
+        <div class="knobs" style="margin-bottom:14px">
+          <div class="knob"><label>Bit depth <b id="v-bits">12 bit</b></label><input type="range" id="crush-bits" min="1" max="16" value="12"></div>
+          <div class="knob"><label>Downsample <b id="v-down">1×</b></label><input type="range" id="crush-down" min="1" max="40" value="1"></div>
+        </div>
+        <div style="font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px">space — procedural-IR reverb + dub delay <span class="badge b-live" style="font-size:8.5px">synth IR</span></div>
+        <div class="knobs">
+          <div class="knob"><label>Wet <b id="v-wet">0 %</b></label><input type="range" id="space-wet" min="0" max="100" value="0"></div>
+          <div class="knob"><label>Reverb decay <b id="v-decay">3.0</b></label><input type="range" id="verb-decay" min="10" max="70" value="30"></div>
+          <div class="knob"><label>Delay time <b id="v-dms">280 ms</b></label><input type="range" id="delay-ms" min="40" max="700" value="280"></div>
+          <div class="knob"><label>Delay feedback <b id="v-dfb">35 %</b></label><input type="range" id="delay-fb" min="0" max="85" value="35"></div>
+        </div>
+      </div>
+      <div class="note">Bitcrush/SRR is a ScriptProcessor on the <b>lead path only</b> — the &lt;120 Hz validator bus is never crushed. Reverb is a runtime-generated noise impulse (no IR file); delay is a filtered feedback line. Sub stays mono &amp; dry.</div>
+    </div>
+
+    <div class="card">
+      <h2>⑪ Spectrogram <span class="badge b-live">live FFT</span> <span class="badge b-ot">formant markers</span></h2>
+      <div class="body" style="padding:12px">
+        <canvas id="spec" width="640" height="220" style="width:100%;height:auto;display:block;border-radius:8px"></canvas>
+        <p style="font-size:11.5px;color:var(--dim);margin-top:8px">Backdrop = live FFT of the full output (FM + noise + sub). The <b>bright markers</b> are the computed OT formant positions; dashed ghosts are species A/B. Drag the morph and watch the solid markers <b>slide between the ghosts on the log axis</b> — the OT claim, made visible.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- LAB RACK: CHAOS + MIDI -->
+  <div class="card">
+    <h2>⑫ Chaos engine + play <span class="badge b-heur">seeded</span></h2>
+    <div class="body">
+      <div class="hcols">
+        <div>
+          <div class="row-inline" style="margin-bottom:10px">
+            <button id="reseed">✦ reseed</button><button id="chaos-lock">lock accident</button>
+            <span class="chip">seed <b id="seedval">1337</b></span>
+          </div>
+          <div class="knobs">
+            <div class="knob"><label>Chaos <b id="v-chaos">0 %</b></label><input type="range" id="ch-chaos" min="0" max="100" value="0"></div>
+            <div class="knob"><label>Humanize <b id="v-hum">0 %</b></label><input type="range" id="ch-hum" min="0" max="100" value="0"></div>
+          </div>
+          <p style="font-size:11.5px;color:var(--dim);margin-top:10px">Seeded drunk-walk on the morph/pad + occasional animal swaps — Galen-Tipton weirdcore, but <b>reproducible</b> (same seed → same wander). Humanize jitters sequencer timing/pitch. Reseed for a new accident; lock to keep one.</p>
+        </div>
+        <div>
+          <div style="font-size:10.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">play it — QWERTY keys or MIDI</div>
+          <div id="kbstrip" style="display:flex;gap:2px;height:54px;margin-bottom:8px"></div>
+          <div class="chip">note <b id="kbnote">0 st</b></div>
+          <div class="blstatus" id="midistat" style="font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:8px">MIDI: …</div>
+          <p style="font-size:11.5px;color:var(--dim);margin-top:8px">Z–M = lower octave, Q–U = upper (tracker layout). Mono or polyphonic (set <b>Voices</b>) with glide; Web MIDI noteon maps too (Chromium). Keys offset the lead pitch — sub anchored.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HONESTY + ARCH -->
+  <div class="card">
+    <h2>⑦ What's real vs. what the full pipeline adds <span class="badge b-heur">read me</span></h2>
+    <div class="body">
+      <div class="hcols">
+        <div class="hbox">
+          <h3>✅ Actually running in this page</h3>
+          <ul>
+            <li><b>Real-time synthesis</b> — FM core, formant banks, noise transients, ADSR, the wub LFO.</li>
+            <li><b>Morph = displacement</b> — formant frequencies log-interpolate (mass moves along frequency), the OT idea, not an amplitude crossfade.</li>
+            <li><b>A correct phase cross-validator</b> — it measures &lt;120 Hz RMS vs sub phase and locks the constructive maximum. You can hear it work.</li>
+            <li><b>The full power stack</b> — saturation (WaveShaper), OTT-style (downward) glue compression, fizz, and an offline <b>WAV render</b>.</li>
+            <li>A reactive <b>synesthetic visualizer</b> driven by the live FFT + morph state.</li>
+            <li><b>Polyphony</b> — up to 5 detuned unison voices + chord stacks, each its own FM/formant Brain; the sub &amp; phase-validator stay <b>single and anchored to the root</b>, so the boom-null is still real under a chord.</li>
+            <li><b>Audio-file import</b> — decode any WAV/mp3 offline (<code>decodeAudioData</code>): estimate its formants into an 8th "sample" animal you can morph, or loop it as the oscillator through the formant/power chain. Estimated formants are a heuristic fit, not a voice clone.</li>
+          </ul>
+        </div>
+        <div class="hbox">
+          <h3>🧪 What the HuggingFace / M4L + TD build adds</h3>
+          <ul>
+            <li><b>Diffusion (AudioLDM / Stable Audio)</b> — hallucinates <i>new texture</i> between the two sounds instead of interpolating parameters.</li>
+            <li><b>Sinkhorn OT on real spectrograms</b> — true Wasserstein transport between two recorded <code>.wav</code>s, not preset formants.</li>
+            <li><b>Gemma 4</b> — actual language→species curation and per-frame "director" decisions.</li>
+            <li><b>Max for Live + TouchDesigner</b> — OSC routing, the GLSL Wasserstein-warp sculpture (lobes scaled by the W₂ displacement distance), and hands-on XY-pad performance.</li>
+            <li><b>Fidelity gap:</b> log-interp morphs the formants you specified but can't invent the breathy, grainy in-between <i>timbre</i> a duck-wolf would actually have — AudioLDM / Stable Audio hallucinate that new texture; you'll hear the difference as "clean synth" vs "organic."</li>
+          </ul>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--dim);margin-top:14px">Everything labeled <span class="badge b-live" style="font-size:9px">live</span> is honest DSP you're hearing. Everything labeled <span class="badge b-ot" style="font-size:9px">OT</span> is a faithful parametric stand-in for the heavy model. Nothing here pretends to be a diffusion model or an LLM — it's the playable proof-of-concept that the whole Chimera Engine is buildable.</p>
+      <details class="note" style="margin:12px 0 0;border:1px solid var(--line);border-radius:9px;background:var(--panel2)">
+        <summary style="cursor:pointer;color:var(--violet);font-family:var(--mono);font-size:11px">▸ Reference — the real Sinkhorn-OT step this page stands in for</summary>
+<pre style="font-family:var(--mono);font-size:11px;color:var(--dim);white-space:pre-wrap;margin:10px 0 0"># Entropic OT between two magnitude spectra a, b (length-n, sum=1).
+# Cost on the LOG-frequency axis: C[i][j] = (log f_i - log f_j)^2
+K = exp(-C/eps)                       # Gibbs kernel
+u = ones(n)
+for it in 1..L:                       # Sinkhorn iterations
+    v = b / (K.T @ u)
+    u = a / (K   @ v)
+P = diag(u) @ K @ diag(v)             # transport plan
+T[i] = sum_j P[i][j]*f_j / sum_j P[i][j]   # barycentric map = where bin i slides</pre>
+        <p style="font-size:11px;color:var(--dim);margin:8px 0 0">For 1-D histograms the exact (eps→0) optimal map is just the inverse-CDF coupling — quantile matching — which is why this page's <b>log-frequency formant interpolation is a legitimate cheap stand-in</b> for full Sinkhorn on 2-D spectrograms. Caveat: the page also interpolates formant amplitude/Q, so mass isn't strictly preserved — the closed form is exact for the frequency-axis displacement, approximate for the full magnitude spectrum.</p>
+      </details>
+    </div>
+  </div>
+
+</div>
+
+<footer>Bio-Bass Chimera Lab · self-contained, offline Web Audio · a "make it real" rebuild of the Animal-Sound-Synthesis pipeline &nbsp;—&nbsp; companion to the Endless Path Cockpit</footer>
+
+<script>
+"use strict";
+/* ============================== PRESETS ============================== */
+// formant freqs in Hz; the morph slides these along the (log) frequency axis = OT displacement
+const ANIMALS=[
+  {key:"duck",  nm:"Mallard Duck", emoji:"🦆", f0:320, wave:"sawtooth", ratio:1.0, fm:0.45, noise:0.28, hue:55,  F:[[900,7,1],[2200,9,.7],[3400,10,.4]]},
+  {key:"wolf",  nm:"Timber Wolf",  emoji:"🐺", f0:170, wave:"sawtooth", ratio:1.49,fm:0.7,  noise:0.16, hue:22,  F:[[500,5,1],[1100,6,.6],[2400,8,.3]]},
+  {key:"whale", nm:"Humpback",     emoji:"🐋", f0:90,  wave:"sine",     ratio:2.0, fm:0.5,  noise:0.06, hue:200, F:[[300,8,1],[700,9,.7],[1400,9,.3]]},
+  {key:"cicada",nm:"Cicada",       emoji:"🦗", f0:430, wave:"sawtooth", ratio:1.0, fm:0.9,  noise:0.5,  hue:150, F:[[3800,11,1],[6200,13,.6]]},
+  {key:"frog",  nm:"Bullfrog",     emoji:"🐸", f0:200, wave:"sine",     ratio:1.5, fm:0.6,  noise:0.22, hue:95,  F:[[400,7,1],[900,8,.6],[1600,9,.3]]},
+  {key:"ele",   nm:"Elephant",     emoji:"🐘", f0:42,  wave:"sine",     ratio:1.0, fm:0.3,  noise:0.1,  hue:14,  F:[[120,6,1],[300,7,.5]]},
+  {key:"hawk",  nm:"Red-tail Hawk",emoji:"🦅", f0:600, wave:"sawtooth", ratio:1.0, fm:0.8,  noise:0.4,  hue:300, F:[[2400,9,1],[4800,11,.6]]}
+];
+const idx=k=>ANIMALS.findIndex(a=>a.key===k);
+
+/* ============================== STATE ============================== */
+const ST={ A:0, B:1, t:0, playing:false,
+  wubRate:3.2, wubDepth:0.55, oct:0, phase:0, subLvl:0.7, drive:0.35, ott:0.4, fizz:0.20,
+  glide:0.04, env:{a:0.04,d:0.12,s:0.85,r:0.18},
+  pad:false, corners:[0,6,2,1], uv:{u:0.5,v:0.5},   // NW=duck NE=hawk SW=whale SE=wolf
+  noteSt:0,                                          // live keyboard/MIDI pitch offset (semitones)
+  // FX rack
+  crushOn:false, crushBits:12, crushDown:1, spaceWet:0, verbDecay:3, delayMs:280, delayFB:0.35,
+  // granular
+  grainOn:false, grPos:0.3, grJit:0.15, grSize:90, grDens:24, grPitch:0, grPitchJit:0, grPan:0.6, grRev:0, grFreeze:false, grBufDur:0,
+  // sequencer
+  seq:{on:false,bpm:140,steps:16,cur:-1,swing:0,gateLen:0.6,note:[],glitch:[]},
+  // chaos (seeded)
+  seed:1337, chaos:0, humanize:0,
+  // polyphony (unison + chord) — sub stays SINGLE & anchored; only lead voices stack
+  voices:1, detune:0, spread:0, chord:'off',
+  // sample import (feature 2): importMode picks what the NEXT load does; sampleMode='osc' uses the buffer as the FM-core replacement
+  importMode:'formant', sampleMode:'off', sampleBuf:null, sampleAnimal:null,
+  f0:320, subF:55, wd:0, lowRMS:0, lowDb:-60, mono:0, monoValid:false, autoSweep:false,
+  genomeMode:false };
+// init sequencer lanes
+ST.seq.note=Array.from({length:16},()=>({gate:false,pitch:0}));
+ST.seq.glitch=Array.from({length:16},()=>false);
+const NF=3;  // fixed formant-bank size so the morph can update freqs live
+let AC=null;
+
+/* ============================== SKIN / THEME / FX ============================== */
+const RM = matchMedia('(prefers-reduced-motion: reduce)');
+let FXG = 1;                         // visual-FX intensity 0..1 (NEVER touches audio/measured numbers)
+const THEMEVARS=['--cyan','--violet','--amber','--green','--red','--pink','--ink','--dim','--panel','--panel2','--bg','--glow1','--glow2','--glow3'];
+let TC={};
+function refreshThemeColors(){ const cs=getComputedStyle(document.body); THEMEVARS.forEach(v=>TC[v]=cs.getPropertyValue(v).trim()||'#fff'); }
+const themeColor=v=>TC[v]||'#fff';
+function setTheme(t){
+  document.body.dataset.theme=t;
+  document.querySelectorAll('#themeseg button').forEach(b=>b.classList.toggle('on',b.dataset.theme===t));
+  try{localStorage.setItem('biobass_theme',t);}catch(e){}
+  refreshThemeColors();
+}
+function setFX(v){ FXG=v; document.documentElement.style.setProperty('--fx', RM.matches? Math.min(v,0.15): v); }
+document.querySelectorAll('#themeseg button').forEach(b=>b.onclick=()=>{ setTheme(b.dataset.theme); glitchBurst(document.querySelector('header'),1); });
+document.getElementById('fxlevel').addEventListener('input',e=>setFX(+e.target.value/100));
+// flash-capped, reduced-motion-aware glitch burst on state changes
+let lastGlitch=0;
+function glitchBurst(el,intensity){
+  if(!el||RM.matches||FXG<=0) return;
+  const now=performance.now(); if(now-lastGlitch<300) return; lastGlitch=now;  // <=3/s flash cap
+  el.classList.remove('glitching'); void el.offsetWidth; el.classList.add('glitching');
+  el.addEventListener('animationend',()=>el.classList.remove('glitching'),{once:true});
+}
+(function initSkin(){
+  let t='orangemilk'; try{t=localStorage.getItem('biobass_theme')||'orangemilk';}catch(e){}
+  setTheme(t); setFX(RM.matches?0.15:1);
+  if(RM.matches){ const f=document.getElementById('fxlevel'); if(f)f.value=15; }
+})();
+
+/* ============================== INTERP (OT-style) ============================== */
+const lerp=(a,b,t)=>a+(b-a)*t;
+const llerp=(a,b,t)=>Math.exp(lerp(Math.log(a),Math.log(b),t)); // log = freq displacement
+// which sources + weights are active: pad = 4 corners bilinear; else A/B by t
+function curWeights(){
+  if(ST.pad){ const u=ST.uv.u, v=ST.uv.v;
+    return {srcs:ST.corners.map(i=>ANIMALS[i]), w:[(1-u)*(1-v), u*(1-v), (1-u)*v, u*v]}; }
+  return {srcs:[ANIMALS[ST.A],ANIMALS[ST.B]], w:[1-ST.t, ST.t]};
+}
+// blend N animals by weight w. Formants are interpolated on the LOG-frequency axis
+// (= optimal-transport displacement: mass slides, it does not crossfade).
+function blendAnimals(srcs,w){
+  const n=Math.min(...srcs.map(s=>s.F.length));               // clamp to shortest bank
+  const F=[];
+  for(let i=0;i<n;i++){
+    let lf=0,Q=0,amp=0;
+    for(let k=0;k<srcs.length;k++){ lf+=w[k]*Math.log(srcs[k].F[i][0]); Q+=w[k]*srcs[k].F[i][1]; amp+=w[k]*srcs[k].F[i][2]; }
+    F.push([Math.exp(lf), Q, amp]);
+  }
+  let lf0=0,ratio=0,fm=0,noise=0,hue=0;
+  for(let k=0;k<srcs.length;k++){ lf0+=w[k]*Math.log(srcs[k].f0); ratio+=w[k]*srcs[k].ratio; fm+=w[k]*srcs[k].fm; noise+=w[k]*srcs[k].noise; hue+=w[k]*srcs[k].hue; }
+  const f0base=Math.exp(lf0), f0=f0base*Math.pow(2,(ST.oct+ST.noteSt)/12);  // noteSt = live keyboard/MIDI offset
+  let mi=0; for(let k=1;k<srcs.length;k++) if(w[k]>w[mi])mi=k;  // dominant source
+  const dom=srcs[mi], nd=Math.min(n,dom.F.length);
+  // mass-weighted displacement of the blend away from the nearest pure animal (0 at a corner, max in the middle)
+  let num=Math.abs(Math.log2(f0base/dom.f0)), den=1;
+  for(let i=0;i<nd;i++){ const m=Math.max(0.05,F[i][2]); num+=m*Math.abs(Math.log2(F[i][0]/dom.F[i][0])); den+=m; }
+  return { f0, wave:dom.wave, ratio, fm, noise, hue, F, wd:num/den };
+}
+function morphedPatch(){ if(ST.genomeMode && typeof GENOME!=='undefined' && GENOME){ const p=genomeToPatch(GENOME); ST.wd=0; return p; } const {srcs,w}=curWeights(); const p=blendAnimals(srcs,w); ST.wd=p.wd; return p; }
+function wdAtUV(u,v){ const srcs=ST.corners.map(i=>ANIMALS[i]); return blendAnimals(srcs,[(1-u)*(1-v),u*(1-v),(1-u)*v,u*v]).wd; }
+function subFreq(f0){ let s=f0; while(s>80)s/=2; while(s<35)s*=2; return s; }
+
+/* ============================== AUDIO GRAPH ============================== */
+let G=null; // live graph handles
+
+/* ---- per-VOICE Brain: FM core (or a looped audio-file oscillator) + formant bank + wub + noise.
+       Returns `lp` as its lead output, which sums into the shared master sat. One instance per
+       polyphonic voice; the noise buffer is exposed so master fizz can share it (keeps the
+       single-voice render byte-identical to the pre-refactor monolithic graph). ---- */
+function buildVoice(ac, p, spec, opts){
+  spec=spec||{semi:0,cents:0,pan:0}; opts=opts||{};
+  const mult=Math.pow(2,((spec.semi||0)+(spec.cents||0)/100)/12);
+  const f0=p.f0*mult;
+  const voice=ac.createGain(); voice.gain.value=0.0;
+  // ---- FM core, OR a looped decoded audio buffer as the oscillator (sample-voice mode a) ----
+  let carrier, mod=null, modGain=null, sampleSrc=null;
+  if(opts.sampleBuf){
+    sampleSrc=ac.createBufferSource(); sampleSrc.buffer=opts.sampleBuf; sampleSrc.loop=true;
+    sampleSrc.playbackRate.value=Math.pow(2,((ST.oct+ST.noteSt+(spec.semi||0)+(spec.cents||0)/100))/12);
+    carrier=sampleSrc;
+  } else {
+    carrier=ac.createOscillator(); carrier.type=p.wave; carrier.frequency.value=f0;
+    mod=ac.createOscillator(); mod.type="sine"; mod.frequency.value=f0*p.ratio;
+    modGain=ac.createGain(); modGain.gain.value=f0*p.fm*4;
+    mod.connect(modGain).connect(carrier.frequency);
+  }
+  // fixed-size formant bank (NF slots) so the morph can slide formant freqs live; unused slots muted
+  const formants=[];
+  for(let i=0;i<NF;i++){
+    const f=p.F[i]||[1000,6,0];
+    const bp=ac.createBiquadFilter(); bp.type="bandpass"; bp.frequency.value=f[0]; bp.Q.value=f[1];
+    const g=ac.createGain(); g.gain.value=(p.F[i]?f[2]:0)*0.9;
+    carrier.connect(bp); bp.connect(g); g.connect(voice);
+    formants.push({bp,g});
+  }
+  const dry=ac.createGain(); dry.gain.value=0.12; carrier.connect(dry).connect(voice);
+  // wub LFO -> a lowpass for movement
+  const lp=ac.createBiquadFilter(); lp.type="lowpass"; lp.frequency.value=1800; lp.Q.value=4;
+  voice.connect(lp);
+  const lfo=ac.createOscillator(); lfo.type="sine"; lfo.frequency.value=ST.wubRate;
+  const lfoG=ac.createGain(); lfoG.gain.value=1200*ST.wubDepth; lfo.connect(lfoG).connect(lp.frequency);
+  // noise transient (per-voice); reuse a shared buffer if one is handed in, else make one now
+  const nb=opts.noiseBuf||(function(){ const b=ac.createBuffer(1, ac.sampleRate*0.5, ac.sampleRate), d=b.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; return b; })();
+  const ns=ac.createBufferSource(); ns.buffer=nb; ns.loop=true;
+  const nbp=ac.createBiquadFilter(); nbp.type="bandpass"; nbp.frequency.value=1600; nbp.Q.value=1.4;
+  const nG=ac.createGain(); nG.gain.value=p.noise*0.25; ns.connect(nbp).connect(nG).connect(lp);
+  const oscs=[carrier]; if(mod) oscs.push(mod); oscs.push(lfo,ns);
+  return {out:lp, lp, voice, carrier, mod, modGain, sampleSrc, formants, lfo, lfoG, nG, nb, spec, oscs,
+    start(time){oscs.forEach(o=>{try{o.start(time||0)}catch(e){}});},
+    stop(time){oscs.forEach(o=>{try{o.stop(time)}catch(e){}});}
+  };
+}
+
+/* ---- shared MASTER: sat -> OTT (+ fizz) -> leadBus -> crush insert -> space -> out, plus the
+       Body sub sine + low fundamental, the <120Hz validator taps (lowMon/lowAna) and the viz/spec
+       analysers — EXACTLY as the monolithic graph. Sub/leadLow are SINGLE and anchored to the ROOT
+       patch, so the phase cross-validator stays physically meaningful under polyphony. ---- */
+function buildMaster(ac, dest, p, opts){
+  opts=opts||{};
+  const out=ac.createGain(); out.gain.value=0.0; out.connect(dest);
+  // ---- power stack: saturation -> OTT ----
+  const sat=ac.createWaveShaper(); sat.curve=satCurve(ST.drive); sat.oversample="2x";
+  const ott=ac.createDynamicsCompressor();
+  ott.threshold.value=-30-ST.ott*15; ott.ratio.value=2+ST.ott*8; ott.attack.value=0.003; ott.release.value=0.12; ott.knee.value=8;
+  sat.connect(ott);
+  const fizzHP=ac.createBiquadFilter(); fizzHP.type="highpass"; fizzHP.frequency.value=6000;
+  const nb=opts.noiseBuf||(function(){ const b=ac.createBuffer(1, ac.sampleRate*0.5, ac.sampleRate), d=b.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1; return b; })();
+  const ns2=ac.createBufferSource(); ns2.buffer=nb; ns2.loop=true;
+  const fizzG=ac.createGain(); fizzG.gain.value=ST.fizz*0.08; ns2.connect(fizzHP).connect(fizzG).connect(ott);
+  const leadBus=ac.createGain(); leadBus.gain.value=0.9; ott.connect(leadBus);
+  // ---- low fundamental of the patch (anchored to the ROOT patch f0) ----
+  const sf=subFreq(p.f0); ST.subF=sf;
+  const leadLow=ac.createOscillator(); leadLow.type="sine"; leadLow.frequency.value=sf;
+  const leadLowG=ac.createGain(); leadLowG.gain.value=0.38; leadLow.connect(leadLowG);   // ~matched to default sub for a deep null
+  // ---- sub (Body) with phase delay ----
+  const sub=ac.createOscillator(); sub.type="sine"; sub.frequency.value=sf;
+  const subDelay=ac.createDelay(0.05); subDelay.delayTime.value=(ST.phase/360)/sf;
+  const subG=ac.createGain(); subG.gain.value=ST.subLvl*0.55; sub.connect(subDelay).connect(subG);
+  const lowBus=ac.createGain(); leadLowG.connect(lowBus); subG.connect(lowBus);
+  // ---- granular cloud bus: grains share the lead character chain (sat/OTT/crush/space) ----
+  const grainBus=ac.createGain(); grainBus.gain.value=1.0; grainBus.connect(leadBus);
+  // ---- bitcrush + sample-rate reduction (LEAD ONLY; inserted on toggle so the sub/validator path stays pristine & latency-free) ----
+  const crush=ac.createScriptProcessor(2048,2,2);
+  const cst={hold:[0,0],ph:[0,0]};
+  crush.onaudioprocess=e=>{ const bits=Math.max(1,Math.min(16,ST.crushBits)), step=Math.pow(2,bits-1), ratio=Math.max(1,ST.crushDown), nc=e.inputBuffer.numberOfChannels;
+    for(let c=0;c<nc;c++){ const inp=e.inputBuffer.getChannelData(c), o=e.outputBuffer.getChannelData(c); let hold=cst.hold[c]||0, ph=cst.ph[c]||0;
+      for(let i=0;i<inp.length;i++){ ph+=1; if(ph>=ratio){ph-=ratio; hold=inp[i];} o[i]=Math.round(hold*step)/step; } cst.hold[c]=hold; cst.ph[c]=ph; } };
+  // ---- space send: procedural-IR reverb + feedback delay (LEAD + grains only; wet default 0) ----
+  const spaceSend=ac.createGain(); spaceSend.gain.value=ST.spaceWet; leadBus.connect(spaceSend); grainBus.connect(spaceSend);
+  const verb=ac.createConvolver(); verb.buffer=makeIR(ac,2.0,ST.verbDecay); spaceSend.connect(verb); verb.connect(out);
+  const dly=ac.createDelay(1.5); dly.delayTime.value=Math.max(0.03,ST.delayMs/1000);
+  const dfb=ac.createGain(); dfb.gain.value=Math.min(0.85,ST.delayFB);
+  const dlp=ac.createBiquadFilter(); dlp.type="lowpass"; dlp.frequency.value=3000;
+  spaceSend.connect(dly); dly.connect(dlp); dlp.connect(dfb); dfb.connect(dly); dly.connect(out);
+  // ---- master (dry lead + bone-dry mono low) ----
+  leadBus.connect(out); lowBus.connect(out);
+  // ---- low monitor for phase validation (UNTOUCHED — no crush/space here) ----
+  const lowMon=ac.createBiquadFilter(); lowMon.type="lowpass"; lowMon.frequency.value=120; lowMon.Q.value=0.7;
+  lowBus.connect(lowMon);
+  const lowAna=ac.createAnalyser(); lowAna.fftSize=2048; lowMon.connect(lowAna);
+  // ---- analysers for viz + spectrogram ----
+  const ana=ac.createAnalyser(); ana.fftSize=1024; out.connect(ana);
+  const spec=ac.createAnalyser(); spec.fftSize=4096; out.connect(spec);
+  const oscs=[ns2,leadLow,sub];
+  return {out, satIn:sat, sat, ott, fizzG, leadBus, leadLow, leadLowG, sub, subDelay, subG, lowBus, lowMon, lowAna, ana, spec,
+    grainBus, crush, crushIn:leadBus, spaceSend, verb, dly, dfb, sf, oscs,
+    start(time){oscs.forEach(o=>{try{o.start(time||0)}catch(e){}});},
+    stop(time){oscs.forEach(o=>{try{o.stop(time)}catch(e){}});}
+  };
+}
+
+/* ---- assembler: one root voice + optional detuned/transposed extra voices, summed into one master.
+       At voices=1 (default / legacy single-arg call) the graph is byte-identical to the old
+       monolithic buildGraph: same nodes, same params, same noise+IR RNG draw order. ---- */
+function buildGraph(ac, dest, p, opts){
+  opts=opts||{};
+  const specs=(opts.voiceSpecs&&opts.voiceSpecs.length)?opts.voiceSpecs:[{semi:0,cents:0,pan:0}];
+  const sampleBuf=opts.sampleBuf||null;
+  // root voice FIRST — it draws the shared noise buffer, THEN master draws the IR (matches legacy order)
+  const root=buildVoice(ac, p, specs[0], {sampleBuf});
+  const master=buildMaster(ac, dest, p, {noiseBuf:root.nb});
+  root.out.connect(master.satIn);                                   // root lead -> master sat (mono)
+  const voices=[root];
+  for(let vi=1; vi<specs.length; vi++){
+    const V=buildVoice(ac, p, specs[vi], {sampleBuf});
+    // extra voices: high-pass <120Hz (only the anchored ROOT feeds the low end -> the boom-null stays honest) + stereo spread
+    const hp=ac.createBiquadFilter(); hp.type="highpass"; hp.frequency.value=120; hp.Q.value=0.5;
+    const pan=ac.createStereoPanner(); pan.pan.value=Math.max(-1,Math.min(1,V.spec.pan||0));
+    V.out.connect(hp); hp.connect(pan); pan.connect(master.satIn);
+    V.hp=hp; V.pan=pan; voices.push(V);
+  }
+  const allOscs=[]; voices.forEach(V=>{V.oscs.forEach(o=>allOscs.push(o));}); master.oscs.forEach(o=>allOscs.push(o));
+  // legacy-compatible handle: promote root voice nodes to top level so all existing single-voice
+  // code keeps working; G.voices is the full polyphonic list.
+  const G0=Object.assign({}, master, {
+    voices, voice:root.voice, carrier:root.carrier, mod:root.mod, modGain:root.modGain,
+    formants:root.formants, lp:root.lp, lfo:root.lfo, lfoG:root.lfoG, nG:root.nG, oscs:allOscs,
+    start(time){allOscs.forEach(o=>{try{o.start(time||0)}catch(e){}});},
+    stop(time){allOscs.forEach(o=>{try{o.stop(time)}catch(e){}});}
+  });
+  return G0;
+}
+function makeIR(ac,dur,decay){ const len=Math.max(1,Math.floor(ac.sampleRate*dur)), b=ac.createBuffer(2,len,ac.sampleRate);
+  for(let c=0;c<2;c++){ const d=b.getChannelData(c); for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.pow(1-i/len,decay); }
+  return b; }
+function setCrush(on){
+  if(!G) return;
+  try{ G.crushIn.disconnect(G.out); }catch(e){}
+  try{ G.crushIn.disconnect(G.crush); }catch(e){}
+  try{ G.crush.disconnect(); }catch(e){}
+  if(on){ G.crushIn.connect(G.crush); G.crush.connect(G.out); }
+  else  { G.crushIn.connect(G.out); }
+}
+function satCurve(amt){
+  const k=amt*8+0.001, n=1024, c=new Float32Array(n);
+  for(let i=0;i<n;i++){const x=i/(n-1)*2-1; c[i]=(1+k)*x/(1+k*Math.abs(x));}
+  return c;
+}
+
+/* ============================== POLYPHONY (unison + chord) ============================== */
+// Extra lead voices stack under a SINGLE, root-anchored sub + phase validator. voices=1 keeps the
+// mono path byte-identical to the pre-refactor engine; only lead voices are detuned/transposed.
+const CHORDS={off:[0],'5th':[0,7],minor:[0,3,7],major:[0,4,7]};
+function voiceSpecs(){
+  const chord=CHORDS[ST.chord]||[0];
+  const uni=Math.max(1,Math.min(5,ST.voices|0));
+  const specs=[];
+  chord.forEach(semi=>{ for(let u=0;u<uni;u++){ const spread=uni>1?(u/(uni-1))*2-1:0;
+    specs.push({semi, cents:spread*ST.detune, pan:spread*ST.spread}); } });
+  if(specs.length) specs[0]={semi:0,cents:0,pan:0};   // voice 0 = clean anchor (root pitch, centred)
+  return specs;
+}
+// smooth detune/spread when the voice COUNT is unchanged; rebuild when the count changes
+function retuneVoices(){
+  if(!G||!AC) return;
+  const specs=voiceSpecs();
+  if(specs.length!==G.voices.length){ if(ST.playing) startGraph(); return; }
+  const t=AC.currentTime;
+  G.voices.forEach((V,i)=>{ V.spec=specs[i]; if(V.pan) V.pan.pan.setTargetAtTime(Math.max(-1,Math.min(1,V.spec.pan||0)),t,0.05); });
+  applyLive();
+}
+
+/* ============================== PLAY / STOP ============================== */
+const engpill=document.getElementById('engpill');
+function startGraph(){
+  if(!AC) return;
+  if(G){stopGraph();}
+  const p=morphedPatch();
+  G=buildGraph(AC, AC.destination, p, {voiceSpecs:voiceSpecs(), sampleBuf:(ST.sampleMode==='osc'?ST.sampleBuf:null)});
+  G.start(AC.currentTime);
+  // amp envelope up (ADSR onset) — every polyphonic voice, scaled for stack headroom
+  const t=AC.currentTime, e=ST.env, vg=1/Math.sqrt(G.voices.length);
+  G.voices.forEach(V=>{ const g=V.voice.gain; g.cancelScheduledValues(t); g.setValueAtTime(0,t);
+    g.linearRampToValueAtTime(vg,t+e.a); g.linearRampToValueAtTime(0.9*e.s*vg,t+e.a+e.d); });
+  G.out.gain.setValueAtTime(0,t); G.out.gain.linearRampToValueAtTime(0.5,t+Math.max(0.04,e.a));
+  setCrush(ST.crushOn);                 // re-apply lead crusher routing on rebuild
+  ST.playing=true;
+  document.getElementById('play').textContent="■ Stop"; document.getElementById('play').classList.add('on');
+}
+function stopGraph(){
+  if(!G) return;
+  const t=AC.currentTime, rel=Math.max(0.05,ST.env.r);   // Release knob shapes the stop
+  try{G.out.gain.cancelScheduledValues(t);G.out.gain.setValueAtTime(G.out.gain.value,t);G.out.gain.linearRampToValueAtTime(0,t+rel);}catch(e){}
+  const g=G; setTimeout(()=>{try{g.stop(0)}catch(e){}},rel*1000+80); G=null;
+  ST.playing=false;
+  document.getElementById('play').textContent="▶ Play drone"; document.getElementById('play').classList.remove('on');
+}
+function pluck(){
+  if(!ST.playing){startGraph();return;}
+  const t=AC.currentTime, e=ST.env, vg=1/Math.sqrt(G.voices.length);
+  G.voices.forEach(V=>{ const g=V.voice.gain; g.cancelScheduledValues(t);
+    g.setValueAtTime(Math.max(0.001,g.value),t);
+    g.linearRampToValueAtTime(1.5*vg, t+Math.min(0.02,e.a));           // accent attack
+    g.linearRampToValueAtTime(0.9*e.s*vg, t+Math.min(0.02,e.a)+e.d); });
+}
+
+/* live param updates (no rebuild) — incl. live formant displacement so the morph is audible */
+function applyLive(){
+  if(!G||!AC) return; const t=AC.currentTime, gl=ST.glide, p=morphedPatch();
+  // ---- per-voice Brain (each detuned/transposed instance) ----
+  G.voices.forEach(V=>{
+    const mult=Math.pow(2,((V.spec.semi||0)+(V.spec.cents||0)/100)/12);
+    if(V.sampleSrc){ V.sampleSrc.playbackRate.setTargetAtTime(Math.pow(2,((ST.oct+ST.noteSt+(V.spec.semi||0)+(V.spec.cents||0)/100))/12),t,gl); }
+    else { V.carrier.type=p.wave; V.carrier.frequency.setTargetAtTime(p.f0*mult,t,gl);
+      V.mod.frequency.setTargetAtTime(p.f0*mult*p.ratio,t,gl); V.modGain.gain.setTargetAtTime(p.f0*mult*p.fm*4,t,0.04); }
+    V.lfo.frequency.setTargetAtTime(ST.wubRate,t,0.05);
+    V.lfoG.gain.setTargetAtTime(1200*ST.wubDepth,t,0.05);
+    V.nG.gain.setTargetAtTime(p.noise*0.25,t,0.05);
+    // live formant displacement (the OT morph you can hear) — same targets for every voice
+    for(let i=0;i<NF;i++){ const f=p.F[i], fm=V.formants[i];
+      if(f){ fm.bp.frequency.setTargetAtTime(f[0],t,gl); fm.bp.Q.setTargetAtTime(f[1],t,0.05); fm.g.gain.setTargetAtTime(f[2]*0.9,t,0.05); }
+      else fm.g.gain.setTargetAtTime(0,t,0.05); }
+  });
+  // ---- master power stack (single) ----
+  G.sat.curve=satCurve(ST.drive);
+  G.ott.threshold.setTargetAtTime(-30-ST.ott*15,t,0.05); G.ott.ratio.setTargetAtTime(2+ST.ott*8,t,0.05);
+  G.fizzG.gain.setTargetAtTime(ST.fizz*0.08,t,0.05);
+  // ---- Body sub follows the ROOT f0 (anchored) ----
+  const sf=subFreq(p.f0);
+  G.sub.frequency.setTargetAtTime(sf,t,gl); G.leadLow.frequency.setTargetAtTime(sf,t,gl);
+  G.subDelay.delayTime.setTargetAtTime((ST.phase/360)/sf,t,0.02);
+  G.subG.gain.setTargetAtTime(ST.subLvl*0.55,t,0.05);
+  // ---- space (reverb/delay) live params ----
+  G.spaceSend.gain.setTargetAtTime(ST.spaceWet,t,0.05);
+  G.dly.delayTime.setTargetAtTime(Math.max(0.03,ST.delayMs/1000),t,0.05);
+  G.dfb.gain.setTargetAtTime(Math.min(0.85,ST.delayFB),t,0.05);
+}
+
+/* ============================== UI: ANIMALS ============================== */
+const animalsEl=document.getElementById('animals');
+function renderAnimals(){
+  animalsEl.innerHTML="";
+  ANIMALS.forEach((a,i)=>{
+    const d=document.createElement('div'); d.className="anim"+(i===ST.A?" selA":"")+(i===ST.B?" selB":"");
+    const _chip=a.sample?`<div class="chip" style="margin:3px 0 0;padding:1px 6px;border-color:rgba(167,139,250,.4)">sample</div>`:"";
+    d.innerHTML=`<div class="emoji">${a.emoji}</div><div class="nm">${a.nm}</div>${_chip}<div class="ab">${i===ST.A?"◀ A":""}${i===ST.B?"B ▶":""}</div>`;
+    d.onclick=(e)=>{ if(e.shiftKey)ST.B=i; else ST.A=i; setPadOff(); refreshMorphLabels(); renderAnimals(); if(ST.playing){startGraph();} glitchBurst(animalsEl.closest('.card'),1); };
+    animalsEl.appendChild(d);
+  });
+}
+function refreshMorphLabels(){
+  document.getElementById('endA').textContent=ANIMALS[ST.A].nm.split(' ')[0];
+  document.getElementById('endB').textContent=ANIMALS[ST.B].nm.split(' ')[0];
+  updateChips();
+}
+function setPadOff(){ if(!ST.pad)return; ST.pad=false; const pt=document.getElementById('padtoggle'); if(pt){pt.classList.remove('on');pt.textContent="pad: off";} }
+function updateChips(){
+  const p=morphedPatch();
+  document.getElementById('c-f0').textContent=Math.round(p.f0)+" Hz";
+  document.getElementById('c-sub').textContent=Math.round(subFreq(p.f0))+" Hz";
+  document.getElementById('c-wd').textContent=ST.wd.toFixed(2);
+  let cv="flat"; if(ST.wd>2)cv="wide displacement"; else if(ST.wd>1)cv="curving"; else if(ST.wd>0.4)cv="gentle";
+  document.getElementById('c-curv').textContent=cv;
+}
+
+/* ============================== UI: SLIDERS ============================== */
+function bind(id, fn){ const e=document.getElementById(id); e.addEventListener('input',()=>fn(+e.value, e)); }
+bind('morph',v=>{setPadOff();ST.t=v/100;document.getElementById('v-morph').textContent=ST.t.toFixed(2);updateChips();applyLive();});
+bind('k-wub',v=>{ST.wubRate=v/10;document.getElementById('v-wub').textContent=ST.wubRate.toFixed(1)+" Hz";applyLive();});
+bind('k-wubd',v=>{ST.wubDepth=v/100;document.getElementById('v-wubd').textContent=v+" %";applyLive();});
+bind('k-oct',v=>{ST.oct=v;document.getElementById('v-oct').textContent=(v>0?"+":"")+v+" st";updateChips();applyLive();});
+bind('k-phase',v=>{ST.phase=v;document.getElementById('v-phase').textContent=v+"°";applyLive();});
+bind('k-sublvl',v=>{ST.subLvl=v/100;document.getElementById('v-sub').textContent=(v===0?"–∞":((v-100)/3).toFixed(0))+" dB";applyLive();});
+bind('k-drive',v=>{ST.drive=v/100;document.getElementById('v-drive').textContent=v+" %";applyLive();});
+bind('k-ott',v=>{ST.ott=v/100;document.getElementById('v-ott').textContent=v+" %";applyLive();});
+bind('k-fizz',v=>{ST.fizz=v/100;document.getElementById('v-fizz').textContent=v+" %";applyLive();});
+bind('k-glide',v=>{ST.glide=Math.max(0.002,v/1000);document.getElementById('v-glide').textContent=v+" ms";applyLive();});
+bind('k-ea',v=>{ST.env.a=v/1000;document.getElementById('v-ea').textContent=v+" ms";});
+bind('k-ed',v=>{ST.env.d=v/1000;document.getElementById('v-ed').textContent=v+" ms";});
+bind('k-es',v=>{ST.env.s=v/100;document.getElementById('v-es').textContent=v+" %";});
+bind('k-er',v=>{ST.env.r=v/1000;document.getElementById('v-er').textContent=v+" ms";});
+
+document.getElementById('play').onclick=()=>{ if(ST.playing)stopGraph(); else startGraph(); };
+document.getElementById('pluck').onclick=pluck;
+
+/* ============================== XY MANIFOLD PAD ============================== */
+const pad=document.getElementById('xypad'), pctx=pad.getContext('2d');
+function drawPad(){
+  const w=pad.width,h=pad.height; pctx.clearRect(0,0,w,h);
+  // faint displacement field (cheap grid sample of the mass-weighted W-ish distance)
+  const Gr=14; pctx.fillStyle=themeColor('--violet');
+  for(let gy=0;gy<Gr;gy++)for(let gx=0;gx<Gr;gx++){
+    const val=Math.min(1, wdAtUV(gx/(Gr-1),gy/(Gr-1))/2.2);
+    pctx.globalAlpha=val*0.18; pctx.fillRect(gx/Gr*w, gy/Gr*h, w/Gr+1, h/Gr+1);
+  }
+  pctx.globalAlpha=1;
+  // corner labels
+  const c=ST.corners.map(i=>ANIMALS[i]);
+  const lab=[[6,15,'left'],[w-6,15,'right'],[6,h-7,'left'],[w-6,h-7,'right']];
+  pctx.font="11px ui-monospace";
+  c.forEach((a,k)=>{ pctx.fillStyle=themeColor('--dim'); pctx.textAlign=lab[k][2];
+    pctx.fillText(a.emoji+' '+a.nm.split(' ')[0], lab[k][0], lab[k][1]); });
+  // puck
+  if(ST.pad){
+    const px=ST.uv.u*w, py=ST.uv.v*h;
+    pctx.beginPath(); pctx.arc(px,py,8,0,7); pctx.fillStyle=themeColor('--violet'); pctx.fill();
+    pctx.strokeStyle="#fff"; pctx.lineWidth=2; pctx.stroke();
+  } else {
+    pctx.fillStyle=themeColor('--dim'); pctx.globalAlpha=.6; pctx.textAlign="center"; pctx.fillText("tap to activate pad", w/2, h/2); pctx.globalAlpha=1;
+  }
+}
+function padAt(ev){
+  const r=pad.getBoundingClientRect();
+  const cx=(ev.touches?ev.touches[0].clientX:ev.clientX), cy=(ev.touches?ev.touches[0].clientY:ev.clientY);
+  ST.uv={u:Math.max(0,Math.min(1,(cx-r.left)/r.width)), v:Math.max(0,Math.min(1,(cy-r.top)/r.height))};
+  if(!ST.pad){ ST.pad=true; const pt=document.getElementById('padtoggle'); pt.classList.add('on'); pt.textContent="pad: on"; }
+  updateChips(); applyLive();
+}
+let padDrag=false;
+pad.addEventListener('pointerdown',e=>{e.preventDefault();padDrag=true;padAt(e);});
+pad.addEventListener('pointermove',e=>{if(padDrag){e.preventDefault();padAt(e);}});
+window.addEventListener('pointerup',()=>{padDrag=false;});
+document.getElementById('padtoggle').onclick=function(){
+  ST.pad=!ST.pad; this.classList.toggle('on',ST.pad); this.textContent="pad: "+(ST.pad?"on":"off");
+  updateChips(); applyLive();
+};
+
+/* ============================== PHASE VALIDATOR ============================== */
+function measureLowRMS(){
+  if(!G||!G.lowAna) return 0;
+  const a=G.lowAna, buf=new Float32Array(a.fftSize); a.getFloatTimeDomainData(buf);
+  let s=0; for(let i=0;i<buf.length;i++)s+=buf[i]*buf[i];
+  return Math.sqrt(s/buf.length);
+}
+async function autoAlign(){
+  if(!ST.playing||!G){ document.getElementById('lowmsg').textContent="Start the drone first."; return; }
+  ST.autoSweep=true;
+  const btn=document.getElementById('autophase'); btn.textContent="… sweeping phase";
+  const sweep=[]; const N=24;
+  for(let i=0;i<N;i++){
+    const ph=i*360/N; const sf=ST.subF;
+    G.subDelay.delayTime.setValueAtTime((ph/360)/sf, AC.currentTime);
+    await new Promise(r=>setTimeout(r,45));
+    let m=0; for(let k=0;k<3;k++){m+=measureLowRMS();await new Promise(r=>setTimeout(r,8));}
+    sweep.push({ph,rms:m/3});
+  }
+  let best=sweep[0]; sweep.forEach(s=>{if(s.rms>best.rms)best=s;});
+  ST.phase=Math.round(best.ph); document.getElementById('k-phase').value=ST.phase;
+  document.getElementById('v-phase').textContent=ST.phase+"°"; applyLive();
+  ST.sweep=sweep; ST.autoSweep=false; btn.textContent="⟳ Auto-align sub (sweep & lock the boom)";
+  glitchBurst(btn.closest('.card'),1.4);   // the satisfying snap when the boom locks
+  const worst=sweep.reduce((a,b)=>a.rms<b.rms?a:b);
+  const gain=20*Math.log10((best.rms+1e-9)/(worst.rms+1e-9));
+  document.getElementById('lowmsg').innerHTML=`Locked <b>${ST.phase}°</b> — that's <b>+${gain.toFixed(1)} dB</b> of low end vs. the worst phase (${Math.round(worst.ph)}°, where it nearly cancels).`;
+}
+document.getElementById('autophase').onclick=autoAlign;
+
+function drawWheel(){
+  const c=document.getElementById('wheel'), x=c.getContext('2d'), w=c.width, h=c.height, cx=w/2, cy=h/2, R=58;
+  x.clearRect(0,0,w,h);
+  x.strokeStyle=themeColor('--line'); x.lineWidth=1; x.beginPath(); x.arc(cx,cy,R,0,7); x.stroke();
+  // sweep polar
+  if(ST.sweep){
+    let mx=Math.max(...ST.sweep.map(s=>s.rms))||1e-9;
+    x.beginPath();
+    ST.sweep.forEach((s,i)=>{const ang=s.ph*Math.PI/180-Math.PI/2; const r=12+ (s.rms/mx)*R*0.85;
+      const px=cx+Math.cos(ang)*r, py=cy+Math.sin(ang)*r; i?x.lineTo(px,py):x.moveTo(px,py);});
+    x.closePath(); x.fillStyle=themeColor('--cyan'); x.globalAlpha=.16; x.fill(); x.globalAlpha=1; x.strokeStyle=themeColor('--cyan'); x.stroke();
+  }
+  // current phase needle — colour from the MEASURED reinforce/cancel value
+  const ang=ST.phase*Math.PI/180-Math.PI/2;
+  x.strokeStyle = !ST.monoValid ? themeColor('--dim') : (ST.mono>0.1?themeColor('--green'):(ST.mono<-0.1?themeColor('--red'):themeColor('--amber'))); x.lineWidth=3;
+  x.beginPath(); x.moveTo(cx,cy); x.lineTo(cx+Math.cos(ang)*R, cy+Math.sin(ang)*R); x.stroke();
+  x.fillStyle=themeColor('--dim'); x.font="10px ui-monospace"; x.textAlign="center";
+  x.fillText("0°",cx,cy-R-4); x.fillText("180°",cx,cy+R+11);
+}
+
+/* ============================== VISUALIZER ============================== */
+const vz=document.getElementById('viz'), vx=vz.getContext('2d'), VW=vz.width, VH=vz.height;
+let freqData=null;
+function drawViz(){
+  vx.fillStyle="rgba(5,7,11,0.28)"; vx.fillRect(0,0,VW,VH);
+  const p=morphedPatch();
+  if(G&&G.ana){ if(!freqData||freqData.length!==G.ana.frequencyBinCount)freqData=new Uint8Array(G.ana.frequencyBinCount);
+    G.ana.getByteFrequencyData(freqData); }
+  const cx=VW/2, cy=VH/2;
+  const hue=((p.hue%360)+360)%360;
+  const curv=Math.min(1.6,ST.wd/2);          // warp amplitude ∝ OT displacement (W₂ / McCann feel)
+  const phaseBad= (ST.monoValid && ST.mono<0) ? Math.min(1,-ST.mono) : 0;  // measured cancellation → red shatter
+  const N=120;
+  vx.beginPath();
+  for(let i=0;i<=N;i++){
+    const a=i/N*Math.PI*2;
+    let amp=0;
+    if(freqData){ const bin=Math.floor((i/N)*(freqData.length*0.55)); amp=(freqData[bin]||0)/255; }
+    // base radius warped by curvature (horn stretch along x)
+    let r=70 + amp*120;
+    const warp=1 + curv*0.6*Math.cos(a*2);   // displacement lobes scaled by W₂ distance
+    r*=warp;
+    // grain from noise / "diffusion variance"
+    r+= (Math.sin(i*12.9+performance.now()*0.004)*p.noise*22);
+    // phase shatter
+    if(phaseBad>0) r+= (Math.random()-0.5)*phaseBad*40;
+    const px=cx+Math.cos(a)*r*(VW/VH*0.62), py=cy+Math.sin(a)*r;
+    i?vx.lineTo(px,py):vx.moveTo(px,py);
+  }
+  vx.closePath();
+  const grad=vx.createRadialGradient(cx,cy,10,cx,cy,260);
+  grad.addColorStop(0,`hsla(${hue},85%,62%,0.9)`);
+  grad.addColorStop(0.7,`hsla(${(hue+40)%360},80%,45%,0.45)`);
+  grad.addColorStop(1,`hsla(${(hue+80)%360},70%,30%,0.05)`);
+  vx.fillStyle=grad; vx.fill();
+  vx.lineWidth=2; vx.strokeStyle= phaseBad>0.15? `rgba(248,113,113,${0.4+phaseBad*0.5})` : `hsla(${hue},90%,72%,0.85)`;
+  vx.stroke();
+  // core
+  vx.beginPath(); vx.arc(cx,cy,8+ (freqData?freqData[2]/255*18:0),0,7);
+  vx.fillStyle=`hsla(${hue},90%,80%,0.95)`; vx.fill();
+}
+
+/* ============================== METERS LOOP ============================== */
+// The low bus is leadLow + phase-delayed sub, both pure sines at sf. Their summed RMS is
+// exactly sqrt((aL^2 + aS^2 + 2*aL*aS*cos phi)/2): max at phi=0, min at phi=180. We normalise
+// the MEASURED <120Hz RMS against that analytic min/max -> a real reinforcing/cancelling value.
+function meters(){
+  const fill=document.getElementById('lowfill'), lowdb=document.getElementById('lowdb'), monoc=document.getElementById('monoc');
+  if(G&&ST.playing){
+    const rms=measureLowRMS(); ST.lowRMS=rms;
+    const db=20*Math.log10(rms+1e-9); ST.lowDb=db;
+    const aL=G.leadLowG.gain.value, aS=G.subG.gain.value;
+    const rmsMax=(aL+aS)/Math.SQRT2, rmsMin=Math.abs(aL-aS)/Math.SQRT2;
+    let monoM=null;
+    if(aS>0.02 && (rmsMax-rmsMin)>1e-4) monoM=Math.max(-1,Math.min(1, 2*(rms-rmsMin)/(rmsMax-rmsMin)-1));
+    ST.mono = monoM==null?0:monoM; ST.monoValid = monoM!=null;
+    const pct=Math.max(2,Math.min(100,(db+60)/60*100));
+    fill.style.width=pct+"%";
+    if(monoM==null){ fill.style.background="var(--amber)"; lowdb.style.color="var(--amber)"; monoc.textContent="raise sub to test"; }
+    else {
+      const col = monoM>0.1?"var(--green)":(monoM<-0.1?"var(--red)":"var(--amber)");
+      fill.style.background=col; lowdb.style.color=col;
+      monoc.textContent = monoM>0.1?"reinforcing ✓":(monoM<-0.1?"cancelling ✕":"partial");
+    }
+    lowdb.textContent=db>-59?db.toFixed(1):"–∞";
+    engpill.classList.add('on'); engpill.querySelector('span:last-child').textContent="engine live · "+Math.round(p_f0())+" Hz";
+  }else{
+    engpill.classList.remove('on'); engpill.querySelector('span:last-child').textContent="engine idle";
+    fill.style.width="2%"; monoc.textContent="—"; ST.monoValid=false;
+  }
+  drawWheel(); drawViz(); drawPad(); drawSpec();
+  if(ST.seq.on) highlightStep();
+  requestAnimationFrame(meters);
+}
+function p_f0(){return morphedPatch().f0;}
+
+/* ============================== GEMMA STAND-IN ============================== */
+const VIBEMAP=[
+  {kw:["swamp","wet","frog","slimy"], A:"frog", B:"whale", t:0.45, drive:45, fizz:15, sub:80},
+  {kw:["metallic","glitch","high","screech","scream","bright"], A:"cicada", B:"hawk", t:0.55, drive:70, fizz:60, sub:50},
+  {kw:["cinematic","deep","rumble","sub","whale","massive"], A:"whale", B:"ele", t:0.4, drive:25, fizz:8, sub:95},
+  {kw:["predator","growl","aggressive","wolf","angry","beast"], A:"wolf", B:"hawk", t:0.5, drive:65, fizz:35, sub:70},
+  {kw:["duck","quack","classic","yoi","nasal"], A:"duck", B:"wolf", t:0.5, drive:40, fizz:25, sub:70}
+];
+function curate(text){
+  text=text.toLowerCase();
+  let best=null, bestN=0;
+  VIBEMAP.forEach(m=>{const n=m.kw.filter(k=>text.includes(k)).length; if(n>bestN){bestN=n;best=m;}});
+  if(!best) best=VIBEMAP[0];
+  setPadOff();
+  ST.A=idx(best.A); ST.B=idx(best.B); ST.t=best.t;
+  ST.drive=best.drive/100; ST.fizz=best.fizz/100; ST.subLvl=best.sub/100;
+  // push to UI
+  document.getElementById('morph').value=best.t*100; document.getElementById('v-morph').textContent=best.t.toFixed(2);
+  document.getElementById('k-drive').value=best.drive; document.getElementById('v-drive').textContent=best.drive+" %";
+  document.getElementById('k-fizz').value=best.fizz; document.getElementById('v-fizz').textContent=best.fizz+" %";
+  document.getElementById('k-sublvl').value=best.sub; document.getElementById('v-sub').textContent=((best.sub-100)/3).toFixed(0)+" dB";
+  refreshMorphLabels(); renderAnimals();
+  if(ST.playing)startGraph(); else applyLive();
+  document.getElementById('vibeout').innerHTML=`Matched ${bestN||0} keyword(s) → blend <b>${ANIMALS[ST.A].nm}</b> × <b>${ANIMALS[ST.B].nm}</b> at t=${best.t}, grit ${best.drive}%. <span style="color:var(--dim)">(keyword heuristic — the real step is a Gemma 4 call)</span>`;
+}
+document.getElementById('vibe').addEventListener('keydown',e=>{if(e.key==='Enter')curate(e.target.value);});
+document.querySelectorAll('.quickvibes button').forEach(b=>b.onclick=()=>{document.getElementById('vibe').value=b.dataset.v;curate(b.dataset.v);});
+
+/* ============================== WAV EXPORT ============================== */
+async function exportWav(){
+  const btn=document.getElementById('export'); btn.textContent="rendering…";
+  const dur=4, sr=44100;
+  const oc=new OfflineAudioContext(2, sr*dur, sr);
+  const p=morphedPatch();
+  const g=buildGraph(oc, oc.destination, p, {voiceSpecs:voiceSpecs(), sampleBuf:(ST.sampleMode==='osc'?ST.sampleBuf:null)});
+  const e=ST.env, vg=1/Math.sqrt(g.voices.length);
+  // A/D/S shape each lead voice; the Release fades the MASTER so the sub releases too
+  g.voices.forEach(V=>{ const gg=V.voice.gain; gg.setValueAtTime(0,0);
+    gg.linearRampToValueAtTime(vg, e.a); gg.linearRampToValueAtTime(0.9*e.s*vg, e.a+e.d); });
+  g.out.gain.setValueAtTime(0,0); g.out.gain.linearRampToValueAtTime(0.5,0.06);
+  g.out.gain.setValueAtTime(0.5, Math.max(0.1, dur-e.r));
+  g.out.gain.linearRampToValueAtTime(0.0, dur-0.005);
+  g.start(0); g.stop(dur);
+  const rendered=await oc.startRendering();
+  const wav=encodeWav(rendered);
+  const url=URL.createObjectURL(new Blob([wav],{type:'audio/wav'}));
+  const a=document.createElement('a'); a.href=url; a.download=`chimera_${ANIMALS[ST.A].key}-x-${ANIMALS[ST.B].key}_t${Math.round(ST.t*100)}.wav`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),2000);
+  btn.textContent="⬇ Render & download chimera (.wav)";
+}
+function encodeWav(buf){
+  const nch=buf.numberOfChannels, len=buf.length, sr=buf.sampleRate;
+  const ab=new ArrayBuffer(44+len*nch*2), dv=new DataView(ab);
+  const wr=(o,s)=>{for(let i=0;i<s.length;i++)dv.setUint8(o+i,s.charCodeAt(i));};
+  wr(0,"RIFF"); dv.setUint32(4,36+len*nch*2,true); wr(8,"WAVE"); wr(12,"fmt ");
+  dv.setUint32(16,16,true); dv.setUint16(20,1,true); dv.setUint16(22,nch,true);
+  dv.setUint32(24,sr,true); dv.setUint32(28,sr*nch*2,true); dv.setUint16(32,nch*2,true); dv.setUint16(34,16,true);
+  wr(36,"data"); dv.setUint32(40,len*nch*2,true);
+  let off=44;
+  for(let i=0;i<len;i++) for(let c=0;c<nch;c++){
+    let s=Math.max(-1,Math.min(1,buf.getChannelData(c)[i])); dv.setInt16(off,s*0x7fff,true); off+=2;
+  }
+  return ab;
+}
+document.getElementById('export').onclick=exportWav;
+
+/* ============================== GRANULAR CLOUD ============================== */
+async function bakeGrain(){
+  if(!AC) return;
+  const dur=2.5, sr=AC.sampleRate, oc=new OfflineAudioContext(1,Math.floor(sr*dur),sr);
+  const p=morphedPatch(), g=buildGraph(oc,oc.destination,p,{voiceSpecs:voiceSpecs(), sampleBuf:(ST.sampleMode==='osc'?ST.sampleBuf:null)});
+  const vg=1/Math.sqrt(g.voices.length); g.voices.forEach(V=>V.voice.gain.setValueAtTime(0.9*vg,0)); g.out.gain.setValueAtTime(0.5,0); g.start(0); g.stop(dur);
+  const b=await oc.startRendering();
+  ST.grainBuf=b; ST.grBufDur=b.duration;
+  const rb=AC.createBuffer(1,b.length,sr), s=b.getChannelData(0), d=rb.getChannelData(0);
+  for(let i=0;i<b.length;i++) d[i]=s[b.length-1-i];
+  ST.grainBufRev=rb;
+  const lbl=document.getElementById('gr-buf'); if(lbl) lbl.textContent='chimera buffer · '+b.duration.toFixed(1)+'s';
+}
+function spawnGrain(t){
+  const fwd=ST.grainBuf; if(!fwd||!G) return;
+  const useRev = ST.grainBufRev && Math.random()<ST.grRev;
+  const buf = useRev?ST.grainBufRev:fwd;
+  const src=AC.createBufferSource(); src.buffer=buf;
+  const semis=ST.grPitch+(Math.random()*2-1)*ST.grPitchJit; src.playbackRate.value=Math.pow(2,semis/12);
+  const dur=Math.max(0.005,ST.grSize/1000);
+  let pos=ST.grPos+(Math.random()*2-1)*ST.grJit; pos=Math.max(0,Math.min(1,pos));
+  const off=Math.max(0,Math.min(buf.duration-dur-0.001, pos*buf.duration));
+  const g=AC.createGain(); g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(0.5,t+dur*0.5); g.gain.linearRampToValueAtTime(0,t+dur); // triangular window
+  const pan=AC.createStereoPanner(); pan.pan.value=(Math.random()*2-1)*ST.grPan;
+  src.connect(g).connect(pan).connect(G.grainBus);
+  try{ src.start(t,off,dur); }catch(e){}
+}
+let grainTimer=null, nextGrainT=0;
+function grainTick(){
+  if(!ST.grainOn||!G||!AC||!ST.grainBuf) return;
+  const ahead=AC.currentTime+0.12;
+  while(nextGrainT<ahead){ spawnGrain(Math.max(nextGrainT,AC.currentTime)); nextGrainT+=1/Math.max(1,ST.grDens); }
+  if(!ST.grFreeze){ ST.grPos=(ST.grPos+0.0006*ST.grDens/24)%1; const s=document.getElementById('gr-pos'); if(s)s.value=ST.grPos*100; }
+}
+async function setGrain(on){
+  ST.grainOn=on;
+  if(on){ if(!ST.playing) startGraph(); if(!ST.grainBuf) await bakeGrain(); nextGrainT=AC.currentTime+0.05; if(!grainTimer) grainTimer=setInterval(grainTick,25); }
+  else { if(grainTimer){clearInterval(grainTimer);grainTimer=null;} }
+  const b=document.getElementById('gr-on'); if(b){b.classList.toggle('on',on); b.textContent=on?'■ grains on':'▶ grain cloud';}
+}
+
+/* ============================== IDM SEQUENCER + EUCLIDEAN ============================== */
+function euclid(k,n){ const r=[]; let bucket=0; k=Math.max(0,Math.min(n,k)); for(let i=0;i<n;i++){ bucket+=k; if(bucket>=n){bucket-=n; r.push(true);} else r.push(false);} return r; }
+function rotate(arr,by){ const n=arr.length; by=((by%n)+n)%n; return arr.slice(n-by).concat(arr.slice(0,n-by)); }
+let seqTimer=null, seqNextT=0, seqStep=0;
+function triggerStep(t,semis,stepDur){
+  const base=morphedPatch();
+  const hjit = ST.humanize? (Math.random()*2-1)*0.4 : 0;
+  const e=ST.env, vg=1/Math.sqrt(G.voices.length);
+  G.voices.forEach(V=>{
+    const semiTot=semis+hjit+(V.spec.semi||0)+(V.spec.cents||0)/100;
+    if(V.sampleSrc) V.sampleSrc.playbackRate.setValueAtTime(Math.pow(2,((ST.oct+ST.noteSt+semiTot))/12),t);
+    else { const f=base.f0*Math.pow(2,semiTot/12); V.carrier.frequency.setValueAtTime(f,t); V.mod.frequency.setValueAtTime(f*base.ratio,t); }
+    const g=V.voice.gain, hold=t+stepDur*ST.seq.gateLen;
+    g.cancelScheduledValues(t); g.setValueAtTime(0.0001,t);
+    g.linearRampToValueAtTime(vg,t+Math.min(0.012,e.a));
+    g.linearRampToValueAtTime(0.9*e.s*vg,t+Math.min(0.012,e.a)+e.d);
+    g.setValueAtTime(0.9*e.s*vg,Math.max(hold,t+0.03));
+    g.linearRampToValueAtTime(0.0001,Math.max(hold,t+0.03)+0.03);
+  });
+}
+function glitchStep(t,stepDur){
+  const sub=Math.min(0.06,stepDur/4), vg=1/Math.sqrt(G.voices.length);
+  G.voices.forEach(V=>{ const g=V.voice.gain;
+    for(let k=0;k<3;k++){ g.setValueAtTime(0.9*vg,t+k*sub); g.linearRampToValueAtTime(0.0001,t+k*sub+sub*0.8); } });
+  if(ST.grainBuf) for(let k=0;k<4;k++) spawnGrain(t+k*0.018);
+}
+function seqTick(){
+  if(!ST.seq.on||!G||!AC) return;
+  const stepDur=(60/ST.seq.bpm)/4;
+  while(seqNextT<AC.currentTime+0.12){
+    const i=seqStep%ST.seq.steps;
+    const swing=(i%2===1)?ST.seq.swing*stepDur*0.5:0;
+    const ht = ST.humanize? (Math.random()*2-1)*0.004 : 0;
+    const t=seqNextT+swing+ht;
+    const cell=ST.seq.note[i];
+    if(cell&&cell.gate) triggerStep(t,cell.pitch,stepDur);
+    if(ST.seq.glitch[i]) glitchStep(t,stepDur);
+    ST.seq.cur=i; seqStep++; seqNextT+=stepDur;
+  }
+}
+function seqStart(){ if(!AC) return; if(!ST.playing) startGraph(); ST.seq.on=true; seqNextT=AC.currentTime+0.06; seqStep=0; seqTimer=setInterval(seqTick,25);
+  const b=document.getElementById('seq-on'); if(b){b.classList.add('on');b.textContent='■ stop';} }
+function seqStop(){ ST.seq.on=false; if(seqTimer){clearInterval(seqTimer);seqTimer=null;} ST.seq.cur=-1;
+  if(G&&AC){ const e=ST.env, vg=1/Math.sqrt(G.voices.length); G.voices.forEach(V=>{ V.voice.gain.cancelScheduledValues(AC.currentTime); V.voice.gain.setTargetAtTime(0.9*e.s*vg,AC.currentTime,0.05); }); }
+  const b=document.getElementById('seq-on'); if(b){b.classList.remove('on');b.textContent='▶ play riff';} }
+
+/* ============================== CHAOS / HUMANIZE (seeded) ============================== */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let rng=mulberry32(ST.seed);
+function reseed(s){ ST.seed=(s|0)||1; rng=mulberry32(ST.seed); const r=document.getElementById('seedval'); if(r)r.textContent=ST.seed; }
+const reflect=x=> x<0?-x : x>1?2-x : x;
+let du=0,dv=0;
+function chaosTick(){
+  if(ST.chaos<=0||!ST.playing) return;
+  const rate=ST.chaos*0.05;
+  if(ST.pad){ du=(du+(rng()-0.5)*rate)*0.85; dv=(dv+(rng()-0.5)*rate)*0.85; ST.uv.u=reflect(ST.uv.u+du); ST.uv.v=reflect(ST.uv.v+dv); }
+  else { ST.t=reflect(ST.t+(rng()-0.5)*rate); const m=document.getElementById('morph'); if(m)m.value=ST.t*100; document.getElementById('v-morph').textContent=ST.t.toFixed(2); }
+  updateChips(); applyLive();
+  if(rng()<ST.chaos*0.025){ ST.B=Math.floor(rng()*ANIMALS.length); refreshMorphLabels(); renderAnimals(); if(ST.playing)startGraph(); }
+}
+
+/* ============================== SPECTROGRAM (shows OT formant displacement) ============================== */
+const specCv=document.getElementById('spec'), scx=specCv?specCv.getContext('2d'):null;
+const specOff=document.createElement('canvas'); specOff.width=260; specOff.height=150; const sox=specOff.getContext('2d');
+let specData=null; const FMIN=40,FMAX=16000, LMIN=Math.log(FMIN),LMAX=Math.log(FMAX);
+const xForF=(f,w)=>(Math.log(Math.max(FMIN,Math.min(FMAX,f)))-LMIN)/(LMAX-LMIN)*w;
+function specColor(v){ if(v<=0.02) return 'rgba(11,5,18,1)'; const hue=210-v*210; return `hsl(${hue},92%,${18+v*48}%)`; }
+function drawSpec(){
+  if(!scx) return;
+  if(!(G&&ST.playing)){ scx.fillStyle=themeColor('--panel2'); scx.fillRect(0,0,specCv.width,specCv.height);
+    scx.fillStyle=themeColor('--dim'); scx.font='11px ui-monospace'; scx.textAlign='center'; scx.fillText('play to see formants migrate',specCv.width/2,specCv.height/2); return; }
+  if(!specData||specData.length!==G.spec.frequencyBinCount) specData=new Uint8Array(G.spec.frequencyBinCount);
+  G.spec.getByteFrequencyData(specData);
+  const w=specOff.width,h=specOff.height, nyq=AC.sampleRate/2;
+  sox.globalCompositeOperation='copy'; sox.drawImage(specOff,-1,0); sox.globalCompositeOperation='source-over';
+  for(let y=0;y<h;y++){ const f=Math.exp(LMIN+(1-y/h)*(LMAX-LMIN)); const bin=Math.round(f/nyq*specData.length); const v=(specData[bin]||0)/255; sox.fillStyle=specColor(v); sox.fillRect(w-1,y,1,1); }
+  scx.imageSmoothingEnabled=false; scx.drawImage(specOff,0,0,specCv.width,specCv.height);
+  // formant overlay (the OT proof)
+  const W=specCv.width,H=specCv.height; const cur=morphedPatch();
+  if(!ST.pad){ const A=ANIMALS[ST.A],B=ANIMALS[ST.B], n=Math.min(A.F.length,B.F.length);
+    scx.lineWidth=1; scx.setLineDash([3,3]);
+    for(let i=0;i<n;i++){ scx.strokeStyle=`hsla(${A.hue},80%,60%,.5)`; line(scx,xForF(A.F[i][0],W),H); scx.strokeStyle=`hsla(${B.hue},80%,60%,.5)`; line(scx,xForF(B.F[i][0],W),H); }
+    scx.setLineDash([]); }
+  scx.lineWidth=2.4; scx.strokeStyle=themeColor('--ink');
+  cur.F.forEach(f=>{ line(scx,xForF(f[0],W),H); });
+  // axis ticks
+  scx.fillStyle=themeColor('--dim'); scx.font='9px ui-monospace'; scx.textAlign='center';
+  [100,1000,10000].forEach(f=>scx.fillText(f>=1000?(f/1000)+'k':f, xForF(f,W), H-2));
+}
+function line(c,x,h){ c.beginPath(); c.moveTo(x,0); c.lineTo(x,h-12); c.stroke(); }
+
+/* ============================== SAMPLE IMPORT (audio-file voice) ============================== */
+// Fully offline (decodeAudioData). Two honest modes:
+//  (a) raw-sample-as-oscillator -> loop the buffer as the FM-core replacement, still through the formant/wub/power stack
+//  (b) formant-extract hybrid   -> estimate f0 + top-3 spectral peaks into an 8th ANIMALS entry (heuristic fit, NOT the sample)
+function _fft(re,im){ const n=re.length;
+  for(let i=1,j=0;i<n;i++){ let bit=n>>1; for(;j&bit;bit>>=1) j^=bit; j^=bit;
+    if(i<j){ const tr=re[i];re[i]=re[j];re[j]=tr; const ti=im[i];im[i]=im[j];im[j]=ti; } }
+  for(let len=2;len<=n;len<<=1){ const ang=-2*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang);
+    for(let i=0;i<n;i+=len){ let cr=1,ci=0;
+      for(let k=0;k<len/2;k++){ const ur=re[i+k],ui=im[i+k];
+        const vr=re[i+k+len/2]*cr-im[i+k+len/2]*ci, vi=re[i+k+len/2]*ci+im[i+k+len/2]*cr;
+        re[i+k]=ur+vr; im[i+k]=ui+vi; re[i+k+len/2]=ur-vr; im[i+k+len/2]=ui-vi;
+        const ncr=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=ncr; } } } }
+function _estF0(ch,sr){                                   // autocorrelation on the loudest window (50..1000 Hz)
+  const W=Math.min(4096, 1<<Math.max(8,Math.floor(Math.log2(Math.max(256,ch.length)))));
+  let bestOff=0,bestE=-1;
+  for(let o=0;o+W<=ch.length;o+=W){ let e=0; for(let i=0;i<W;i++) e+=ch[o+i]*ch[o+i]; if(e>bestE){bestE=e;bestOff=o;} }
+  const x=ch.subarray(bestOff,bestOff+Math.min(W,ch.length-bestOff));
+  const minLag=Math.max(2,Math.floor(sr/1000)), maxLag=Math.min(x.length-1,Math.floor(sr/50));
+  let best=-1,bestLag=0;
+  for(let lag=minLag;lag<=maxLag;lag++){ let a=0; for(let i=0;i+lag<x.length;i++) a+=x[i]*x[i+lag]; if(a>best){best=a;bestLag=lag;} }
+  return bestLag>0? sr/bestLag : 200;
+}
+function _estPeaks(ch,sr){                                // averaged Hann-windowed FFT magnitude -> top-3 peaks in 200..8000 Hz
+  const N=4096, re=new Float64Array(N), im=new Float64Array(N), mag=new Float64Array(N/2);
+  let frames=0;
+  for(let o=0;o+N<=ch.length && frames<24;o+=Math.floor(N*0.75)){
+    for(let i=0;i<N;i++){ const w=0.5-0.5*Math.cos(2*Math.PI*i/(N-1)); re[i]=ch[o+i]*w; im[i]=0; }
+    _fft(re,im); for(let i=0;i<N/2;i++) mag[i]+=Math.hypot(re[i],im[i]); frames++;
+  }
+  if(frames===0){ for(let i=0;i<N;i++){ const w=(i<ch.length)?(0.5-0.5*Math.cos(2*Math.PI*i/(N-1))):0; re[i]=(i<ch.length?ch[i]:0)*w; im[i]=0; }
+    _fft(re,im); for(let i=0;i<N/2;i++) mag[i]=Math.hypot(re[i],im[i]); }
+  const binHz=sr/N, lo=Math.max(1,Math.floor(200/binHz)), hi=Math.min(N/2-2,Math.floor(8000/binHz));
+  const peaks=[];
+  for(let i=lo+1;i<hi;i++){ if(mag[i]>mag[i-1]&&mag[i]>=mag[i+1]) peaks.push({f:i*binHz,m:mag[i]}); }
+  peaks.sort((a,b)=>b.m-a.m);
+  const top=peaks.slice(0,3); top.sort((a,b)=>a.f-b.f);
+  const mx=Math.max(1e-9,...top.map(p=>p.m));
+  return top.map((p,i)=>[Math.round(p.f), 6+i*2, +Math.max(0.25,p.m/mx).toFixed(2)]);
+}
+function makeSampleAnimal(buf){
+  const ch=buf.getChannelData(0), sr=buf.sampleRate;
+  const f0=Math.max(40,Math.min(800, Math.round(_estF0(ch,sr))));
+  let F=_estPeaks(ch,sr);
+  if(!F||!F.length) F=[[Math.round(Math.min(8000,f0*3)),7,1],[Math.round(Math.min(12000,f0*5)),8,.6],[Math.round(Math.min(15000,f0*7)),9,.3]];
+  while(F.length<2) F.push([Math.min(15000,(F.length?F[F.length-1][0]*2:1000)),8,.4]);
+  return {key:'sample', nm:'Your Sample', emoji:'\U0001F3A4', f0, wave:'sawtooth', ratio:1.0, fm:0.4, noise:0.2, hue:280, F, sample:true};
+}
+function ensureSampleAnimal(entry){                        // keep exactly ONE 'sample' animal; extracted params only
+  const ex=ANIMALS.findIndex(a=>a.key==='sample');
+  if(ex>=0) ANIMALS[ex]=entry; else ANIMALS.push(entry);
+  ST.sampleAnimal=entry; renderAnimals();
+}
+async function importSampleFile(f){
+  const st=document.getElementById('samp-status'), nt=document.getElementById('samp-note');
+  try{
+    st.textContent='decoding…';
+    const ab=await f.arrayBuffer();
+    if(!AC){ AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended')AC.resume(); }
+    const buf=await AC.decodeAudioData(ab.slice(0));
+    ST.sampleBuf=buf;
+    if(ST.importMode==='osc'){
+      ST.sampleMode='osc';
+      st.textContent='raw-sample osc · '+buf.duration.toFixed(1)+'s';
+      if(ST.playing) startGraph();
+    } else {
+      const entry=makeSampleAnimal(buf); ensureSampleAnimal(entry);
+      ST.A=idx('sample'); setPadOff(); refreshMorphLabels(); renderAnimals();
+      st.textContent='formant voice · f0≈'+entry.f0+' Hz';
+      if(ST.playing) startGraph(); else updateChips();
+    }
+    if(nt) nt.style.display='';
+  }catch(err){ st.textContent='decode failed'; }
+}
+
+/* ============================== MIDI / KEYBOARD ============================== */
+const KEYMAP={'z':-12,'s':-11,'x':-10,'d':-9,'c':-8,'v':-6,'g':-5,'b':-4,'h':-3,'n':-2,'j':-1,'m':0,'q':0,'2':1,'w':2,'3':3,'e':4,'r':5,'5':6,'t':7,'6':8,'y':9,'7':10,'u':11,'i':12};
+function setNote(semi,accent){
+  ST.noteSt=semi; updateChips();
+  if(ST.genomeMode&&GARDEN.perNote&&GARDEN.branches&&GARDEN.branches.length){
+    const b=GARDEN.branches[((semi%12)+12)%12];
+    const cur=new Float32Array(GN);
+    for(let i=0;i<GN;i++) cur[i]=clamp01(GARDEN.seed[i]+(b.g[i]-GARDEN.seed[i])*GARDEN.amount*0.7);
+    setGenome(cur,{glide:0.03});
+  }
+  if(ST.playing){ applyLive(); const t=AC.currentTime, e=ST.env, vg=1/Math.sqrt(G.voices.length);
+    G.voices.forEach(V=>{ const g=V.voice.gain; g.cancelScheduledValues(t); g.setValueAtTime(Math.max(0.001,g.value),t);
+      g.linearRampToValueAtTime((accent||1.0)*vg,t+Math.min(0.02,e.a)); g.linearRampToValueAtTime(0.9*e.s*vg,t+Math.min(0.02,e.a)+e.d); });
+  } else startGraph();
+  const kb=document.getElementById('kbnote'); if(kb){kb.textContent=(semi>0?'+':'')+semi+' st'; kb.style.color=`hsl(${((semi*30)%360+360)%360},90%,70%)`;}
+}
+window.addEventListener('keydown',e=>{
+  if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName)) return;
+  if(e.repeat) return; const k=e.key.toLowerCase();
+  if(k in KEYMAP){ e.preventDefault(); setNote(KEYMAP[k]); }
+});
+window.addEventListener('keyup',e=>{
+  const k=e.key.toLowerCase();
+  if(k in KEYMAP && ST.genomeMode && GARDEN.perNote){
+    setGenome(GARDEN.seed,{glide:0.05});      // release: settle back to the seed
+  }
+});
+function initMIDI(){
+  const el=document.getElementById('midistat'); if(!el) return;
+  if(!navigator.requestMIDIAccess){ el.textContent='MIDI: unavailable (Web MIDI not present — native shell bridges instead)'; return; }
+  navigator.requestMIDIAccess().then(acc=>{ el.innerHTML='MIDI: <span style="color:var(--green)">ready</span>';
+    for(const inp of acc.inputs.values()) inp.onmidimessage=m=>{ const [st,d1,d2]=m.data; if((st&0xf0)===0x90&&d2>0){ __midiNote(d1,d2,st&0x0f); } };
+  }).catch(()=>{ el.textContent='MIDI: access denied'; });
+}
+/* DRUM PADS → the genome instrument. Each drum maps to a DISTINCT pitch class, so with
+   per-note branches ON every pad leans the genome toward its own branch: the kit plays
+   the creature. Stated mapping (musical choice, not learned): kick=root, toms walk up,
+   cymbals sit in the upper classes. [semitone, accent, gate ms] — drums hold no keys,
+   so a timer settles the genome back to the seed after the gate. */
+const DRUMMAP={36:[-12,1.25,220],35:[-12,1.25,220],38:[2,1.1,160],40:[2,1.1,160],37:[3,0.9,120],
+  42:[10,0.7,90],44:[10,0.7,80],46:[11,0.85,280],22:[10,0.7,90],23:[2,0.6,220],
+  41:[-8,1.0,240],43:[-8,1.0,240],
+  45:[-5,1.0,240],47:[-5,1.0,240],48:[-3,1.0,220],50:[-3,1.0,220],
+  49:[5,1.15,650],55:[5,1.1,550],57:[5,1.15,650],52:[5,1.0,550],51:[6,0.8,320],53:[6,0.85,320],59:[6,0.8,320]};
+// 22 = hat closed edge, 23 = brush sweep (Pearl Mimic Pro; non-GM). Mimic sends ONLY closed-hat
+// notes — openness arrives as CC#4 (0=open..127=closed), so the hat gate stretches with the pedal.
+let _hatOpen=0;
+window.__hatPedal=function(val){ _hatOpen=1-Math.min(1,val/127); };
+let _drumRel=0;
+window.__midiNote=function(note,vel,ch){
+  const v=Math.min(1,vel/127), el=document.getElementById('midistat');
+  if(ch===9||DRUMMAP[note]){                       // GM percussion channel or recognized drum
+    const m=DRUMMAP[note]||[((note%12)+12)%12,1,160];
+    const isHat=(note===42||note===44||note===46||note===22);
+    const gate=isHat?Math.round(80+380*_hatOpen):m[2];   // open pedal = the hat branch rings longer
+    setNote(m[0],(0.55+v*0.65)*m[1]*(isHat?(0.85+0.3*_hatOpen):1));
+    clearTimeout(_drumRel);
+    _drumRel=setTimeout(()=>{ if(ST.genomeMode&&GARDEN.perNote) setGenome(GARDEN.seed,{glide:0.05}); },gate);
+    if(el) el.innerHTML='MIDI: <span style="color:var(--green)">drums</span> · note '+note+' vel '+vel;
+  } else { setNote(note-60,0.6+v*0.6); if(el) el.innerHTML='MIDI: <span style="color:var(--green)">live</span> · note '+note; }
+};
+window.__midiChoke=function(note,pressure){    // cymbal grab: release the branch lean right now
+  if(pressure<32) return;
+  clearTimeout(_drumRel);
+  if(ST.genomeMode&&GARDEN.perNote) setGenome(GARDEN.seed,{glide:0.02});
+};
+
+/* ============================== LAB RACK BINDINGS ============================== */
+const $=id=>document.getElementById(id);
+// polyphony (unison + chord)
+bind('k-voices',v=>{ST.voices=v|0;$('v-voices').textContent=v;if(ST.playing)startGraph();});
+bind('k-detune',v=>{ST.detune=v;$('v-detune').textContent=v+' \u00A2';retuneVoices();});
+bind('k-spread',v=>{ST.spread=v/100;$('v-spread').textContent=v+' %';retuneVoices();});
+document.querySelectorAll('#chordseg button').forEach(b=>b.onclick=()=>{ ST.chord=b.dataset.chord; document.querySelectorAll('#chordseg button').forEach(x=>x.classList.toggle('on',x===b)); if(ST.playing)startGraph(); });
+// sample import (audio-file voice)
+$('samp-load').onclick=()=>$('samp-file').click();
+$('samp-file').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) importSampleFile(f); e.target.value=''; });
+document.querySelectorAll('#sampseg button').forEach(b=>b.onclick=()=>{ ST.importMode=b.dataset.smode; document.querySelectorAll('#sampseg button').forEach(x=>x.classList.toggle('on',x===b)); if(b.dataset.smode==='formant'&&ST.sampleMode==='osc'){ST.sampleMode='off';if(ST.playing)startGraph();} });
+// granular
+$('gr-on').onclick=()=>setGrain(!ST.grainOn);
+$('gr-freeze').onclick=function(){ST.grFreeze=!ST.grFreeze;this.classList.toggle('on',ST.grFreeze);this.textContent=ST.grFreeze?'scanning off':'freeze scan';};
+$('gr-bake').onclick=()=>bakeGrain();
+bind('gr-pos',v=>{ST.grPos=v/100;$('v-grpos').textContent=v+' %';});
+bind('gr-jit',v=>{ST.grJit=v/100;$('v-grjit').textContent=v+' %';});
+bind('gr-size',v=>{ST.grSize=v;$('v-grsize').textContent=v+' ms';});
+bind('gr-dens',v=>{ST.grDens=v;$('v-grdens').textContent=v+' /s';});
+bind('gr-pitch',v=>{ST.grPitch=v;$('v-grpitch').textContent=(v>0?'+':'')+v+' st';});
+bind('gr-pjit',v=>{ST.grPitchJit=v;$('v-grpjit').textContent=v+' st';});
+bind('gr-pan',v=>{ST.grPan=v/100;$('v-grpan').textContent=v+' %';});
+bind('gr-rev',v=>{ST.grRev=v/100;$('v-grrev').textContent=v+' %';});
+// sequencer
+$('seq-on').onclick=()=> ST.seq.on?seqStop():seqStart();
+bind('seq-bpm',v=>{ST.seq.bpm=v;$('v-bpm').textContent=v;});
+bind('seq-swing',v=>{ST.seq.swing=v/100;$('v-swing').textContent=v+' %';});
+bind('seq-gate',v=>{ST.seq.gateLen=v/100;$('v-gate').textContent=v+' %';});
+$('eu-gen').onclick=()=>{ const pat=rotate(euclid(+$('eu-k').value,16),+$('eu-rot').value); ST.seq.note.forEach((c,i)=>c.gate=pat[i]); renderSeq(); };
+$('eu-glitch').onclick=()=>{ const pat=rotate(euclid(+$('eu-k').value,16),+$('eu-rot').value); ST.seq.glitch=pat.slice(); renderSeq(); };
+$('seq-clear').onclick=()=>{ ST.seq.note.forEach(c=>{c.gate=false;c.pitch=0;}); ST.seq.glitch=Array(16).fill(false); renderSeq(); };
+function renderSeq(){
+  const g=$('seqgrid'); if(!g)return; g.innerHTML='';
+  ST.seq.note.forEach((c,i)=>{ const d=document.createElement('div');
+    d.style.cssText='aspect-ratio:1;border:1px solid var(--line);border-radius:5px;cursor:pointer;font-family:var(--mono);font-size:9px;display:flex;align-items:center;justify-content:center;'+(c.gate?'background:var(--violet);color:#fff':'background:var(--panel2);color:var(--dim)');
+    d.textContent=c.gate?(c.pitch>0?'+'+c.pitch:c.pitch):'·';
+    d.onclick=()=>{ c.gate=!c.gate; renderSeq(); };
+    d.onwheel=e=>{ e.preventDefault(); c.pitch=Math.max(-24,Math.min(24,c.pitch+(e.deltaY<0?1:-1))); c.gate=true; renderSeq(); };
+    g.appendChild(d); });
+  const gr=$('glitchrow'); gr.innerHTML='';
+  ST.seq.glitch.forEach((on,i)=>{ const d=document.createElement('div');
+    d.style.cssText='height:14px;border:1px solid var(--line);border-radius:4px;cursor:pointer;'+(on?'background:var(--red)':'background:var(--panel2)');
+    d.onclick=()=>{ ST.seq.glitch[i]=!ST.seq.glitch[i]; renderSeq(); };
+    gr.appendChild(d); });
+}
+function highlightStep(){ const g=$('seqgrid'),gr=$('glitchrow'); if(!g)return;
+  for(let i=0;i<g.children.length;i++) g.children[i].style.boxShadow=(i===ST.seq.cur?'0 0 0 2px var(--cyan)':'none');
+  for(let i=0;i<gr.children.length;i++) gr.children[i].style.boxShadow=(i===ST.seq.cur?'0 0 0 2px var(--cyan)':'none'); }
+// FX rack
+$('crush-on').onclick=function(){ ST.crushOn=!ST.crushOn; setCrush(ST.crushOn); this.classList.toggle('on',ST.crushOn); this.textContent=ST.crushOn?'■ bitcrush on':'▶ bitcrush + SRR'; };
+bind('crush-bits',v=>{ST.crushBits=v;$('v-bits').textContent=v+' bit';});
+bind('crush-down',v=>{ST.crushDown=v;$('v-down').textContent=v+'×';});
+bind('space-wet',v=>{ST.spaceWet=v/100;$('v-wet').textContent=v+' %'; if(G&&AC)G.spaceSend.gain.setTargetAtTime(ST.spaceWet,AC.currentTime,0.05);});
+bind('verb-decay',v=>{ST.verbDecay=v/10;$('v-decay').textContent=(v/10).toFixed(1); if(G&&AC)G.verb.buffer=makeIR(AC,2.0,ST.verbDecay);});
+bind('delay-ms',v=>{ST.delayMs=v;$('v-dms').textContent=v+' ms'; if(G&&AC)G.dly.delayTime.setTargetAtTime(v/1000,AC.currentTime,0.05);});
+bind('delay-fb',v=>{ST.delayFB=v/100;$('v-dfb').textContent=v+' %'; if(G&&AC)G.dfb.gain.setTargetAtTime(Math.min(0.85,ST.delayFB),AC.currentTime,0.05);});
+// chaos
+bind('ch-chaos',v=>{ST.chaos=v/100;$('v-chaos').textContent=v+' %';});
+bind('ch-hum',v=>{ST.humanize=v/100;$('v-hum').textContent=v+' %';});
+$('reseed').onclick=()=>{ reseed(Math.floor(Math.random()*99999)+1); glitchBurst($('reseed').closest('.card'),1); };
+$('chaos-lock').onclick=function(){ ST.chaos=0; $('ch-chaos').value=0; $('v-chaos').textContent='0 %'; this.classList.add('on'); setTimeout(()=>this.classList.remove('on'),400); };
+// keyboard strip
+function renderKb(){ const s=$('kbstrip'); if(!s)return; s.innerHTML='';
+  for(let n=-12;n<=12;n++){ const d=document.createElement('div'); const black=[1,3,6,8,10].includes(((n%12)+12)%12);
+    d.style.cssText='flex:1;border:1px solid #0006;border-radius:0 0 3px 3px;cursor:pointer;'+(black?'background:#1a1d23':'background:#c9cdd6')+(n===0?';box-shadow:inset 0 -3px 0 var(--cyan)':'');
+    d.onpointerdown=()=>setNote(n); s.appendChild(d); } }
+
+/* ============================== POSTER EXPORT ============================== */
+function dl(name,text,type){ const u=URL.createObjectURL(new Blob([text],{type:type||'application/octet-stream'})); const a=document.createElement('a'); a.href=u; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(u),1500); }
+function drawThemePoster(c,w,h){
+  c.fillStyle=themeColor('--bg'); c.fillRect(0,0,w,h);
+  [['--glow1',w*0.22,h*0.26],['--glow2',w*0.8,h*0.3],['--glow3',w*0.5,h*0.86]].forEach(([k,bx,by])=>{ const col=themeColor(k); if(col==='transparent')return;
+    const g=c.createRadialGradient(bx,by,10,bx,by,w*0.42); g.addColorStop(0,col); g.addColorStop(1,'transparent'); c.globalAlpha=0.5; c.fillStyle=g; c.fillRect(0,0,w,h); });
+  c.globalAlpha=1;
+  // scanlines + vignette
+  c.fillStyle='rgba(0,0,0,.18)'; for(let y=0;y<h;y+=3) c.fillRect(0,y,w,1);
+  const vg=c.createRadialGradient(w/2,h/2,h*0.3,w/2,h/2,w*0.7); vg.addColorStop(0,'transparent'); vg.addColorStop(1,'rgba(0,0,0,.45)'); c.fillStyle=vg; c.fillRect(0,0,w,h);
+}
+function gradText(c,txt,x,y,size){ c.font='800 '+size+'px system-ui,"Arial Black",Impact,sans-serif'; c.textBaseline='alphabetic';
+  const tw=c.measureText(txt).width; const g=c.createLinearGradient(x,0,x+tw,0);
+  g.addColorStop(0,themeColor('--pink')); g.addColorStop(0.5,themeColor('--amber')); g.addColorStop(1,themeColor('--cyan'));
+  c.fillStyle=g; c.fillText(txt,x,y); return tw; }
+function paintPosterBio(){
+  const w=1600,h=900, cv2=document.createElement('canvas'); cv2.width=w;cv2.height=h; const c=cv2.getContext('2d');
+  drawThemePoster(c,w,h);
+  gradText(c,'BIO-BASS CHIMERA',70,120,64);
+  c.fillStyle=themeColor('--dim'); c.font='22px ui-monospace,monospace';
+  c.fillText(ANIMALS[ST.A].nm+'  ×  '+ANIMALS[ST.B].nm+'   ·   t='+ST.t.toFixed(2)+'   ·   '+document.body.dataset.theme,72,160);
+  // live sculpture inset
+  const iv=document.getElementById('viz'); const ix=70,iy=210,iw=900,ih=520;
+  c.save(); c.strokeStyle='#fff'; c.lineWidth=3; c.strokeRect(ix-2,iy-2,iw+4,ih+4);
+  c.fillStyle='#05070b'; c.fillRect(ix,iy,iw,ih); try{c.drawImage(iv,ix,iy,iw,ih);}catch(e){} c.restore();
+  // readouts
+  const p=morphedPatch(); const rows=[
+    ['f₀',Math.round(p.f0)+' Hz'],['sub',Math.round(subFreq(p.f0))+' Hz'],['OT displacement',ST.wd.toFixed(2)],
+    ['low end',(ST.lowDb>-59?ST.lowDb.toFixed(1):'–∞')+' dB '+(ST.monoValid?(ST.mono>0.1?'reinforcing ✓':(ST.mono<-0.1?'cancelling ✕':'partial')):'')],
+    ['grit',Math.round(ST.drive*100)+'%  ·  wet '+Math.round(ST.spaceWet*100)+'%'],['seed',ST.seed+'  ·  genome '+(document.getElementById('genome').textContent)]];
+  let ry=250; c.textBaseline='alphabetic';
+  rows.forEach(([k,v])=>{ c.font='15px ui-monospace,monospace'; c.fillStyle=themeColor('--dim'); c.fillText(k.toUpperCase(),1010,ry);
+    c.font='600 26px ui-monospace,monospace'; c.fillStyle=themeColor('--ink'); c.fillText(v,1010,ry+30); ry+=92; });
+  // honesty footer
+  c.font='14px ui-monospace,monospace'; c.fillStyle=themeColor('--dim');
+  c.fillText('live DSP, not a model · OT / heuristic stand-ins labeled · self-contained, offline Web Audio',72,h-40);
+  c.fillText('Bio-Bass Chimera Lab',72,h-18);
+  cv2.toBlob(b=>{ const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download='chimera_'+ANIMALS[ST.A].key+'-x-'+ANIMALS[ST.B].key+'_t'+Math.round(ST.t*100)+'.png'; a.click(); setTimeout(()=>URL.revokeObjectURL(u),1500); },'image/png');
+}
+document.getElementById('poster').onclick=paintPosterBio;
+
+/* ============================== PATCH SAVE / LOAD / SHARE ============================== */
+const clampv=(v,a,b,d)=> (typeof v==='number'&&isFinite(v))?Math.max(a,Math.min(b,v)):d;
+function serializePatch(){ const s=ST; return {v:2,app:'biobass',
+  A:s.A,B:s.B,t:s.t,oct:s.oct,phase:s.phase,subLvl:s.subLvl,drive:s.drive,ott:s.ott,fizz:s.fizz,wubRate:s.wubRate,wubDepth:s.wubDepth,glide:s.glide,
+  env:{a:s.env.a,d:s.env.d,s:s.env.s,r:s.env.r},corners:s.corners.slice(),uv:{u:s.uv.u,v:s.uv.v},pad:s.pad,
+  crushOn:s.crushOn,crushBits:s.crushBits,crushDown:s.crushDown,spaceWet:s.spaceWet,verbDecay:s.verbDecay,delayMs:s.delayMs,delayFB:s.delayFB,
+  grPos:s.grPos,grJit:s.grJit,grSize:s.grSize,grDens:s.grDens,grPitch:s.grPitch,grPitchJit:s.grPitchJit,grPan:s.grPan,grRev:s.grRev,
+  seq:{bpm:s.seq.bpm,swing:s.seq.swing,gateLen:s.seq.gateLen,note:s.seq.note.map(c=>({gate:c.gate,pitch:c.pitch})),glitch:s.seq.glitch.slice()},
+  voices:s.voices,detune:s.detune,spread:s.spread,chord:s.chord,
+  sampleAnimal: s.sampleAnimal ? {nm:s.sampleAnimal.nm,f0:s.sampleAnimal.f0,wave:s.sampleAnimal.wave,ratio:s.sampleAnimal.ratio,fm:s.sampleAnimal.fm,noise:s.sampleAnimal.noise,hue:s.sampleAnimal.hue,F:s.sampleAnimal.F.map(x=>x.slice()),sample:true} : null,
+  seed:s.seed,chaos:s.chaos,humanize:s.humanize}; }
+function syncUI(){
+  const padWas=ST.pad, uvWas={...ST.uv};
+  const d=(id,v)=>{const e=$(id); if(e){e.value=v; e.dispatchEvent(new Event('input'));}};
+  d('morph',ST.t*100); d('k-wub',ST.wubRate*10); d('k-wubd',ST.wubDepth*100); d('k-oct',ST.oct); d('k-glide',ST.glide*1000);
+  d('k-phase',ST.phase); d('k-sublvl',ST.subLvl*100); d('k-drive',ST.drive*100); d('k-ott',ST.ott*100); d('k-fizz',ST.fizz*100);
+  d('k-ea',ST.env.a*1000); d('k-ed',ST.env.d*1000); d('k-es',ST.env.s*100); d('k-er',ST.env.r*1000);
+  d('crush-bits',ST.crushBits); d('crush-down',ST.crushDown); d('space-wet',ST.spaceWet*100); d('verb-decay',ST.verbDecay*10); d('delay-ms',ST.delayMs); d('delay-fb',ST.delayFB*100);
+  d('gr-pos',ST.grPos*100); d('gr-jit',ST.grJit*100); d('gr-size',ST.grSize); d('gr-dens',ST.grDens); d('gr-pitch',ST.grPitch); d('gr-pjit',ST.grPitchJit); d('gr-pan',ST.grPan*100); d('gr-rev',ST.grRev*100);
+  d('seq-bpm',ST.seq.bpm); d('seq-swing',ST.seq.swing*100); d('seq-gate',ST.seq.gateLen*100);
+  d('ch-chaos',ST.chaos*100); d('ch-hum',ST.humanize*100);
+  d('k-voices',ST.voices); d('k-detune',ST.detune); d('k-spread',ST.spread*100);
+  document.querySelectorAll('#chordseg button').forEach(x=>x.classList.toggle('on',x.dataset.chord===ST.chord));
+  ST.pad=padWas; ST.uv=uvWas;                              // morph dispatch calls setPadOff — restore
+  const pt=$('padtoggle'); if(pt){pt.classList.toggle('on',ST.pad); pt.textContent='pad: '+(ST.pad?'on':'off');}
+  const cb=$('crush-on'); if(cb){cb.classList.toggle('on',ST.crushOn); cb.textContent=ST.crushOn?'■ bitcrush on':'▶ bitcrush + SRR';}
+  updateGenome();
+}
+function applyPatch(p){
+  if(!p||p.app!=='biobass') return false;
+  const s=ST;
+  // reconstruct an imported 'sample' animal from EXTRACTED params only (never audio) before clamping A/B
+  if(p.sampleAnimal && Array.isArray(p.sampleAnimal.F)){ const sa=p.sampleAnimal;
+    ensureSampleAnimal({key:'sample',nm:String(sa.nm||'Your Sample').slice(0,24),emoji:'🎤',
+      f0:clampv(sa.f0,40,800,200), wave:(sa.wave==='sine'?'sine':'sawtooth'),
+      ratio:clampv(sa.ratio,0.25,4,1), fm:clampv(sa.fm,0,1.5,0.4), noise:clampv(sa.noise,0,1,0.2), hue:clampv(sa.hue,0,360,280),
+      F:sa.F.slice(0,NF).map(f=>[clampv(f&&f[0],40,16000,1000),clampv(f&&f[1],1,20,7),clampv(f&&f[2],0,1,0.5)]), sample:true}); }
+  s.A=clampv(p.A,0,ANIMALS.length-1,0)|0; s.B=clampv(p.B,0,ANIMALS.length-1,1)|0;
+  s.t=clampv(p.t,0,1,0); s.oct=clampv(p.oct,-24,12,0)|0; s.phase=clampv(p.phase,0,360,0);
+  s.subLvl=clampv(p.subLvl,0,1,0.7); s.drive=clampv(p.drive,0,1,0.35); s.ott=clampv(p.ott,0,1,0.4); s.fizz=clampv(p.fizz,0,1,0.2);
+  s.wubRate=clampv(p.wubRate,0,12,3.2); s.wubDepth=clampv(p.wubDepth,0,1,0.55); s.glide=clampv(p.glide,0.002,0.3,0.04);
+  if(p.env){s.env.a=clampv(p.env.a,0.002,0.8,0.04);s.env.d=clampv(p.env.d,0.005,1.2,0.12);s.env.s=clampv(p.env.s,0,1,0.85);s.env.r=clampv(p.env.r,0.01,2,0.18);}
+  if(Array.isArray(p.corners)&&p.corners.length===4) s.corners=p.corners.map(i=>clampv(i,0,ANIMALS.length-1,0)|0);
+  if(p.uv){s.uv={u:clampv(p.uv.u,0,1,0.5),v:clampv(p.uv.v,0,1,0.5)};} s.pad=!!p.pad;
+  s.crushOn=!!p.crushOn; s.crushBits=clampv(p.crushBits,1,16,12)|0; s.crushDown=clampv(p.crushDown,1,40,1)|0;
+  s.spaceWet=clampv(p.spaceWet,0,1,0); s.verbDecay=clampv(p.verbDecay,1,7,3); s.delayMs=clampv(p.delayMs,40,700,280)|0; s.delayFB=clampv(p.delayFB,0,0.85,0.35);
+  s.grPos=clampv(p.grPos,0,1,0.3); s.grJit=clampv(p.grJit,0,1,0.15); s.grSize=clampv(p.grSize,10,300,90)|0; s.grDens=clampv(p.grDens,1,60,24)|0;
+  s.grPitch=clampv(p.grPitch,-24,24,0)|0; s.grPitchJit=clampv(p.grPitchJit,0,12,0)|0; s.grPan=clampv(p.grPan,0,1,0.6); s.grRev=clampv(p.grRev,0,1,0);
+  if(p.seq){ s.seq.bpm=clampv(p.seq.bpm,60,200,140)|0; s.seq.swing=clampv(p.seq.swing,0,0.6,0); s.seq.gateLen=clampv(p.seq.gateLen,0.1,1,0.6);
+    if(Array.isArray(p.seq.note)) s.seq.note=Array.from({length:16},(_,i)=>({gate:!!(p.seq.note[i]&&p.seq.note[i].gate),pitch:clampv(p.seq.note[i]&&p.seq.note[i].pitch,-24,24,0)|0}));
+    if(Array.isArray(p.seq.glitch)) s.seq.glitch=Array.from({length:16},(_,i)=>!!p.seq.glitch[i]); }
+  s.seed=clampv(p.seed,1,1e9,1337)|0; s.chaos=clampv(p.chaos,0,1,0); s.humanize=clampv(p.humanize,0,1,0);
+  s.voices=clampv(p.voices,1,5,1)|0; s.detune=clampv(p.detune,0,50,0); s.spread=clampv(p.spread,0,1,0);
+  s.chord=(['off','5th','minor','major'].indexOf(p.chord)>=0?p.chord:'off');
+  syncUI(); reseed(s.seed); refreshMorphLabels(); renderAnimals(); renderSeq(); updateChips();
+  if(ST.playing){ startGraph(); } else applyLive();   // startGraph re-applies crush + rebuilds with new patch
+  s.monoValid=false;                                    // validator must re-measure, never trust a loaded value
+  return true;
+}
+function updateGenome(){ const s=ST;
+  const bytes=[s.A,s.B,Math.round(s.t*35),Math.round(s.drive*35),Math.round(s.ott*35),Math.round(s.fizz*35),Math.round(s.subLvl*35),Math.round(s.phase/10.3),s.crushBits,Math.round(s.spaceWet*35),Math.max(0,s.seq.bpm-60)>>2,Math.round(s.chaos*35)];
+  const g=bytes.map(b=>Math.max(0,Math.min(35,b|0)).toString(36)).join('').toUpperCase();
+  const e=$('genome'); if(e)e.textContent=g; }
+function mutate(){ const j=(v,amt,a,b)=>Math.max(a,Math.min(b,v+(rng()*2-1)*amt));
+  ST.drive=j(ST.drive,0.25,0,1); ST.fizz=j(ST.fizz,0.25,0,1); ST.ott=j(ST.ott,0.2,0,1); ST.subLvl=j(ST.subLvl,0.2,0,1);
+  ST.wubRate=j(ST.wubRate,2.5,0,12); ST.wubDepth=j(ST.wubDepth,0.3,0,1); ST.phase=j(ST.phase,70,0,360); ST.glide=j(ST.glide,0.05,0.002,0.3);
+  ST.spaceWet=j(ST.spaceWet,0.3,0,1); ST.t=j(ST.t,0.3,0,1);
+  if(rng()<0.5){ ST.B=Math.floor(rng()*ANIMALS.length); }
+  setPadOff(); syncUI(); refreshMorphLabels(); renderAnimals(); updateChips();
+  if(ST.playing) startGraph(); else applyLive();
+  glitchBurst($('genome').closest('.card'),1);
+}
+$('patch-save').onclick=()=>dl('chimera_'+ANIMALS[ST.A].key+'-x-'+ANIMALS[ST.B].key+'.patch.json', JSON.stringify(serializePatch(),null,2),'application/json');
+$('patch-load').onclick=()=>$('patch-file').click();
+$('patch-file').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ try{ if(!applyPatch(JSON.parse(r.result))) alert('Not a Bio-Bass patch.'); }catch(err){ alert('Could not read patch: '+err.message); } }; r.readAsText(f); e.target.value=''; });
+$('patch-link').onclick=()=>{ try{ location.hash='p='+encodeURIComponent(btoa(JSON.stringify(serializePatch())));
+  const ok=()=>{ const b=$('patch-link'); const t=b.textContent; b.textContent='✓ copied'; setTimeout(()=>b.textContent=t,1200); };
+  if(navigator.clipboard) navigator.clipboard.writeText(location.href).then(ok,ok); else ok(); }catch(e){} };
+$('patch-mut').onclick=mutate;
+function loadFromHash(){ if(location.hash.startsWith('#p=')){ try{ const p=JSON.parse(atob(decodeURIComponent(location.hash.slice(3)))); applyPatch(p); }catch(e){} } }
+
+/* ============================== BOOT ============================== */
+document.getElementById('startBtn').onclick=()=>{
+  AC=new (window.AudioContext||window.webkitAudioContext)();
+  if(AC.state==='suspended')AC.resume();
+  document.getElementById('gate').style.display='none';
+  startGraph();
+};
+setInterval(chaosTick,100);
+/* ==== genome module ==== */
+/* ============================== GENOME / SEED GARDEN ==============================
+   Synplant-style genetic layer, evolved in place on the BioBass engine. A genome is a
+   ~20-gene vector in [0,1] that decodes to a synth patch + macro params driving the SAME
+   buildVoice/buildMaster graph. You play by BREEDING: a central seed, radial mutations,
+   drag to evolve toward one by ear. Genopatch grows a seed from a dropped sample by
+   Differential Evolution against its spectrum — a transparent local analysis-by-synthesis
+   APPROXIMATION of the sample's spectral character, seeded by DSP heuristics. No learned
+   or neural model. The genome stores extracted params only, never audio.               */
+
+const clamp01 = x => x < 0 ? 0 : x > 1 ? 1 : x;
+
+// ~20 genes. Frequency/time genes are log-warped so a fixed nudge is perceptually even.
+// Patch genes (pitch..noise) are explored by the garden; macro genes (wubRate..space)
+// are also editable by the knob rack (which becomes this seed's DNA editor).
+const GENES = [
+  {name:'pitch',     min:40,    max:600,  warp:'log', group:'osc'},
+  {name:'wave',      min:0,     max:1,    warp:'lin', group:'osc'},
+  {name:'modRatio',  min:0.25,  max:4,    warp:'log', group:'fm'},
+  {name:'fmDepth',   min:0,     max:1,    warp:'lin', group:'fm'},
+  {name:'noise',     min:0,     max:0.8,  warp:'lin', group:'noise'},
+  {name:'formShift', min:0.5,   max:2.0,  warp:'log', group:'formant'},
+  {name:'formSpread',min:0.6,   max:1.6,  warp:'lin', group:'formant'},
+  {name:'formTilt',  min:-1,    max:1,    warp:'lin', group:'formant'},
+  {name:'formQ',     min:0.5,   max:2.0,  warp:'lin', group:'formant'},
+  {name:'wubRate',   min:0.1,   max:12,   warp:'log', group:'move'},
+  {name:'wubDepth',  min:0,     max:1,    warp:'lin', group:'move'},
+  {name:'attack',    min:0.002, max:0.5,  warp:'log', group:'env'},
+  {name:'decay',     min:0.02,  max:1.0,  warp:'log', group:'env'},
+  {name:'sustain',   min:0,     max:1,    warp:'lin', group:'env'},
+  {name:'release',   min:0.02,  max:1.5,  warp:'log', group:'env'},
+  {name:'subLevel',  min:0,     max:1,    warp:'lin', group:'body'},
+  {name:'drive',     min:0,     max:1,    warp:'lin', group:'fx'},
+  {name:'ott',       min:0,     max:1,    warp:'lin', group:'fx'},
+  {name:'fizz',      min:0,     max:0.5,  warp:'lin', group:'fx'},
+  {name:'space',     min:0,     max:0.7,  warp:'lin', group:'fx'},
+];
+const GN = GENES.length;
+const GIDX = Object.fromEntries(GENES.map((g,i)=>[g.name,i]));
+
+// pure, round-trip-verified encode/decode (the linchpin — every operator acts on [0,1]^N)
+function geneDecode(g){
+  const p = {};
+  for(let i=0;i<GN;i++){ const G=GENES[i], u=clamp01(g[i]);
+    p[G.name] = G.warp==='log' ? G.min*Math.pow(G.max/G.min,u) : G.min+(G.max-G.min)*u; }
+  return p;
+}
+function geneEncode(params){
+  const g = new Float32Array(GN);
+  for(let i=0;i<GN;i++){ const G=GENES[i], v=params[G.name];
+    g[i] = clamp01(G.warp==='log' ? Math.log(v/G.min)/Math.log(G.max/G.min)
+                                  : (v-G.min)/(G.max-G.min)); }
+  return g;
+}
+
+const WAVES = ['sine','triangle','sawtooth','square'];
+const FORMANT_BASE = [[600,7,1.0],[1400,8,0.6],[2600,9,0.3]];  // neutral vocal bank
+
+// genome -> BioBass patch (same shape blendAnimals returns)
+function genomeToPatch(g){
+  const d = geneDecode(g);
+  const wave = WAVES[Math.min(3, Math.floor(d.wave*3.999))];
+  const F = FORMANT_BASE.map((f,i)=>{
+    const freq = f[0]*d.formShift*Math.pow(d.formSpread, i);       // shift whole bank + widen spacing
+    const q    = f[1]*d.formQ;
+    const amp  = Math.max(0.04, Math.min(1.2, f[2]*Math.pow(10, d.formTilt*(i-1)*0.4))); // tilt across bank
+    return [freq, q, amp];
+  });
+  const f0 = d.pitch*Math.pow(2, (ST.oct+ST.noteSt)/12);
+  return { f0, wave, ratio:d.modRatio, fm:d.fmDepth, noise:d.noise, hue:200, F, wd:0, _d:d };
+}
+
+// push a genome's macro genes into ST so applyLive/buildMaster reflect them
+function applyGenomeToST(g){
+  const d = geneDecode(g);
+  ST.wubRate = d.wubRate; ST.wubDepth = d.wubDepth;
+  ST.env = {a:d.attack, d:d.decay, s:d.sustain, r:d.release};
+  ST.subLvl = d.subLevel; ST.drive = d.drive; ST.ott = d.ott; ST.fizz = d.fizz;
+  ST.spaceWet = d.space;
+}
+
+// the single live entry point: set the genome and hear it
+let GENOME = null, SEED = null, _lastGlide = 0.05;
+function setGenome(g, opts){
+  opts = opts || {};
+  GENOME = Float32Array.from(g, clamp01);
+  if(ST.genomeMode){
+    applyGenomeToST(GENOME);
+    if(opts.glide!=null){ _lastGlide = ST.glide; ST.glide = opts.glide; }
+    if(G && AC) applyLive();
+    if(opts.glide!=null) ST.glide = _lastGlide;
+    updateChips && updateChips();
+    updateGenome && updateGenome();
+  }
+  drawGarden();
+}
+
+/* ---- the garden: a seed + 12 radial mutation branches you evolve toward by ear ---- */
+const GARDEN = { seed:null, branches:[], amount:0.6, temp:0.35, drag:null,
+                 grow:false, growPhase:0, hover:-1, undo:[] };
+const NBRANCH = 12;
+
+function mul32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a);
+  t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+
+function regenBranches(){
+  const r = mul32((ST.seed|0) ^ 0x9E37 ^ Math.floor(GARDEN.temp*1000));
+  GARDEN.branches = [];
+  for(let b=0;b<NBRANCH;b++){
+    const mut = new Float32Array(GN);
+    for(let i=0;i<GN;i++){
+      // gaussian-ish nudge (sum of uniforms), scaled by temperature; per-branch stable
+      const n = (r()+r()+r()-1.5)/1.5;
+      mut[i] = clamp01(GARDEN.seed[i] + n*GARDEN.temp);
+    }
+    GARDEN.branches.push({g:mut, ang:(b/NBRANCH)*Math.PI*2 - Math.PI/2});
+  }
+}
+const LINEAGE={nodes:[],cur:-1};
+function lineageAdd(genome){
+  const node={id:LINEAGE.nodes.length,g:Float32Array.from(genome),
+              parent:LINEAGE.cur,depth:LINEAGE.cur<0?0:LINEAGE.nodes[LINEAGE.cur].depth+1,kids:0};
+  if(LINEAGE.cur>=0)LINEAGE.nodes[LINEAGE.cur].kids++;
+  LINEAGE.nodes.push(node); LINEAGE.cur=node.id;
+  drawLineage();
+}
+function lineageJump(id){
+  if(id<0||id>=LINEAGE.nodes.length)return;
+  LINEAGE.cur=id;
+  GARDEN.seed=Float32Array.from(LINEAGE.nodes[id].g); SEED=GARDEN.seed;
+  regenBranches(); setGenome(GARDEN.seed,{glide:0.05}); drawLineage();
+  typeof toast==="function"&&toast('jumped to lineage node '+id+' — new growth forks from here');
+}
+function drawLineage(){
+  const cv=document.getElementById('lineage'); if(!cv)return;
+  const c=cv.getContext('2d'), W=cv.width, H=cv.height;
+  c.clearRect(0,0,W,H);
+  c.fillStyle=themeColor('--panel2')||'#0d0f14'; c.fillRect(0,0,W,H);
+  const n=LINEAGE.nodes.length; if(!n)return;
+  const maxD=Math.max(...LINEAGE.nodes.map(o=>o.depth));
+  const lanes=[];                       // per-depth slot counters
+  LINEAGE._px=[];
+  LINEAGE.nodes.forEach(o=>{
+    lanes[o.depth]=(lanes[o.depth]||0);
+    const x=14+(maxD?o.depth/(maxD||1)*(W-28):0);
+    const y=16+(lanes[o.depth]%5)*18;
+    lanes[o.depth]++;
+    o._x=x;o._y=y; LINEAGE._px.push({id:o.id,x,y});
+  });
+  c.strokeStyle='rgba(150,170,200,.35)'; c.lineWidth=1;
+  LINEAGE.nodes.forEach(o=>{ if(o.parent>=0){ const p=LINEAGE.nodes[o.parent];
+    c.beginPath(); c.moveTo(p._x,p._y); c.lineTo(o._x,o._y); c.stroke(); }});
+  LINEAGE.nodes.forEach(o=>{
+    const d=geneDecode(o.g), hue=(d.formShift*90+d.pitch*0.15)%360;
+    c.beginPath(); c.arc(o._x,o._y,o.id===LINEAGE.cur?6:3.6,0,6.283);
+    c.fillStyle=`hsl(${hue|0} 75% ${o.id===LINEAGE.cur?70:52}%)`; c.fill();
+    if(o.id===LINEAGE.cur){ c.strokeStyle=themeColor('--cyan')||'#22d3ee'; c.lineWidth=1.6; c.stroke(); }
+  });
+}
+function plantSeed(g, pushUndo){
+  if(pushUndo && GARDEN.seed) GARDEN.undo.push(Float32Array.from(GARDEN.seed));
+  if(GARDEN.undo.length>40) GARDEN.undo.shift();
+  GARDEN.seed = Float32Array.from(g, clamp01);
+  SEED = GARDEN.seed;
+  regenBranches();
+  setGenome(GARDEN.seed, {glide:0.05});
+  lineageAdd(GARDEN.seed);
+}
+function undoSeed(){
+  if(!GARDEN.undo.length) { typeof toast==="function" && toast('nothing to undo',1); return; }
+  GARDEN.seed = GARDEN.undo.pop(); SEED = GARDEN.seed;
+  regenBranches(); setGenome(GARDEN.seed, {glide:0.05});
+  typeof toast==="function" && toast('reverted to previous seed');
+}
+
+/* ---- canvas render + interaction ---- */
+let gc = null, gctx = null;
+function gardenGeom(){
+  const w = gc.width, h = gc.height, cx = w/2, cy = h/2;
+  const R = Math.min(w,h)*0.40;
+  return {w,h,cx,cy,R};
+}
+function drawGarden(){
+  if(!gctx) return;
+  const {w,h,cx,cy,R} = gardenGeom();
+  gctx.clearRect(0,0,w,h);
+  gctx.fillStyle = themeColor('--panel2')||'#0d0f14'; gctx.fillRect(0,0,w,h);
+  if(!GARDEN.seed){
+    gctx.fillStyle = themeColor('--dim')||'#7a8290';
+    gctx.font = '13px SF Mono,ui-monospace,Menlo,monospace'; gctx.textAlign='center';
+    gctx.fillText('plant a seed to grow — drag toward a bud to evolve by ear', cx, cy);
+    gctx.textAlign='left'; return;
+  }
+  // vines to branches
+  const cur = GARDEN.drag;
+  for(let b=0;b<GARDEN.branches.length;b++){
+    const br = GARDEN.branches[b];
+    const tx = cx + Math.cos(br.ang)*R, ty = cy + Math.sin(br.ang)*R;
+    const on = (cur && cur.branch===b);
+    const hov = (GARDEN.hover===b);
+    // bezier vine, spring-eased outward
+    gctx.beginPath();
+    const mx = cx + Math.cos(br.ang)*R*0.5 + Math.cos(br.ang+1.4)*R*0.12;
+    const my = cy + Math.sin(br.ang)*R*0.5 + Math.sin(br.ang+1.4)*R*0.12;
+    gctx.moveTo(cx,cy); gctx.quadraticCurveTo(mx,my,tx,ty);
+    gctx.strokeStyle = on ? (themeColor('--cyan')||'#22d3ee')
+                       : hov ? (themeColor('--violet')||'#a78bfa') : 'rgba(150,170,200,.28)';
+    gctx.lineWidth = on ? 2.4 : 1.3; gctx.stroke();
+    // bud — colored by its genome fingerprint (mulberry over the vector)
+    const d = geneDecode(br.g);
+    const hue = (d.formShift*90 + d.pitch*0.15) % 360;
+    const rad = 8 + d.fmDepth*7;
+    gctx.beginPath(); gctx.arc(tx,ty,rad,0,6.2832);
+    gctx.fillStyle = `hsl(${hue|0} 70% ${on?68:hov?60:52}%)`;
+    gctx.globalAlpha = on?1:0.9; gctx.fill(); gctx.globalAlpha=1;
+    // atom ring: a few genes as satellite dots
+    for(let k=0;k<3;k++){ const gg=[GIDX.wave,GIDX.noise,GIDX.formTilt][k];
+      const aa = br.ang + (k-1)*0.5, dd = rad+7;
+      gctx.beginPath(); gctx.arc(tx+Math.cos(aa)*dd, ty+Math.sin(aa)*dd, 2.2, 0, 6.28);
+      gctx.fillStyle = `hsla(${(hue+80*k)|0} 80% 65% / ${0.35+br.g[gg]*0.6})`; gctx.fill(); }
+  }
+  // drag position indicator
+  if(cur){
+    const br = GARDEN.branches[cur.branch];
+    const px = cx + Math.cos(br.ang)*R*cur.r, py = cy + Math.sin(br.ang)*R*cur.r;
+    gctx.beginPath(); gctx.arc(px,py,5,0,6.28); gctx.fillStyle=themeColor('--cyan')||'#22d3ee'; gctx.fill();
+  }
+  // seed core
+  const sd = geneDecode(GARDEN.seed);
+  const sh = (sd.formShift*90 + sd.pitch*0.15)%360;
+  const grd = gctx.createRadialGradient(cx,cy,2,cx,cy,26);
+  grd.addColorStop(0, `hsl(${sh|0} 80% 72%)`); grd.addColorStop(1, `hsla(${sh|0} 70% 40% / 0)`);
+  gctx.fillStyle = grd; gctx.beginPath(); gctx.arc(cx,cy,26,0,6.28); gctx.fill();
+  gctx.beginPath(); gctx.arc(cx,cy,10,0,6.28); gctx.fillStyle=`hsl(${sh|0} 85% 66%)`; gctx.fill();
+}
+
+function _branchAt(mx,my){
+  const {cx,cy,R} = gardenGeom();
+  const dx=mx-cx, dy=my-cy, dist=Math.hypot(dx,dy);
+  if(dist < 14) return {branch:-1, r:0};              // on the seed core
+  const ang = Math.atan2(dy,dx);
+  let best=0, bd=1e9;
+  for(let b=0;b<GARDEN.branches.length;b++){
+    let da = Math.abs(((GARDEN.branches[b].ang - ang + Math.PI*3)%(Math.PI*2)) - Math.PI);
+    if(da<bd){bd=da; best=b;}
+  }
+  return {branch:best, r:Math.min(1.15, dist/R)};
+}
+function gardenPointer(e, kind){
+  if(!GARDEN.seed) return;
+  const rect = gc.getBoundingClientRect();
+  const mx = (e.clientX-rect.left)*(gc.width/rect.width);
+  const my = (e.clientY-rect.top)*(gc.height/rect.height);
+  const hit = _branchAt(mx,my);
+  if(kind==='move' && !GARDEN.drag){ GARDEN.hover = hit.branch; drawGarden(); return; }
+  if(hit.branch<0){ if(kind==='down'){ /* clicked seed: nothing */ } return; }
+  const br = GARDEN.branches[hit.branch];
+  const reach = Math.min(1, hit.r) * GARDEN.amount;
+  const cur = new Float32Array(GN);
+  for(let i=0;i<GN;i++) cur[i] = clamp01(GARDEN.seed[i] + (br.g[i]-GARDEN.seed[i])*reach);
+  if(kind==='down'){ GARDEN.drag = {branch:hit.branch, r:hit.r}; ensureLiveGenome(); setGenome(cur,{glide:0.03}); }
+  else if(kind==='move'){ GARDEN.drag = {branch:hit.branch, r:hit.r}; setGenome(cur,{glide:0.03}); }
+  else if(kind==='up'){
+    // commit where you let go as the new seed (the exploratory walk)
+    plantSeed(cur, true); GARDEN.drag=null; GARDEN.hover=-1;
+    typeof toast==="function" && toast('grew a new seed here — keep breeding, or ⌘Z to step back');
+  }
+}
+
+function growTick(){
+  if(GARDEN.grow && GARDEN.seed && GARDEN.branches.length){
+    GARDEN.growPhase += 0.008;
+    const b = Math.floor(GARDEN.growPhase) % GARDEN.branches.length;
+    const f = 0.5 - 0.5*Math.cos((GARDEN.growPhase%1)*Math.PI*2);
+    const br = GARDEN.branches[b];
+    const cur = new Float32Array(GN);
+    for(let i=0;i<GN;i++) cur[i] = clamp01(GARDEN.seed[i] + (br.g[i]-GARDEN.seed[i])*f*GARDEN.amount);
+    setGenome(cur,{glide:0.05});
+  }
+  requestAnimationFrame(growTick);
+}
+
+function ensureLiveGenome(){
+  if(!ST.genomeMode) enterGenomeMode(true);
+  if(!ST.playing){ const pb=document.getElementById('play'); if(pb) pb.click(); }
+}
+
+function enterGenomeMode(on){
+  ST.genomeMode = !!on;
+  const badge = document.getElementById('genome-badge');
+  const tog = document.getElementById('genome-toggle');
+  if(badge) badge.style.display = on ? '' : 'none';
+  if(tog){ tog.classList.toggle('on', on); tog.textContent = on ? '🌱 genome mode: ON' : '🌱 genome mode: off'; }
+  if(on){
+    if(!GARDEN.seed) plantSeed(defaultSeedGenome(), false);
+    else setGenome(GARDEN.seed, {glide:0.05});
+  } else {
+    if(G && AC) applyLive();   // revert to animal morph
+  }
+  updateChips && updateChips();
+}
+
+function defaultSeedGenome(){
+  // a musical starting point: mid bass, saw-ish, gentle formants, slow wub
+  return geneEncode({ pitch:110, wave:0.66, modRatio:1.0, fmDepth:0.35, noise:0.15,
+    formShift:1.0, formSpread:1.0, formTilt:0.0, formQ:1.0, wubRate:3.2, wubDepth:0.5,
+    attack:0.02, decay:0.2, sustain:0.8, release:0.25, subLevel:0.7, drive:0.35,
+    ott:0.4, fizz:0.2, space:0.0 });
+}
+
+/* ---- GENOPATCH: grow a seed from a dropped sample via Differential Evolution ---- */
+function _sampleSpectrum(ch, sr){
+  // averaged log-magnitude over 200..8000 Hz, L2-normalized (the fitness target)
+  const N=2048, re=new Float64Array(N), im=new Float64Array(N), mag=new Float64Array(N/2);
+  let frames=0;
+  for(let o=0;o+N<=ch.length && frames<20;o+=Math.floor(N*0.75)){
+    for(let i=0;i<N;i++){ const wnd=0.5-0.5*Math.cos(2*Math.PI*i/(N-1)); re[i]=ch[o+i]*wnd; im[i]=0; }
+    _fft(re,im); for(let i=0;i<N/2;i++) mag[i]+=Math.hypot(re[i],im[i]); frames++;
+  }
+  const binHz=sr/N, lo=Math.max(1,Math.floor(200/binHz)), hi=Math.min(N/2-1,Math.floor(8000/binHz));
+  const v=[]; for(let i=lo;i<hi;i++) v.push(Math.log(1+mag[i]));
+  const norm=Math.hypot(...v)||1; return {v:v.map(x=>x/norm), lo, hi, binHz, N};
+}
+async function _renderGenomeSpectrum(g, ref){
+  const sr = AC ? AC.sampleRate : 44100, dur=0.30;
+  const oc = new OfflineAudioContext(1, Math.floor(sr*dur), sr);
+  const p = genomeToPatch(g);
+  const gr = buildGraph(oc, oc.destination, p, {voiceSpecs:[{semi:0,cents:0,pan:0}]});
+  gr.voices.forEach(V=>V.voice.gain.setValueAtTime(0.9,0)); gr.out.gain.setValueAtTime(0.5,0);
+  gr.start(0); gr.stop(dur);
+  const b = await oc.startRendering();
+  const ch = b.getChannelData(0);
+  // sample the SAME 200..8000 band with a matched-size FFT
+  const N=ref.N, re=new Float64Array(N), im=new Float64Array(N), mag=new Float64Array(N/2);
+  let frames=0;
+  for(let o=0;o+N<=ch.length && frames<8;o+=Math.floor(N*0.75)){
+    for(let i=0;i<N;i++){ const wnd=0.5-0.5*Math.cos(2*Math.PI*i/(N-1)); re[i]=ch[o+i]*wnd; im[i]=0; }
+    _fft(re,im); for(let i=0;i<N/2;i++) mag[i]+=Math.hypot(re[i],im[i]); frames++;
+  }
+  const v=[]; for(let i=ref.lo;i<ref.hi;i++) v.push(Math.log(1+mag[i]));
+  const norm=Math.hypot(...v)||1; return v.map(x=>x/norm);
+}
+function _specDist(a,b){ let s=0; const n=Math.min(a.length,b.length);
+  for(let i=0;i<n;i++){ const d=a[i]-b[i]; s+=d*d; } return Math.sqrt(s); }
+
+function analyzeSampleToGenome(buf){
+  const ch=buf.getChannelData(0), sr=buf.sampleRate;
+  const f0=Math.max(40,Math.min(600, _estF0(ch,sr)));
+  const peaks=_estPeaks(ch,sr)||[];
+  // formant shift = how the estimated 1st peak sits vs the base bank's first formant
+  const shift = peaks.length ? Math.max(0.5,Math.min(2.0, peaks[0][0]/FORMANT_BASE[0][0])) : 1.0;
+  // spectral flatness (tonal vs noisy) -> noise + fm depth
+  const N=2048, re=new Float64Array(N), im=new Float64Array(N); let gm=0,am=0,cnt=0;
+  for(let i=0;i<N && i<ch.length;i++){ const wnd=0.5-0.5*Math.cos(2*Math.PI*i/(N-1)); re[i]=ch[i]*wnd; im[i]=0; }
+  _fft(re,im);
+  for(let i=2;i<N/2;i++){ const m=Math.hypot(re[i],im[i])+1e-9; gm+=Math.log(m); am+=m; cnt++; }
+  const flat=Math.exp(gm/cnt)/(am/cnt+1e-9);           // 0 tonal .. 1 noisy
+  // envelope: RMS onset (attack) + tail (decay)
+  const win=Math.floor(sr*0.01); let peakRms=0, peakAt=0;
+  const rms=[]; for(let o=0;o+win<=ch.length;o+=win){ let e=0; for(let i=0;i<win;i++)e+=ch[o+i]*ch[o+i]; e=Math.sqrt(e/win); rms.push(e); if(e>peakRms){peakRms=e;peakAt=rms.length-1;} }
+  const attack=Math.max(0.002,Math.min(0.5, peakAt*0.01));
+  let decIdx=rms.length-1; for(let i=peakAt;i<rms.length;i++){ if(rms[i]<peakRms*0.37){decIdx=i;break;} }
+  const decay=Math.max(0.02,Math.min(1.0,(decIdx-peakAt)*0.01));
+  return geneEncode({ pitch:f0, wave: flat>0.4?0.9:0.55, modRatio:1.0,
+    fmDepth: Math.min(1, 0.3+flat), noise: Math.min(0.8, flat*0.9),
+    formShift:shift, formSpread:1.0, formTilt:0.0, formQ:1.0,
+    wubRate:2.5, wubDepth:0.35, attack, decay, sustain:0.7, release:Math.max(decay,0.2),
+    subLevel:0.6, drive:0.35, ott:0.4, fizz:0.2, space:0.0 });
+}
+
+let _deRunning=false;
+async function genopatchGrow(buf){
+  if(_deRunning) return; _deRunning=true;
+  const st=document.getElementById('gp-status'); const bar=document.getElementById('gp-bar');
+  const setS=(m)=>{ if(st)st.textContent=m; };
+  try{
+    enterGenomeMode(true);
+    setS('analyzing sample…');
+    const ref=_sampleSpectrum(buf.getChannelData(0), buf.sampleRate);
+    const seed=analyzeSampleToGenome(buf);
+    // DE population seeded around the analyzed guess (so ~20-dim converges in feasible compute)
+    const POP=24, GENS=10, F=0.6, CR=0.85;
+    const r=mul32(0xC0FFEE ^ (ST.seed|0));
+    const pop=[]; const fit=[];
+    for(let k=0;k<POP;k++){ const c=new Float32Array(GN);
+      for(let i=0;i<GN;i++) c[i]=clamp01(seed[i] + (k===0?0:(r()*2-1)*0.25));
+      pop.push(c); }
+    for(let k=0;k<POP;k++){ fit[k]=_specDist(await _renderGenomeSpectrum(pop[k],ref), ref.v);
+      if(k%4===0){ setS(`seeding population… ${k+1}/${POP}`); await new Promise(z=>setTimeout(z,0)); } }
+    let best=0; for(let k=1;k<POP;k++) if(fit[k]<fit[best]) best=k;
+    for(let gen=0; gen<GENS; gen++){
+      for(let k=0;k<POP;k++){
+        let a,b,c; do{a=(r()*POP)|0;}while(a===k); do{b=(r()*POP)|0;}while(b===k||b===a); do{c=(r()*POP)|0;}while(c===k||c===a||c===b);
+        const trial=new Float32Array(GN); const jr=(r()*GN)|0;
+        for(let i=0;i<GN;i++){ trial[i] = (r()<CR||i===jr) ? clamp01(pop[a][i]+F*(pop[b][i]-pop[c][i])) : pop[k][i]; }
+        const tf=_specDist(await _renderGenomeSpectrum(trial,ref), ref.v);
+        if(tf<fit[k]){ pop[k]=trial; fit[k]=tf; if(tf<fit[best]) best=k; }
+      }
+      if(bar) bar.style.width = Math.round((gen+1)/GENS*100)+'%';
+      setS(`growing… gen ${gen+1}/${GENS} · best fit ${fit[best].toFixed(3)}`);
+      // audition the current best while it grows
+      plantSeed(pop[best], false);
+      await new Promise(z=>setTimeout(z,0));
+    }
+    plantSeed(pop[best], true);
+    setS(`grown — approximation of the sample's spectral character (fit ${fit[best].toFixed(3)}). Not the sample; not a clone.`);
+    if(bar) bar.style.width='100%';
+  }catch(err){ setS('grow failed: '+err.message); }
+  finally{ _deRunning=false; }
+}
+
+/* ---- self-test hook (headless): decode(encode(x)) round-trips ---- */
+function _genomeSelfTest(){
+  const r=mul32(123); let maxErr=0;
+  for(let t=0;t<200;t++){ const g=new Float32Array(GN); for(let i=0;i<GN;i++)g[i]=r();
+    const g2=geneEncode(geneDecode(g));
+    for(let i=0;i<GN;i++) maxErr=Math.max(maxErr, Math.abs(g[i]-g2[i])); }
+  return maxErr;
+}
+
+/* ---- wiring ---- */
+function initGarden(){
+  gc = document.getElementById('garden'); if(!gc) return;
+  gctx = gc.getContext('2d');
+  GARDEN.seed = defaultSeedGenome(); SEED=GARDEN.seed; regenBranches();
+  gc.addEventListener('pointerdown', e=>{ gc.setPointerCapture(e.pointerId); gardenPointer(e,'down'); });
+  gc.addEventListener('pointermove', e=>{ gardenPointer(e, GARDEN.drag?'move':'move'); });
+  gc.addEventListener('pointerup',   e=>{ if(GARDEN.drag) gardenPointer(e,'up'); });
+  gc.addEventListener('pointerleave',e=>{ GARDEN.hover=-1; if(!GARDEN.drag) drawGarden(); });
+  const amt=document.getElementById('g-amount'); if(amt) amt.oninput=e=>{ GARDEN.amount=+e.target.value/100; document.getElementById('g-amount-v').textContent=e.target.value+'%'; };
+  const tmp=document.getElementById('g-temp'); if(tmp) tmp.oninput=e=>{ GARDEN.temp=+e.target.value/100; document.getElementById('g-temp-v').textContent=e.target.value+'%'; regenBranches(); drawGarden(); };
+  const grw=document.getElementById('g-grow'); if(grw) grw.onclick=()=>{ GARDEN.grow=!GARDEN.grow; grw.classList.toggle('on',GARDEN.grow); ensureLiveGenome(); };
+  const und=document.getElementById('g-undo'); if(und) und.onclick=undoSeed;
+  const mk=document.getElementById('g-mark'), br=document.getElementById('g-breed');
+  if(mk) mk.onclick=()=>{ GARDEN.parentA=Float32Array.from(GARDEN.seed);
+    mk.classList.add('on'); if(br)br.disabled=false;
+    typeof toast==="function"&&toast('parent Ⓐ marked — evolve elsewhere, then breed'); };
+  if(br) br.onclick=()=>{ if(!GARDEN.parentA)return;
+    const r=mul32((ST.seed|0)^0xBEEF^LINEAGE.nodes.length);
+    const child=new Float32Array(GN);
+    for(let i=0;i<GN;i++){ child[i]=clamp01((r()<0.5?GARDEN.seed[i]:GARDEN.parentA[i])+(r()*2-1)*0.05); }
+    plantSeed(child,true); ensureLiveGenome();
+    typeof toast==="function"&&toast('bred: uniform crossover of Ⓐ × current + light mutation'); };
+  const pn=document.getElementById('g-pernote');
+  if(pn) pn.onclick=()=>{ GARDEN.perNote=!GARDEN.perNote;
+    pn.classList.toggle('on',GARDEN.perNote);
+    pn.textContent='per-note branches: '+(GARDEN.perNote?'ON':'off');
+    if(GARDEN.perNote) typeof toast==="function"&&toast('each pitch class leans the genome toward its branch — release returns to seed'); };
+  const lc=document.getElementById('lineage');
+  if(lc) lc.onclick=e=>{ const r=lc.getBoundingClientRect();
+    const mx=(e.clientX-r.left)*(lc.width/r.width), my=(e.clientY-r.top)*(lc.height/r.height);
+    let best=-1,bd=1e9;
+    (LINEAGE._px||[]).forEach(p=>{ const d=(p.x-mx)**2+(p.y-my)**2; if(d<bd){bd=d;best=p.id;} });
+    if(best>=0&&bd<400) lineageJump(best); };
+  const rnd=document.getElementById('g-random'); if(rnd) rnd.onclick=()=>{ const r=mul32((ST.seed|0)+Date.now()%99999); const c=new Float32Array(GN); for(let i=0;i<GN;i++)c[i]=r(); plantSeed(c,true); ensureLiveGenome(); };
+  const tog=document.getElementById('genome-toggle'); if(tog) tog.onclick=()=>enterGenomeMode(!ST.genomeMode);
+  const gpf=document.getElementById('gp-file'); const gpl=document.getElementById('gp-load');
+  if(gpl&&gpf){ gpl.onclick=()=>gpf.click(); gpf.onchange=async e=>{ const f=e.target.files[0]; if(!f)return;
+    if(!AC){ AC=new (window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended')AC.resume(); }
+    const buf=await AC.decodeAudioData((await f.arrayBuffer()).slice(0)); genopatchGrow(buf); e.target.value=''; }; }
+  document.addEventListener('keydown', e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='z' && ST.genomeMode){ e.preventDefault(); undoSeed(); } });
+  drawGarden(); requestAnimationFrame(growTick);
+}
+
+renderAnimals(); refreshMorphLabels(); updateChips(); reseed(ST.seed); initMIDI(); renderSeq(); renderKb(); updateGenome(); loadFromHash(); requestAnimationFrame(meters);  initGarden();
+/* native shell audio bridge: compressed formats decoded to WAV by macOS afconvert */
+window.__nativeAudio=(kind,name,b64)=>{ try{ const bin=atob(b64),u8=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i); const f=new File([u8],name,{type:'audio/wav'});
+  if(kind==='genopatch'){ (async()=>{ if(!AC){AC=new(window.AudioContext||window.webkitAudioContext)(); if(AC.state==='suspended')AC.resume();}
+    const buf=await AC.decodeAudioData((await f.arrayBuffer()).slice(0)); enterGenomeMode(true); genopatchGrow(buf); })(); }
+  else { importSampleFile(f); } }catch(e){ console.error('nativeAudio',e); } };
+
+/* filled slider tracks: keep --val in sync on every range input */
+(function(){ function upd(r){ const mn=+r.min||0,mx=+r.max||100; r.style.setProperty('--val',((+r.value-mn)/(mx-mn))*100); }
+  document.querySelectorAll('input[type=range]').forEach(r=>{ upd(r); r.addEventListener('input',()=>upd(r)); });
+})();
+</script>
+</body>
+</html>
