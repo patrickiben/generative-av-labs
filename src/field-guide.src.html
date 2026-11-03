@@ -7,34 +7,40 @@
   <main class="guide">
     <div class="hero-title">
       <p class="eyebrow">Field guide</p>
-      <h1>From the kit to the light.</h1>
-      <p>How to wire it, what each status means, and what each drum does.</p>
+      <h1>From your input to the light.</h1>
+      <p>How to connect each page, what each status means, and what each input does.</p>
     </div>
 
     <section id="status">
       <h2>Where this stands</h2>
-      <p>Tested in Chrome on a Mac with a simulated audio input and a virtual MIDI port, using a synthetic drum loop. <b>No real drum kit has been played through it yet</b>, so the pad map and the audio estimates are starting points.</p>
+      <p>Nebula was tested in Chrome on a Mac with a simulated audio input and a virtual MIDI port, using a synthetic drum loop. <b>No real drum kit has been played through it yet</b>, so its pad map and audio estimates are starting points. Endless Cockpit was tested with a simulated Bluetooth sensor, and <b>no real cadence sensor has been connected yet</b>.</p>
     </section>
 
     <section id="wiring">
-      <h2>Wiring</h2>
-      <p>This route is for a Pearl Mimic Pro and a Universal Audio Apollo Solo. Any interface and any kit with 5-pin or USB MIDI works the same way.</p>
+      <h2>Wiring a drum kit for Nebula</h2>
+      <p>Nebula is the one page here that listens to a drum kit. Any kit with 5-pin or USB MIDI and line outputs works.</p>
       <ol>
-        <li><b>Audio.</b> Two 1/4-inch TRS cables from the Mimic Pro's Line Out 1 and 2, which carry the main mix, to the Apollo Solo's rear Mic/Line 1 and 2. Set both inputs to Line, and leave the front Hi-Z jack empty, because a plug there takes over input 1.</li>
-        <li><b>MIDI.</b> The Apollo Solo has no MIDI ports, and the Mimic Pro's USB slot is for installing samples. Run a 5-pin cable from the module's MIDI OUT into a USB-MIDI interface, and plug that into the computer.</li>
-        <li><b>In the page.</b> Press Connect, then Connect audio and MIDI, and allow both prompts. Choose "Universal Audio Thunderbolt" for audio. The MIDI list shows your interface's name, not the module's.</li>
-        <li><b>Listening.</b> These pages never play your input back, so keep monitoring through your interface.</li>
+        <li><b>Audio.</b> Two 1/4-inch TRS cables from the module's main outputs to two line inputs on your audio interface. If that input shares a front instrument jack, leave the jack empty, because a plug there can take over the input.</li>
+        <li><b>MIDI.</b> Many audio interfaces have no MIDI ports, and a module's USB port is not always MIDI. If so, run a 5-pin cable from the module's MIDI OUT into a USB-MIDI interface, and plug that into the computer.</li>
+        <li><b>In the page.</b> Press Connect, then Connect audio and MIDI, and allow both prompts. Choose your audio interface for audio. The MIDI list shows your interface's name, not the module's.</li>
+        <li><b>Listening.</b> Nebula never plays your input back, so keep monitoring through your interface.</li>
       </ol>
+    </section>
+
+    <section id="endless">
+      <h2>Riding Endless Cockpit</h2>
+      <p>Endless Cockpit takes its speed from your cadence. Connect a Bluetooth cadence sensor or smart trainer from the Connect sheet, hold Space or the Hold to pedal button, or set a steady cadence. Each crank revolution sends a ring of light down the road, and the road's grade changes your speed by up to 40%.</p>
+      <p>The sensor's status reads not connected, no Bluetooth in this browser, none chosen, connected with no cadence yet, live, or disconnected. Some sensors send nothing until the crank turns.</p>
     </section>
 
     <section id="browsers">
       <h2>Browsers</h2>
       <table>
-        <thead><tr><th>Browser</th><th>Audio</th><th>MIDI</th></tr></thead>
+        <thead><tr><th>Browser</th><th>Audio</th><th>MIDI</th><th>Bluetooth cadence</th></tr></thead>
         <tbody>
-          <tr><th>Chrome, Edge</th><td>Yes</td><td>Yes, after a permission prompt</td></tr>
-          <tr><th>Firefox</th><td>Yes</td><td>Only with a site permission add-on</td></tr>
-          <tr><th>Safari</th><td>Yes</td><td>No. Safari has no Web MIDI, so hits come from audio</td></tr>
+          <tr><th>Chrome, Edge</th><td>Yes</td><td>Yes, after a permission prompt</td><td>Yes, on a computer</td></tr>
+          <tr><th>Firefox</th><td>Yes</td><td>Only with a site permission add-on</td><td>No</td></tr>
+          <tr><th>Safari</th><td>Yes</td><td>No. Safari has no Web MIDI, so hits come from audio</td><td>No</td></tr>
         </tbody>
       </table>
       <p style="margin-top:12px">Only Chrome has been tested so far. Capture and MIDI both need a secure page, which the published pages are.</p>
@@ -47,34 +53,34 @@
           <tr><th><span class="statechip"><i style="background:#8d93ad"></i>Ambient</span></th><td>Nothing is connected. The picture is idling, not responding to anything.</td></tr>
           <tr><th><span class="statechip"><i style="background:#f4a3a3"></i>Permission denied</span></th><td>The browser or the system refused. The Connect sheet says which and how to allow it.</td></tr>
           <tr><th><span class="statechip"><i style="background:#f4a3a3"></i>No device</span></th><td>The browser allowed it, and the computer shows no such input.</td></tr>
-          <tr><th><span class="statechip"><i style="background:#f1cf8e"></i>No signal</span></th><td>The device is open and nothing is arriving. Check the cable, the module's volume and the input gain.</td></tr>
-          <tr><th><span class="statechip"><i style="background:#bfe8a6"></i>Live</span></th><td>Signal is arriving. The label says whether hits come from MIDI or are estimated from audio.</td></tr>
-          <tr><th><span class="statechip"><i style="background:#e6c7a3"></i>Demo</span></th><td>A synthetic drum machine, not your kit. The label stays up as long as it runs.</td></tr>
+          <tr><th><span class="statechip"><i style="background:#f1cf8e"></i>No signal</span></th><td>The device is open and nothing is arriving. Check the cable, the volume and the input gain. A cadence sensor may send nothing until the crank turns.</td></tr>
+          <tr><th><span class="statechip"><i style="background:#bfe8a6"></i>Live</span></th><td>Signal is arriving. In Nebula, the label says whether hits come from MIDI or are estimated from audio.</td></tr>
+          <tr><th><span class="statechip"><i style="background:#e6c7a3"></i>Demo</span></th><td>A synthetic performance or ride, not your input. The label stays up as long as it runs.</td></tr>
           <tr><th><span class="statechip"><i style="background:#a8c6f4"></i>Replay</span></th><td>A session file you loaded. Nothing in it is live.</td></tr>
         </tbody>
       </table>
     </section>
 
     <section id="inputs">
-      <h2>MIDI and audio together</h2>
+      <h2>Nebula: MIDI and audio together</h2>
       <p>MIDI names the drum, its velocity, the hi-hat pedal and cymbal chokes. Audio gives the picture its real spectrum. When both are live, MIDI decides the hits, so nothing fires twice.</p>
       <p>With audio alone, four frequency bands estimate kick, snare, hat, tom and crash by a stated rule, and a ride is not told apart. With MIDI alone, each hit paints a stated spectrum shape rather than a measured one.</p>
       <p>The note numbers on your module can be changed, so the map is a starting point. Open Connect, then Pad map and Learn, press Learn beside a pad and hit it.</p>
     </section>
 
     <section id="map">
-      <h2>What each drum does</h2>
+      <h2>What each drum does in Nebula</h2>
       <table>
-        <thead><tr><th>Drum</th><th>Nebula</th><th>Endless Cockpit</th></tr></thead>
+        <thead><tr><th>Drum</th><th>In the field</th></tr></thead>
         <tbody>
-          <tr><th>Kick</th><td>A pulse outward from the core</td><td>A surge forward and a ring of light down the road</td></tr>
-          <tr><th>Snare</th><td>Scatters the field and stirs the fluid</td><td>A flare across the land</td></tr>
-          <tr><th>Hi-hat</th><td>Sparkle in the top third, wider with the pedal open</td><td>Sparks on the road edge and stars, longer with the pedal open</td></tr>
-          <tr><th>Toms</th><td>A swell at that tom's height</td><td>A band of light in the sky at that tom's height</td></tr>
-          <tr><th>Crash</th><td>Long trails and a brief wash</td><td>Aurora and long trails</td></tr>
-          <tr><th>Ride</th><td>A fine shimmer</td><td>Stars and road edge shimmer</td></tr>
-          <tr><th>Tempo</th><td>A readout</td><td>The speed: half your BPM stands in for cadence</td></tr>
-          <tr><th>Spectrum</th><td>Color and brightness along the spiral</td><td>The ridge on the horizon</td></tr>
+          <tr><th>Kick</th><td>A pulse outward from the core</td></tr>
+          <tr><th>Snare</th><td>Scatters the field and stirs the fluid</td></tr>
+          <tr><th>Hi-hat</th><td>Sparkle in the top third, wider with the pedal open</td></tr>
+          <tr><th>Toms</th><td>A swell at that tom's height</td></tr>
+          <tr><th>Crash</th><td>Long trails and a brief wash</td></tr>
+          <tr><th>Ride</th><td>A fine shimmer</td></tr>
+          <tr><th>Tempo</th><td>A readout</td></tr>
+          <tr><th>Spectrum</th><td>Color and brightness along the spiral</td></tr>
         </tbody>
       </table>
     </section>
@@ -83,7 +89,7 @@
       <h2>Chimera Synth</h2>
       <p>Chimera is the one page here that makes sound. Your kit or a keyboard plays it over MIDI, and it never listens to an audio input. Tested in Chrome on a Mac with a virtual MIDI port. <b>No real kit has played it yet.</b></p>
       <ul>
-        <li><b>Wiring.</b> The same MIDI route as above. Only the MIDI cable matters here. The sound plays through the computer's output, such as the Apollo's monitors or headphones.</li>
+        <li><b>Wiring.</b> The same MIDI route as above. Only the MIDI cable matters here. The sound plays through the computer's output, such as your interface's monitors or headphones.</li>
         <li><b>What each drum plays.</b> A stated mapping, a musical choice: the kick plays the root an octave down, the snare +2, the side stick +3, the hi-hat +10, or +11 open, the toms -8, -5 and -3 from low to high, crashes +5 and rides +6. The hi-hat pedal (CC4) lets an open hat ring longer, and grabbing a cymbal cuts its lean short. Other notes play as keys, with middle C as the root.</li>
         <li><b>Status.</b> Sound reads off, ready, playing, or paused by the browser, which starts sound only after a click. MIDI reads as on the other pages: not connected, waiting, permission denied, no device, open with no notes, live, or disconnected. The demo says the page is playing itself.</li>
         <li><b>Files.</b> Samples are decoded in the browser. Chrome and Firefox open WAV, MP3, M4A, FLAC and Ogg but not AIFF or CAF, so convert those first. Safari opens all of them, but has no Web MIDI.</li>
@@ -92,8 +98,8 @@
 
     <section id="safety">
       <h2>Safety and privacy</h2>
-      <p>A limiter slows any large change in brightness, and these pages measure under the WCAG limit of three flashes a second, even with hard playing. That is a measured screen, not a medical guarantee. If flashing or moving light affects you, take care, and turn on your system's reduced-motion setting, which tightens the limiter, calms the camera and removes the flash.</p>
-      <p>Audio and MIDI are analyzed in this browser and never sent anywhere. A session file holds hits, pedal moves and levels, with no audio in it.</p>
+      <p>A limiter slows any large change in brightness, and these pages measure under the WCAG limit of three flashes a second, even in each page's hardest tested case. That is a measured screen, not a medical guarantee. If flashing or moving light affects you, take care, and turn on your system's reduced-motion setting, which tightens the limiter, calms the camera and removes the flash.</p>
+      <p>Audio, MIDI and cadence are read in this browser and never sent anywhere. A session file holds hits, pedal moves, cadence and levels, with no audio in it.</p>
     </section>
 
     <section id="credits">
@@ -108,7 +114,7 @@
       </ul>
     </section>
   </main>
-  <footer class="site-foot"><span>Procedural visuals with stated rules. No model and no network after the page loads.</span><span><a href="./">Home</a> · MIT license</span></footer>
+  <footer class="site-foot"><span>Procedural visuals with stated rules. Only Enter uses a model, and only when you ask.</span><span><a href="./">Home</a> · MIT license</span></footer>
 </div>
 </body>
 </html>
