@@ -1205,7 +1205,7 @@ registerProcessor('kit-onset',KitOnset);`;
           <p>Hit to frame is what this page measures. It leaves out the interface, the cable and the screen.</p>
         </details>
         <details><summary>Safety and privacy</summary>
-          <p>Full-field flashes are capped at about three a second. If bright or moving light troubles you, turn on your system's reduced-motion setting: these pages then calm the camera and remove the flash.</p>
+          <p>A limiter slows any large change in brightness, and these pages measure under the WCAG limit of three flashes a second, even with hard playing. That is a measured screen, not a medical guarantee. If flashing or moving light affects you, take care, and turn on your system's reduced-motion setting, which tightens the limiter, calms the camera and removes the flash.</p>
           <p>Audio and MIDI are analyzed in this browser and never sent anywhere. The pages make no network requests after they load. Your device choice and pad map stay in this browser's storage.</p>
         </details>
         <details><summary>Ideas credited</summary>
@@ -1616,9 +1616,8 @@ void main(){
 }`;
   const GRADE_FS = FS_HEAD + `
 uniform sampler2D uScene,uBloom;
-uniform float uBloomK,uExposure,uFlash,uGrain,uT,uVig,uSat;
-uniform vec3 uFlashC,uLift;
-float h12(vec2 p){ vec3 q=fract(vec3(p.xyx)*.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
+uniform float uBloomK,uExposure,uFlash,uVig,uSat;
+uniform vec3 uFlashC;
 vec3 aces(vec3 x){ return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.); }
 void main(){
   vec3 c=texture(uScene,vUv).rgb+texture(uBloom,vUv).rgb*uBloomK;
@@ -1629,7 +1628,27 @@ void main(){
   c=mix(vec3(g),c,uSat);
   vec2 q=vUv-.5;
   c*=1.-uVig*smoothstep(.25,.95,dot(q,q)*2.1);
-  c=pow(c,vec3(1./2.2))+uLift;
+  o=vec4(c,1.);
+}`;
+  // The flicker limiter. Each region of the finished picture may change brightness only so fast, in either
+  // direction, whatever made it change. Holding a 10% swing to about a quarter second keeps any large area
+  // under the WCAG limit of three flashes a second, by construction. Small sparks barely move a region's mean,
+  // so they stay instant.
+  const LIMIT_FS = FS_HEAD + `
+uniform sampler2D uCur,uPrev; uniform float uLod,uMax;
+void main(){
+  float cur=dot(textureLod(uCur,vUv,uLod).rgb,vec3(.2126,.7152,.0722));
+  float prev=texture(uPrev,vUv).r;
+  o=vec4(prev+clamp(cur-prev,-uMax,uMax),cur,0.,1.);
+}`;
+  const OUT_FS = FS_HEAD + `
+uniform sampler2D uG,uLim; uniform float uGrain,uT; uniform vec3 uLift;
+float h12(vec2 p){ vec3 q=fract(vec3(p.xyx)*.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
+void main(){
+  vec3 c=texture(uG,vUv).rgb;
+  vec2 L=texture(uLim,vUv).rg;
+  c*=clamp((L.x+.003)/(L.y+.003),.1,4.);
+  c=pow(min(c,vec3(1.)),vec3(1./2.2))+uLift;
   c+=(h12(gl_FragCoord.xy+fract(uT)*97.)-.5)*uGrain;
   o=vec4(c,1.);
 }`;
@@ -1637,13 +1656,21 @@ void main(){
   // Bloom chain and final grade, shared by both pages.
   function createPost(G) {
     const { gl } = G;
-    const down = G.program(DOWN_FS), up = G.program(UP_FS), grade = G.program(GRADE_FS);
-    let mips = [];
+    const down = G.program(DOWN_FS), up = G.program(UP_FS), grade = G.program(GRADE_FS), limit = G.program(LIMIT_FS), out = G.program(OUT_FS);
+    let mips = [], graded = null, limA = null, limB = null, limLod = 0, limFresh = true;
     function resize(w, h, levels) {
       mips.forEach(G.freeTarget);
       mips = [];
       let a = Math.max(2, w >> 1), b = Math.max(2, h >> 1);
       for (let i = 0; i < (levels || 5); i++) { mips.push(G.target(a, b)); a = Math.max(2, a >> 1); b = Math.max(2, b >> 1); }
+      [graded, limA, limB].forEach((T) => T && G.freeTarget(T));
+      graded = G.target(w, h);
+      gl.bindTexture(gl.TEXTURE_2D, graded.tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      const lw = 128, lh = Math.max(2, Math.round((128 * h) / w));
+      limA = G.target(lw, lh); limB = G.target(lw, lh);
+      limLod = Math.log2(w / lw);
+      limFresh = true;
     }
     function bloom(srcTex, thresh) {
       gl.disable(gl.BLEND);
@@ -1669,11 +1696,24 @@ void main(){
       gl.disable(gl.BLEND);
       return mips[0].tex;
     }
-    function finish(sceneTex, bloomTex, vals) {
+    function finish(sceneTex, bloomTex, vals, dt) {
+      const v = Object.assign({ uBloomK: 0.6, uExposure: 1, uFlash: 0, uFlashC: [1, 0.94, 0.84], uVig: 0.5, uSat: 1, uGrain: 0.02, uT: 0, uLift: [0, 0, 0], rate: 0.36 }, vals);
+      gl.disable(gl.BLEND);
+      G.into(graded);
+      G.bindTex(0, sceneTex); G.bindTex(1, bloomTex);
+      G.use(grade, { uScene: 0, uBloom: 1, uBloomK: v.uBloomK, uExposure: v.uExposure, uFlash: v.uFlash, uFlashC: v.uFlashC, uVig: v.uVig, uSat: v.uSat });
+      G.draw();
+      G.bindTex(0, graded.tex);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      G.into(limB);
+      G.bindTex(0, graded.tex); G.bindTex(1, limA.tex);
+      G.use(limit, { uCur: 0, uPrev: 1, uLod: limLod, uMax: limFresh ? 10 : v.rate * (dt || 1 / 60) });
+      G.draw();
+      [limA, limB] = [limB, limA];
+      limFresh = false;
       G.into(null);
-      G.bindTex(0, sceneTex);
-      G.bindTex(1, bloomTex);
-      G.use(grade, Object.assign({ uScene: 0, uBloom: 1, uBloomK: 0.6, uExposure: 1, uFlash: 0, uFlashC: [1, 0.94, 0.84], uGrain: 0.02, uT: 0, uVig: 0.5, uSat: 1, uLift: [0, 0, 0] }, vals));
+      G.bindTex(0, graded.tex); G.bindTex(1, limA.tex);
+      G.use(out, { uG: 0, uLim: 1, uGrain: v.uGrain, uT: v.uT, uLift: v.uLift });
       G.draw();
     }
     return { resize, bloom, finish };
@@ -1795,7 +1835,7 @@ vec3 sky(vec3 rd,vec2 sv){
     float az=atan(rd.x,rd.z);
     float cur=pow(fbm2(vec2(az*4.+uT*.25,uT*.09)),3.)*5.;
     float band=smoothstep(.03,.2,rd.y)*smoothstep(.72,.22,rd.y);
-    c+=mix(uEdge,vec3(.6,.9,1.),.45)*cur*band*uCrash*1.6;
+    c+=mix(uEdge,vec3(.6,.9,1.),.45)*cur*band*min(uCrash,.7)*1.1;
   }
   // toms: a band of light in the sky at the tom's height
   c+=uEdge*exp(-pow((rd.y-(.05+uTomPos*.34))*16.,2.))*uTom*.9;
@@ -1808,7 +1848,7 @@ vec3 sky(vec3 rd,vec2 sv){
   vec3 ridge=mix(uFog*.42,uSkyTop*.6,.35)+uEdge*a*.5*smoothstep(top-.05,top,rd.y);
   c=mix(c,ridge,edge*smoothstep(-.03,.0,rd.y));
   c+=uEdge*exp(-abs(rd.y-top)*110.)*a*1.9*smoothstep(-.02,.01,rd.y);
-  skyTrail=exp(-abs(rd.y-top)*90.)*a*.8*smoothstep(-.02,.01,rd.y);
+  skyTrail=exp(-abs(rd.y-top)*90.)*a*.35*smoothstep(-.02,.01,rd.y);
   return c;
 }
 void main(){
@@ -1868,7 +1908,7 @@ void main(){
       float w=.9+r.y*(snare?2.6:2.2);
       float g=exp(-pow((p.z-zr)/w,2.))*exp(-r.y*(snare?2.6:1.9))*r.z;
       g*=exp(-d*(snare?.03:.3))*(.12+.88*smoothstep(1.,20.,t));
-      emC+=(snare?mix(uEdge,vec3(1.),.25):uEdge*1.2)*g*(snare?.55:2.4);
+      emC+=(snare?mix(uEdge,vec3(1.),.25):uEdge*1.2)*g*(snare?.22:1.25);
     }
     float fog=1.-exp(-pow(t*uFogK,1.55));
     vec3 fogC=mix(uFog,uSunC,pow(max(dot(rd,uSunDir),0.),7.)*.55)*(1.-uDusk*.55);
@@ -1994,7 +2034,7 @@ void main(){
   const G = createGL(cv);
   let gl, Post, pScene, pDream, pMote, tNoise, tSpec;
   let scene, dreamA, dreamB, rw = 0, rh = 0, frameIdx = 0, lastScale = 1;
-  const specBytes = new Uint8Array(kit.BANDS);
+  const specBytes = new Uint8Array(kit.BANDS), ridge = new Float32Array(kit.BANDS);
 
   const ringData = new Float32Array(12 * 4);
   const rings = [];
@@ -2279,7 +2319,12 @@ void main(){
         const r = rings[rings.length - 1 - i], o = i * 4;
         if (r) { ringData[o] = r.z; ringData[o + 1] = (now - r.t) / 1000; ringData[o + 2] = r.v; ringData[o + 3] = r.k; } else { ringData[o + 2] = 0; }
       }
-      for (let i = 0; i < kit.BANDS; i++) specBytes[i] = Math.round(kit.spectrum[i] * 255);
+      for (let i = 0; i < kit.BANDS; i++) {
+        // The ridge rises quickly and falls slowly, so the skyline swells with the music rather than flickering.
+        const v = kit.spectrum[i], tau = v > ridge[i] ? 0.09 : 0.45;
+        ridge[i] += (v - ridge[i]) * (1 - Math.exp(-dtMs / 1000 / tau));
+        specBytes[i] = Math.round(ridge[i] * 255);
+      }
       G.bindTex(1, tSpec);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, kit.BANDS, 1, gl.RED, gl.UNSIGNED_BYTE, specBytes);
@@ -2322,10 +2367,11 @@ void main(){
       /* bloom and grade */
       const bloom = Post.bloom(dreamA.tex, 1.15);
       Post.finish(dreamA.tex, bloom, {
-        uBloomK: 0.55 + env.kick * 0.3 + env.crash * 0.35, uExposure: 0.98 + env.kick * 0.1 + env.snare * 0.1 + S.dusk * 0.25,
-        uFlash: RM.matches ? 0 : Math.min(0.2, env.flash * 0.2), uFlashC: [1, 0.93, 0.82], uGrain: 0.022, uT: now / 1000, uVig: 0.55, uSat: 1.06,
-      });
+        uBloomK: 0.55 + env.kick * 0.08 + env.crash * 0.15, uExposure: 0.98 + env.kick * 0.03 + env.snare * 0.02 + S.dusk * 0.25,
+        uFlash: RM.matches ? 0 : Math.min(0.14, env.flash * 0.14), uFlashC: [1, 0.93, 0.82], uGrain: 0.022, uT: now / 1000, uVig: 0.55, uSat: 1.06, rate: RM.matches ? 0.16 : 0.36,
+      }, dtMs / 1000);
 
+      if (lumaRec) lumaRec(now);
       if (wantSnap) { const done = wantSnap; wantSnap = null; cv.toBlob((blob) => done(blob), 'image/png'); }
 
       /* readouts */
@@ -2366,9 +2412,26 @@ void main(){
     }
   }
 
+  // For the flicker check: record the picture's brightness on a small grid, on every frame, straight after it is drawn.
+  let lumaRec = null;
+  function recordLuma(ms) {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 36;
+    const g = c.getContext('2d', { willReadFrequently: true }), frames = [], t0 = performance.now();
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';        // a true area average, not a few sampled pixels
+    return new Promise((res) => {
+      lumaRec = (now) => {
+        g.drawImage(cv, 0, 0, 64, 36);
+        const d = g.getImageData(0, 0, 64, 36).data, grid = [];
+        for (let i = 0; i < d.length; i += 4) grid.push(+(0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]).toFixed(1));
+        frames.push({ t: +(now - t0).toFixed(1), grid });
+        if (now - t0 > ms) { lumaRec = null; res(frames); }
+      };
+    });
+  }
+
   /* for the checks: read what is really on the canvas and in the engine */
   window.__app = {
-    S, kit, BIOMES, pathX, roadY, gradeAt, motion01,
+    S, kit, BIOMES, pathX, roadY, gradeAt, motion01, recordLuma,
     pixel() {
       const c = document.createElement('canvas'); c.width = 32; c.height = 18;
       const g = c.getContext('2d');

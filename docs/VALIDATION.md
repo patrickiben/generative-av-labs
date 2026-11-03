@@ -32,6 +32,14 @@ The same run measures that the picture itself responds, as the mean change in re
 
 The audio estimator, on a synthetic loop of about 8 kicks, 8 snares and 16 hats, read 9, 8 and 16 on one page and 9, 9 and 15 on the other. Tempo from that loop, whose true value is 120 BPM, read 119.98 and 120.00.
 
+## Flicker
+
+`tests/flash_check.py` records the rendered page's brightness on every frame and applies the WCAG 2.2 general flash definition: a flash is a pair of opposing changes of at least 10% of maximum relative luminance, with the darker image below 0.80, and the limit is three a second over no more than 25% of a 10 degree field. Each third of the screen stands in for that field. It runs the demo and a deliberately brutal case, crash, kick and snare together at full velocity on every eighth note at 140 BPM, with and without reduced motion.
+
+**The first published build failed this badly.** Up to 88% of a region flashed more than three times a second in the demo, and the whole frame flashed up to 7 times a second under the brutal case, while the page claimed a cap that covered only the crash flash. It was live for about two hours on 2026-11-02 before the limiter described in [Methods](METHODS.md) replaced it. The check now passes and stays in this folder so that does not recur.
+
+It is a screen, not a certificate. It does not test saturated red flashes, and it says nothing about comfort.
+
 ## Numbers with known answers
 
 - Tempo from a known 120 BPM audio loop, and from the demo's known 108 BPM.

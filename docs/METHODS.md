@@ -57,4 +57,8 @@ A session file holds hit times, velocities, pedal moves and 30 Hz spectrum level
 
 ## Safety
 
-Full-field flashes are limited to one every 340 ms, about three a second. With the system's reduced-motion setting on, the flash is removed and the camera's shake, surge and rotation are reduced or stopped.
+A limiter in the final pass holds each region of the finished picture, on a grid 128 cells wide, to a change of 0.36 in relative luminance per second, in either direction, whatever caused it. A 10% swing therefore takes more than a quarter of a second, which keeps a large area under three flashes a second by construction. Small sparks barely move a region's mean, so they stay instant. The limit tightens to 0.16 under the system's reduced-motion setting, which also removes the crash flash and reduces the camera's shake, surge and rotation.
+
+Nebula's gas follows slow averages of the bands instead of each hit, and older sound blurs as it winds outward, so bright bands dissolve rather than sweeping across a fixed spot at the hit rate. Endless Cockpit's horizon rises quickly and falls slowly for the same reason.
+
+`tests/flash_check.py` measures the result on the rendered page with the WCAG 2.2 general flash definition. See [Validation](VALIDATION.md).

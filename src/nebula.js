@@ -52,8 +52,9 @@ void main(){
     home=mix(g,riv,uRiver);
     k=.9;
   }else{
-    vec2 hs=texture(uHist,vec2(uHistX-a*.985,b)).rg;
-    amp=hs.r;
+    // Older sound blurs as it winds outward, so bright bands dissolve instead of sweeping past at the hit rate.
+    float w=.004+a*.05,tx=uHistX-a*.985;
+    amp=(texture(uHist,vec2(tx,b)).r+texture(uHist,vec2(tx-w,b)).r+texture(uHist,vec2(tx+w,b)).r+texture(uHist,vec2(tx-w*2.,b)).r+texture(uHist,vec2(tx+w*2.,b)).r)*.2;
     // Galaxy: age winds outward along two arms. The inner side of an arm is low, the outer side is high.
     float th=a*2.3*TAU+(s.w<.42?0.:3.14159);
     float r=.07+1.28*pow(a,.74);
@@ -89,7 +90,7 @@ void main(){
   f+=nrm*uCrash*1.5*uBlow;
   v=(v+f*uDt)*exp(-uDt*mix(3.3,1.9,a));
   p+=v*uDt;
-  oPos=vec4(p,mix(P.w,amp,.6));
+  oPos=vec4(p,mix(P.w,amp,.3));
   oVel=vec4(v,V.w);
 }`;
 
@@ -117,15 +118,15 @@ void main(){
   val*=1.-a*.42;
   if(ring){law=vec3(.82,.84,1.);val=.34+.5*uLoud;}
   if(dust)law=mix(vec3(.55,.5,.95),hsl(fract(hue+.62),.58,.6),.55);
-  if(b>.62&&!dust)val*=1.+uHat*(.7+.7*uHatOpen)*(.4+1.1*abs(sin(s.w*6283.+uT*34.)));
-  val*=1.+.42*uRide*(.5+.5*sin(uT*16.+s.w*900.));
-  val*=1.+.55*uKick*(1.-b);
-  val*=1.+.3*uCrash;
+  if(b>.62&&!dust)val*=1.+uHat*(.4+.4*uHatOpen)*(.3+.9*abs(sin(s.w*6283.+uT*34.)));
+  val*=1.+.25*uRide*(.5+.5*sin(uT*16.+s.w*900.));
+  val*=1.+.2*uKick*(1.-b);
+  val*=1.+.1*uCrash;
   float sz=(.75+amp*1.7+(ring?.3:0.))*(.65+s.z*.55);
   if(uForm>.001){
     vec3 fc=mix(texelFetch(uColA,ij,0).rgb,texelFetch(uColB,ij,0).rgb,uMorph);
     law=mix(law,pow(fc,vec3(2.2))*1.9,uForm);
-    val=mix(val,.85*(1.+.5*uKick+.3*uCrash),uForm);
+    val=mix(val,.85*(1.+.15*uKick+.08*uCrash),uForm);
     sz=mix(sz,1.05,uForm);
   }
   float fog=clamp(1.15-clip.w*.16,.2,1.);
@@ -165,10 +166,10 @@ void main(){
   float dens=smoothstep(.34,.84,n1)*fall*(1.-uRiverGas*.45);
   float dens2=smoothstep(.4,.9,n2)*fall;
   vec3 warm=vec3(.60,.18,.27),violet=vec3(.27,.20,.72),teal=vec3(.10,.46,.44);
-  vec3 g=violet*dens*(.5+1.5*uMid+.7*uLoud);
-  g+=warm*dens2*(.26+2.1*uLow+1.3*uKick);
-  g+=teal*smoothstep(.42,.95,fbm(q*1.5+w*3.+9.))*fall*(.3+2.4*uHigh+.8*uHat);
-  g*=(1.+uCrash*.55+uSnare*.3)*(1.-uForm*.93)*(1.-uRiverGas*.62);
+  vec3 g=violet*dens*(.5+.85*uMid+.3*uLoud);
+  g+=warm*dens2*(.26+1.05*uLow+.1*uKick);
+  g+=teal*smoothstep(.42,.95,fbm(q*1.5+w*3.+9.))*fall*(.3+1.1*uHigh+.1*uHat);
+  g*=(1.+uCrash*.25+uSnare*.05)*(1.-uForm*.93)*(1.-uRiverGas*.62);
   vec3 sky=vec3(.0065,.0085,.021)+vec3(.012,.012,.03)*exp(-r*r*.5);
   // far stars
   vec2 sp=vUv*asp*170.;vec2 id=floor(sp);vec2 f=fract(sp)-.5;
@@ -291,6 +292,7 @@ void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){v
     simA = mk(); simB = mk();
     S.tier = sz;
     writeTargets();
+    settle = true;
   }
 
   /* ---- render targets ---- */
@@ -569,7 +571,7 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
   cv.addEventListener('wheel', (e) => { e.preventDefault(); S.dist = clamp(S.dist * Math.exp(e.deltaY * 0.0009), 1.8, 6); }, { passive: false });
 
   /* ---- frame ---- */
-  let last = performance.now(), frameIdx = 0, slow = 0, fast = 0, fails = 0, tierLocked = false, strongGPU = false;
+  let last = performance.now(), frameIdx = 0, slow = 0, fast = 0, fails = 0, tierLocked = false, strongGPU = false, settle = false;
   function render(now) {
     requestAnimationFrame(render);
     try {
@@ -626,18 +628,23 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
       G.into(velB); G.bindTex(0, pres.tex); G.bindTex(1, vel.tex); G.use(pGrad, { uP: 0, uV: 1, uPx: px }); G.draw();
       [vel, velB] = [velB, vel];
 
-      /* simulate */
+      /* simulate. New particles settle off-screen first, so changing the count never makes the field fly back into shape. */
       const histX = (kit.histX + 0.5) / kit.HIST_W, blow = S.reaction * (RM.matches ? 0.35 : 1);
-      G.into(simB);
-      G.bindTex(0, simA.pos); G.bindTex(1, simA.vel); G.bindTex(2, tSeed); G.bindTex(3, tHist); G.bindTex(4, vel.tex); G.bindTex(5, tN);
-      G.bindTex(6, tHomeA || tSeed); G.bindTex(7, tHomeB || tSeed);
-      G.use(pSim, {
-        uPos: 0, uVel: 1, uSeed: 2, uHist: 3, uFluid: 4, uN: 5, uHomeA: 6, uHomeB: 7,
-        uDt: dt, uT: now / 1000, uHistX: histX, uRiver: S.shapeT, uForm: S.formT, uMorph: S.morph, uLoud: kit.loud,
-        uKick: env.kick, uSnare: env.snare, uHat: env.hat, uHatOpen: env.hatOpen, uTom: env.tom, uTomPos: env.tomPos, uCrash: env.crash, uBlow: blow,
-      });
-      G.draw();
-      [simA, simB] = [simB, simA];
+      const substeps = settle ? 150 : 1;
+      settle = false;
+      for (let sub = 0; sub < substeps; sub++) {
+        const quiet = substeps > 1;
+        G.into(simB);
+        G.bindTex(0, simA.pos); G.bindTex(1, simA.vel); G.bindTex(2, tSeed); G.bindTex(3, tHist); G.bindTex(4, vel.tex); G.bindTex(5, tN);
+        G.bindTex(6, tHomeA || tSeed); G.bindTex(7, tHomeB || tSeed);
+        G.use(pSim, {
+          uPos: 0, uVel: 1, uSeed: 2, uHist: 3, uFluid: 4, uN: 5, uHomeA: 6, uHomeB: 7,
+          uDt: quiet ? 1 / 30 : dt, uT: now / 1000, uHistX: histX, uRiver: S.shapeT, uForm: S.formT, uMorph: S.morph, uLoud: kit.loud,
+          uKick: quiet ? 0 : env.kick, uSnare: quiet ? 0 : env.snare, uHat: quiet ? 0 : env.hat, uHatOpen: env.hatOpen, uTom: quiet ? 0 : env.tom, uTomPos: env.tomPos, uCrash: quiet ? 0 : env.crash, uBlow: blow,
+        });
+        G.draw();
+        [simA, simB] = [simB, simA];
+      }
 
       /* points */
       G.into(points); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
@@ -659,20 +666,23 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
       G.use(pTrail, { uPts: 0, uPrev: 1, uFade: clamp(fade, 0, 0.985), uT: now / 1000, uC: c }); G.draw();
       [trailA, trailB] = [trailB, trailA];
 
-      /* gas and composite */
+      /* gas and composite: the gas follows slow averages of the bands, so it breathes instead of pulsing */
+      const follow = (a, b) => a + (b - a) * (1 - Math.exp(-dt / (b > a ? 0.5 : 1.5)));
+      S.gasL = follow(S.gasL || 0, kit.low); S.gasM = follow(S.gasM || 0, kit.mid); S.gasH = follow(S.gasH || 0, kit.high); S.gasV = follow(S.gasV || 0, kit.loud);
       G.into(scene); G.bindTex(0, tN); G.bindTex(1, trailA.tex);
       const scale = (3.25 / (dist * fit)) * (1 / 1.25);
       G.use(pGas, {
         uN: 0, uTrail: 1, uRiverGas: S.shapeT, uRes: [rw, rh], uC: c, uT: now / 1000, uTilt: Math.sin(pitch) * (1 - S.shapeT) + S.shapeT, uScale: scale, uYaw: yaw,
-        uLow: kit.low, uMid: kit.mid, uHigh: kit.high, uLoud: kit.loud, uKick: env.kick, uSnare: env.snare, uHat: env.hat, uHatOpen: env.hatOpen, uRide: env.ride, uCrash: env.crash, uForm: S.formT,
+        uLow: S.gasL, uMid: S.gasM, uHigh: S.gasH, uLoud: S.gasV, uKick: env.kick, uSnare: env.snare, uHat: env.hat, uHatOpen: env.hatOpen, uRide: env.ride, uCrash: env.crash, uForm: S.formT,
       });
       G.draw();
 
       const bloom = Post.bloom(scene.tex, 0.7);
       Post.finish(scene.tex, bloom, {
-        uBloomK: (0.62 + env.kick * 0.25 + env.crash * 0.35) * S.glow, uExposure: 1.02,
-        uFlash: RM.matches ? 0 : Math.min(0.14, env.flash * 0.14), uFlashC: [1, 0.94, 0.86], uGrain: 0.016, uT: now / 1000, uVig: 0.42, uSat: 1.08,
-      });
+        uBloomK: (0.6 + env.kick * 0.06 + env.crash * 0.12) * S.glow, uExposure: 1.02,
+        uFlash: RM.matches ? 0 : Math.min(0.1, env.flash * 0.1), uFlashC: [1, 0.94, 0.86], uGrain: 0.016, uT: now / 1000, uVig: 0.42, uSat: 1.08, rate: RM.matches ? 0.16 : 0.36,
+      }, dtMs / 1000);
+      if (lumaRec) lumaRec(now);
       if (wantSnap) { const done = wantSnap; wantSnap = null; cv.toBlob((blob) => done(blob), 'image/png'); }
 
       if (frameIdx % 6 === 0) {
@@ -714,8 +724,25 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
     }
   }
 
+  // For the flicker check: record the picture's brightness on a small grid, on every frame, straight after it is drawn.
+  let lumaRec = null;
+  function recordLuma(ms) {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 36;
+    const g = c.getContext('2d', { willReadFrequently: true }), frames = [], t0 = performance.now();
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';        // a true area average, not a few sampled pixels
+    return new Promise((res) => {
+      lumaRec = (now) => {
+        g.drawImage(cv, 0, 0, 64, 36);
+        const d = g.getImageData(0, 0, 64, 36).data, grid = [];
+        for (let i = 0; i < d.length; i += 4) grid.push(+(0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]).toFixed(1));
+        frames.push({ t: +(now - t0).toFixed(1), grid });
+        if (now - t0 > ms) { lumaRec = null; res(frames); }
+      };
+    });
+  }
+
   window.__app = {
-    S, kit, F,
+    S, kit, F, recordLuma,
     get N() { return N; },
     pixel() {
       const c = document.createElement('canvas'); c.width = 32; c.height = 18;

@@ -233,7 +233,7 @@
           <p>Hit to frame is what this page measures. It leaves out the interface, the cable and the screen.</p>
         </details>
         <details><summary>Safety and privacy</summary>
-          <p>Full-field flashes are capped at about three a second. If bright or moving light troubles you, turn on your system's reduced-motion setting: these pages then calm the camera and remove the flash.</p>
+          <p>A limiter slows any large change in brightness, and these pages measure under the WCAG limit of three flashes a second, even with hard playing. That is a measured screen, not a medical guarantee. If flashing or moving light affects you, take care, and turn on your system's reduced-motion setting, which tightens the limiter, calms the camera and removes the flash.</p>
           <p>Audio and MIDI are analyzed in this browser and never sent anywhere. The pages make no network requests after they load. Your device choice and pad map stay in this browser's storage.</p>
         </details>
         <details><summary>Ideas credited</summary>

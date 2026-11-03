@@ -123,9 +123,8 @@ void main(){
 }`;
   const GRADE_FS = FS_HEAD + `
 uniform sampler2D uScene,uBloom;
-uniform float uBloomK,uExposure,uFlash,uGrain,uT,uVig,uSat;
-uniform vec3 uFlashC,uLift;
-float h12(vec2 p){ vec3 q=fract(vec3(p.xyx)*.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
+uniform float uBloomK,uExposure,uFlash,uVig,uSat;
+uniform vec3 uFlashC;
 vec3 aces(vec3 x){ return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.); }
 void main(){
   vec3 c=texture(uScene,vUv).rgb+texture(uBloom,vUv).rgb*uBloomK;
@@ -136,7 +135,27 @@ void main(){
   c=mix(vec3(g),c,uSat);
   vec2 q=vUv-.5;
   c*=1.-uVig*smoothstep(.25,.95,dot(q,q)*2.1);
-  c=pow(c,vec3(1./2.2))+uLift;
+  o=vec4(c,1.);
+}`;
+  // The flicker limiter. Each region of the finished picture may change brightness only so fast, in either
+  // direction, whatever made it change. Holding a 10% swing to about a quarter second keeps any large area
+  // under the WCAG limit of three flashes a second, by construction. Small sparks barely move a region's mean,
+  // so they stay instant.
+  const LIMIT_FS = FS_HEAD + `
+uniform sampler2D uCur,uPrev; uniform float uLod,uMax;
+void main(){
+  float cur=dot(textureLod(uCur,vUv,uLod).rgb,vec3(.2126,.7152,.0722));
+  float prev=texture(uPrev,vUv).r;
+  o=vec4(prev+clamp(cur-prev,-uMax,uMax),cur,0.,1.);
+}`;
+  const OUT_FS = FS_HEAD + `
+uniform sampler2D uG,uLim; uniform float uGrain,uT; uniform vec3 uLift;
+float h12(vec2 p){ vec3 q=fract(vec3(p.xyx)*.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
+void main(){
+  vec3 c=texture(uG,vUv).rgb;
+  vec2 L=texture(uLim,vUv).rg;
+  c*=clamp((L.x+.003)/(L.y+.003),.1,4.);
+  c=pow(min(c,vec3(1.)),vec3(1./2.2))+uLift;
   c+=(h12(gl_FragCoord.xy+fract(uT)*97.)-.5)*uGrain;
   o=vec4(c,1.);
 }`;
@@ -144,13 +163,21 @@ void main(){
   // Bloom chain and final grade, shared by both pages.
   function createPost(G) {
     const { gl } = G;
-    const down = G.program(DOWN_FS), up = G.program(UP_FS), grade = G.program(GRADE_FS);
-    let mips = [];
+    const down = G.program(DOWN_FS), up = G.program(UP_FS), grade = G.program(GRADE_FS), limit = G.program(LIMIT_FS), out = G.program(OUT_FS);
+    let mips = [], graded = null, limA = null, limB = null, limLod = 0, limFresh = true;
     function resize(w, h, levels) {
       mips.forEach(G.freeTarget);
       mips = [];
       let a = Math.max(2, w >> 1), b = Math.max(2, h >> 1);
       for (let i = 0; i < (levels || 5); i++) { mips.push(G.target(a, b)); a = Math.max(2, a >> 1); b = Math.max(2, b >> 1); }
+      [graded, limA, limB].forEach((T) => T && G.freeTarget(T));
+      graded = G.target(w, h);
+      gl.bindTexture(gl.TEXTURE_2D, graded.tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+      const lw = 128, lh = Math.max(2, Math.round((128 * h) / w));
+      limA = G.target(lw, lh); limB = G.target(lw, lh);
+      limLod = Math.log2(w / lw);
+      limFresh = true;
     }
     function bloom(srcTex, thresh) {
       gl.disable(gl.BLEND);
@@ -176,11 +203,24 @@ void main(){
       gl.disable(gl.BLEND);
       return mips[0].tex;
     }
-    function finish(sceneTex, bloomTex, vals) {
+    function finish(sceneTex, bloomTex, vals, dt) {
+      const v = Object.assign({ uBloomK: 0.6, uExposure: 1, uFlash: 0, uFlashC: [1, 0.94, 0.84], uVig: 0.5, uSat: 1, uGrain: 0.02, uT: 0, uLift: [0, 0, 0], rate: 0.36 }, vals);
+      gl.disable(gl.BLEND);
+      G.into(graded);
+      G.bindTex(0, sceneTex); G.bindTex(1, bloomTex);
+      G.use(grade, { uScene: 0, uBloom: 1, uBloomK: v.uBloomK, uExposure: v.uExposure, uFlash: v.uFlash, uFlashC: v.uFlashC, uVig: v.uVig, uSat: v.uSat });
+      G.draw();
+      G.bindTex(0, graded.tex);
+      gl.generateMipmap(gl.TEXTURE_2D);
+      G.into(limB);
+      G.bindTex(0, graded.tex); G.bindTex(1, limA.tex);
+      G.use(limit, { uCur: 0, uPrev: 1, uLod: limLod, uMax: limFresh ? 10 : v.rate * (dt || 1 / 60) });
+      G.draw();
+      [limA, limB] = [limB, limA];
+      limFresh = false;
       G.into(null);
-      G.bindTex(0, sceneTex);
-      G.bindTex(1, bloomTex);
-      G.use(grade, Object.assign({ uScene: 0, uBloom: 1, uBloomK: 0.6, uExposure: 1, uFlash: 0, uFlashC: [1, 0.94, 0.84], uGrain: 0.02, uT: 0, uVig: 0.5, uSat: 1, uLift: [0, 0, 0] }, vals));
+      G.bindTex(0, graded.tex); G.bindTex(1, limA.tex);
+      G.use(out, { uG: 0, uLim: 1, uGrain: v.uGrain, uT: v.uT, uLift: v.uLift });
       G.draw();
     }
     return { resize, bloom, finish };

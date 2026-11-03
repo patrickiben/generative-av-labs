@@ -104,7 +104,7 @@ vec3 sky(vec3 rd,vec2 sv){
     float az=atan(rd.x,rd.z);
     float cur=pow(fbm2(vec2(az*4.+uT*.25,uT*.09)),3.)*5.;
     float band=smoothstep(.03,.2,rd.y)*smoothstep(.72,.22,rd.y);
-    c+=mix(uEdge,vec3(.6,.9,1.),.45)*cur*band*uCrash*1.6;
+    c+=mix(uEdge,vec3(.6,.9,1.),.45)*cur*band*min(uCrash,.7)*1.1;
   }
   // toms: a band of light in the sky at the tom's height
   c+=uEdge*exp(-pow((rd.y-(.05+uTomPos*.34))*16.,2.))*uTom*.9;
@@ -117,7 +117,7 @@ vec3 sky(vec3 rd,vec2 sv){
   vec3 ridge=mix(uFog*.42,uSkyTop*.6,.35)+uEdge*a*.5*smoothstep(top-.05,top,rd.y);
   c=mix(c,ridge,edge*smoothstep(-.03,.0,rd.y));
   c+=uEdge*exp(-abs(rd.y-top)*110.)*a*1.9*smoothstep(-.02,.01,rd.y);
-  skyTrail=exp(-abs(rd.y-top)*90.)*a*.8*smoothstep(-.02,.01,rd.y);
+  skyTrail=exp(-abs(rd.y-top)*90.)*a*.35*smoothstep(-.02,.01,rd.y);
   return c;
 }
 void main(){
@@ -177,7 +177,7 @@ void main(){
       float w=.9+r.y*(snare?2.6:2.2);
       float g=exp(-pow((p.z-zr)/w,2.))*exp(-r.y*(snare?2.6:1.9))*r.z;
       g*=exp(-d*(snare?.03:.3))*(.12+.88*smoothstep(1.,20.,t));
-      emC+=(snare?mix(uEdge,vec3(1.),.25):uEdge*1.2)*g*(snare?.55:2.4);
+      emC+=(snare?mix(uEdge,vec3(1.),.25):uEdge*1.2)*g*(snare?.22:1.25);
     }
     float fog=1.-exp(-pow(t*uFogK,1.55));
     vec3 fogC=mix(uFog,uSunC,pow(max(dot(rd,uSunDir),0.),7.)*.55)*(1.-uDusk*.55);
@@ -303,7 +303,7 @@ void main(){
   const G = createGL(cv);
   let gl, Post, pScene, pDream, pMote, tNoise, tSpec;
   let scene, dreamA, dreamB, rw = 0, rh = 0, frameIdx = 0, lastScale = 1;
-  const specBytes = new Uint8Array(kit.BANDS);
+  const specBytes = new Uint8Array(kit.BANDS), ridge = new Float32Array(kit.BANDS);
 
   const ringData = new Float32Array(12 * 4);
   const rings = [];
@@ -588,7 +588,12 @@ void main(){
         const r = rings[rings.length - 1 - i], o = i * 4;
         if (r) { ringData[o] = r.z; ringData[o + 1] = (now - r.t) / 1000; ringData[o + 2] = r.v; ringData[o + 3] = r.k; } else { ringData[o + 2] = 0; }
       }
-      for (let i = 0; i < kit.BANDS; i++) specBytes[i] = Math.round(kit.spectrum[i] * 255);
+      for (let i = 0; i < kit.BANDS; i++) {
+        // The ridge rises quickly and falls slowly, so the skyline swells with the music rather than flickering.
+        const v = kit.spectrum[i], tau = v > ridge[i] ? 0.09 : 0.45;
+        ridge[i] += (v - ridge[i]) * (1 - Math.exp(-dtMs / 1000 / tau));
+        specBytes[i] = Math.round(ridge[i] * 255);
+      }
       G.bindTex(1, tSpec);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, kit.BANDS, 1, gl.RED, gl.UNSIGNED_BYTE, specBytes);
@@ -631,10 +636,11 @@ void main(){
       /* bloom and grade */
       const bloom = Post.bloom(dreamA.tex, 1.15);
       Post.finish(dreamA.tex, bloom, {
-        uBloomK: 0.55 + env.kick * 0.3 + env.crash * 0.35, uExposure: 0.98 + env.kick * 0.1 + env.snare * 0.1 + S.dusk * 0.25,
-        uFlash: RM.matches ? 0 : Math.min(0.2, env.flash * 0.2), uFlashC: [1, 0.93, 0.82], uGrain: 0.022, uT: now / 1000, uVig: 0.55, uSat: 1.06,
-      });
+        uBloomK: 0.55 + env.kick * 0.08 + env.crash * 0.15, uExposure: 0.98 + env.kick * 0.03 + env.snare * 0.02 + S.dusk * 0.25,
+        uFlash: RM.matches ? 0 : Math.min(0.14, env.flash * 0.14), uFlashC: [1, 0.93, 0.82], uGrain: 0.022, uT: now / 1000, uVig: 0.55, uSat: 1.06, rate: RM.matches ? 0.16 : 0.36,
+      }, dtMs / 1000);
 
+      if (lumaRec) lumaRec(now);
       if (wantSnap) { const done = wantSnap; wantSnap = null; cv.toBlob((blob) => done(blob), 'image/png'); }
 
       /* readouts */
@@ -675,9 +681,26 @@ void main(){
     }
   }
 
+  // For the flicker check: record the picture's brightness on a small grid, on every frame, straight after it is drawn.
+  let lumaRec = null;
+  function recordLuma(ms) {
+    const c = document.createElement('canvas'); c.width = 64; c.height = 36;
+    const g = c.getContext('2d', { willReadFrequently: true }), frames = [], t0 = performance.now();
+    g.imageSmoothingEnabled = true; g.imageSmoothingQuality = 'high';        // a true area average, not a few sampled pixels
+    return new Promise((res) => {
+      lumaRec = (now) => {
+        g.drawImage(cv, 0, 0, 64, 36);
+        const d = g.getImageData(0, 0, 64, 36).data, grid = [];
+        for (let i = 0; i < d.length; i += 4) grid.push(+(0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]).toFixed(1));
+        frames.push({ t: +(now - t0).toFixed(1), grid });
+        if (now - t0 > ms) { lumaRec = null; res(frames); }
+      };
+    });
+  }
+
   /* for the checks: read what is really on the canvas and in the engine */
   window.__app = {
-    S, kit, BIOMES, pathX, roadY, gradeAt, motion01,
+    S, kit, BIOMES, pathX, roadY, gradeAt, motion01, recordLuma,
     pixel() {
       const c = document.createElement('canvas'); c.width = 32; c.height = 18;
       const g = c.getContext('2d');
