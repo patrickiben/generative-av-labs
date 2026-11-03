@@ -26,7 +26,7 @@ jobs:
       - name: Assemble the site
         run: |
           mkdir -p _site/docs
-          cp index.html nebula.html endless-cockpit.html enter.html field-guide.html README.md _site/
+          cp index.html nebula.html endless-cockpit.html enter.html chimera.html field-guide.html README.md _site/
           cp docs/*.md docs/*.jpg _site/docs/
       - uses: actions/upload-pages-artifact@v5
         with:

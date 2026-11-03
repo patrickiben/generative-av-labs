@@ -1,8 +1,8 @@
 # Generative AV Labs
 
-**[Open the home page](https://patrickiben.github.io/generative-av-labs/)** · [Nebula](https://patrickiben.github.io/generative-av-labs/nebula.html) · [Endless Cockpit](https://patrickiben.github.io/generative-av-labs/endless-cockpit.html) · [Enter](https://patrickiben.github.io/generative-av-labs/enter.html) · [Field guide](https://patrickiben.github.io/generative-av-labs/field-guide.html)
+**[Open the home page](https://patrickiben.github.io/generative-av-labs/)** · [Nebula](https://patrickiben.github.io/generative-av-labs/nebula.html) · [Endless Cockpit](https://patrickiben.github.io/generative-av-labs/endless-cockpit.html) · [Enter](https://patrickiben.github.io/generative-av-labs/enter.html) · [Chimera Synth](https://patrickiben.github.io/generative-av-labs/chimera.html) · [Field guide](https://patrickiben.github.io/generative-av-labs/field-guide.html)
 
-Browser instruments that turn an electronic drum kit into light. Plug audio and MIDI into your computer and open a page. There is no helper app and no server, and your audio, MIDI and pictures never leave the browser. Nebula and Endless Cockpit use no model. Enter uses one, a depth estimate for your own picture, which downloads only when you ask.
+Browser instruments that turn an electronic drum kit into light and sound. Plug audio and MIDI into your computer and open a page. There is no helper app and no server, and your audio, MIDI and pictures never leave the browser. Nebula, Endless Cockpit and Chimera Synth use no model. Enter uses one, a depth estimate for your own picture, which downloads only when you ask.
 
 ![Nebula during the demo](docs/nebula.jpg)
 
@@ -15,6 +15,10 @@ Browser instruments that turn an electronic drum kit into light. Plug audio and 
 **Enter** lets you walk into a picture and fly through a sound. The sound world is a synesthetic map: time runs along X, pitch climbs and salience comes toward you, while your last twelve seconds roll past as terrain. The picture world is a depth relief, and hits send wavefronts through its depth. Your own picture gets its depth from Depth Anything V2 Small (Apache-2.0) on ONNX Runtime Web. The first time, the page asks and then downloads about 76 MB from Hugging Face and jsDelivr. Without WebGPU, it downloads about 41 MB and runs on the processor. The print world casts a sound into a watertight STL. Grow World and Make 3D Object stay in the desktop app, because no browser path was found for SDXL or TripoSR.
 
 ![Enter's painted scene](docs/enter.jpg)
+
+![Chimera Synth during the demo](docs/chimera.jpg)
+
+**Chimera Synth** is a bass you breed by ear, and the one page here that makes sound. A genome of 20 genes grows the voice: drag a bud toward its tip and hear the seed lean that way, then let go to grow a new seed. Morph mode blends fifteen animal voices, from a mallard to a dolphin, by sliding their formants along a log-frequency axis. A phase check measures the low end and locks the sub where it adds up. Your kit plays it over Web MIDI, each drum a stated pitch. It came from the desktop Bio-Bass Chimera Lab, whose page is kept unchanged in `legacy/`.
 
 ## Wire it
 
