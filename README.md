@@ -1,6 +1,6 @@
 # Generative AV Labs
 
-**[Open the home page](https://patrickiben.github.io/generative-av-labs/)** · [Nebula](https://patrickiben.github.io/generative-av-labs/nebula.html) · [Endless Cockpit](https://patrickiben.github.io/generative-av-labs/endless-cockpit.html) · [Field guide](https://patrickiben.github.io/generative-av-labs/field-guide.html)
+**[Open the home page](https://patrickiben.github.io/generative-av-labs/)** · [Nebula](https://patrickiben.github.io/generative-av-labs/nebula.html) · [Endless Cockpit](https://patrickiben.github.io/generative-av-labs/endless-cockpit.html) · [Enter](https://patrickiben.github.io/generative-av-labs/enter.html) · [Field guide](https://patrickiben.github.io/generative-av-labs/field-guide.html)
 
 Browser instruments that turn an electronic drum kit into light. Plug audio and MIDI into your computer and open a page. There is no helper app and no server, and your audio, MIDI and pictures never leave the browser. Nebula and Endless Cockpit use no model. Enter uses one, a depth estimate for your own picture, which downloads only when you ask.
 

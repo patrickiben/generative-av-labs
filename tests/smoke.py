@@ -13,7 +13,7 @@ threading.Thread(target=srv.serve_forever, daemon=True).start()
 bad = []
 with sync_playwright() as p:
     b = p.chromium.launch(args=['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'])
-    for page in ('nebula.html', 'endless-cockpit.html'):
+    for page in ('nebula.html', 'endless-cockpit.html', 'enter.html'):
         pg = b.new_page(); errors = []
         pg.on('pageerror', lambda e: errors.append(str(e)[:200]))
         pg.goto(f'http://127.0.0.1:{srv.server_port}/{page}'); pg.wait_for_timeout(2500)
@@ -24,6 +24,7 @@ with sync_playwright() as p:
         if hits < 3: bad.append(f'{page}: the demo produced {hits} hits')
         if errors: bad.append(f'{page}: {errors[0]}')
         print(f'{page}: {hits} hits, {len(errors)} page errors')
+        pg.close()                              # a page left running would starve the next one under software rendering
     b.close()
 srv.shutdown()
 print('\n'.join(bad) or 'smoke passed')

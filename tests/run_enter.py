@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Enter's own paths, on the rendered page in real Chrome: the real depth model, its failures, the fallback, the cast and the STL.
 It downloads the model from Hugging Face and the runtime from jsDelivr, so run it by hand, not in CI. usage: run_enter.py [picture]"""
-import hashlib, http.server, json, struct, sys, threading, time
+import hashlib, http.server, json, os, struct, sys, threading, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT = Path(__file__).resolve().parent.parent
@@ -11,7 +11,7 @@ class Q(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *a, **k): super().__init__(*a, directory=str(ROOT), **k)
     def log_message(self, *a): pass
 srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Q); threading.Thread(target=srv.serve_forever, daemon=True).start()
-URL = f'http://127.0.0.1:{srv.server_port}/enter.html'
+URL = os.environ.get('ENTER_URL') or f'http://127.0.0.1:{srv.server_port}/enter.html'   # ENTER_URL checks a deployed copy
 res = []
 def check(name, ok, note=''):
     res.append(bool(ok)); print(('ok  ' if ok else 'FAIL') + f' {name}' + (f' · {note}' if note != '' else ''), flush=True)
