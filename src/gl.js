@@ -154,7 +154,7 @@ float h12(vec2 p){ vec3 q=fract(vec3(p.xyx)*.1031); q+=dot(q,q.yzx+33.33); retur
 void main(){
   vec3 c=texture(uG,vUv).rgb;
   vec2 L=texture(uLim,vUv).rg;
-  c*=clamp((L.x+.003)/(L.y+.003),.1,4.);
+  c*=clamp((L.x+.003)/(L.y+.003),.05,4.);
   c=pow(min(c,vec3(1.)),vec3(1./2.2))+uLift;
   c+=(h12(gl_FragCoord.xy+fract(uT)*97.)-.5)*uGrain;
   o=vec4(c,1.);

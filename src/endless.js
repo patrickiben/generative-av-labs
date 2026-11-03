@@ -167,7 +167,7 @@ void main(){
     }
     float side=exp(-pow((d-2.25)/.09,2.));
     float spark=pow(vn(vec2(p.z*.9,uT*1.3)),6.)*7.;
-    emC+=uEdge*side*(.3+uRide*spark*.9+uHat*spark*(1.2+uHatOpen*2.2));
+    emC+=uEdge*side*(.3+uRide*spark*.6+uHat*spark*(.75+uHatOpen*1.1));
     // rings of light that run ahead of you
     for(int i=0;i<RINGS;i++){
       vec4 r=uRing[i];
@@ -177,6 +177,7 @@ void main(){
       float w=.9+r.y*(snare?2.6:2.2);
       float g=exp(-pow((p.z-zr)/w,2.))*exp(-r.y*(snare?2.6:1.9))*r.z;
       g*=exp(-d*(snare?.03:.3))*(.12+.88*smoothstep(1.,20.,t));
+      g*=smoothstep(46.,14.,zr-uCam.z);    // rings fade before the horizon, where they would stack into a flashing band
       emC+=(snare?mix(uEdge,vec3(1.),.25):uEdge*1.2)*g*(snare?.22:1.25);
     }
     float fog=1.-exp(-pow(t*uFogK,1.55));
@@ -206,7 +207,7 @@ void main(){
   if(cz<.4){gl_Position=vec4(2.,2.,0.,1.);gl_PointSize=0.;vA=0.;return;}
   gl_Position=vec4(dot(d,uRight)*uFocal/cz/uAsp,dot(d,uUp)*uFocal/cz,0.,1.);
   float tw=.5+.5*sin(i*.7+uZ*.5);
-  vA=(.1+.55*uHat*(1.+uHatOpen)+.25*uRide*tw+.12*uSpeedN)*smoothstep(span,span*.45,cz)*smoothstep(.4,4.,cz);
+  vA=(.1+.3*uHat*(1.+.6*uHatOpen)+.18*uRide*tw+.12*uSpeedN)*smoothstep(span,span*.45,cz)*smoothstep(.4,4.,cz);
   gl_PointSize=clamp(uPx*(.5+a*1.3)/cz*(1.+uHat),1.,44.);
 }`;
   const MOTE_FS = FS_HEAD.replace('in vec2 vUv;\n', '') + `
@@ -274,7 +275,7 @@ void main(){
     <table class="maptable"><tbody>
       <tr><th>Tempo</th><td>Sets the speed. In Groove, half your BPM stands in for pedal cadence.</td></tr>
       <tr><th>Kick</th><td>Surges you forward and sends a ring of light down the road.</td></tr>
-      <tr><th>Snare</th><td>A wide flare across the land and a small shake of the view.</td></tr>
+      <tr><th>Snare</th><td>A wide flare across the land.</td></tr>
       <tr><th>Hi-hat</th><td>Sparks along the road edge and in the stars. Opening the pedal lengthens them.</td></tr>
       <tr><th>Toms</th><td>A band of light in the sky, high for the high tom and low for the low tom.</td></tr>
       <tr><th>Crash</th><td>Aurora and long trails. A choke cuts it short.</td></tr>
@@ -310,7 +311,7 @@ void main(){
   kit.on('hit', (h) => {
     const v = h.vel;
     if (h.voice === 'kick') { S.surge = Math.max(S.surge, v); rings.push({ z: S.vis + 2, t: performance.now(), v, k: 0 }); }
-    if (h.voice === 'snare') { if (!RM.matches) S.shakeV += (Math.random() < 0.5 ? -1 : 1) * v * 2.2; rings.push({ z: S.vis + 4, t: performance.now(), v: v * 0.8, k: 1 }); }
+    if (h.voice === 'snare') rings.push({ z: S.vis + 4, t: performance.now(), v: v * 0.8, k: 1 });   // no camera shake: moving the sun's edge at the hit rate reads as flashing
     if (h.voice === 'crash' && S.crashScene && !h.est) nextBiome();
     if (rings.length > 12) rings.shift();
   });
@@ -505,7 +506,7 @@ void main(){
     S.grade = gradeAt(S.vis);
     S.speed = m * MAX_SPEED * gradeFactor(S.grade);
     S.surge *= Math.exp(-H / 0.28);
-    const surgeV = (RM.matches ? 0.2 : 1) * S.surge * 9;
+    const surgeV = (RM.matches ? 0.2 : 1) * S.surge * 6;
     S.dist += S.speed * H;                                 // distance counts driven speed only, never the idle drift
     S.vis += (S.speed + surgeV + S.ambient * (1 - m)) * H;
     S.shakeV += -S.shake * 90 * H; S.shakeV *= Math.exp(-H / 0.09); S.shake += S.shakeV * H;
@@ -626,7 +627,7 @@ void main(){
       const cz = vpP[0] * fwd[0] + vpP[1] * fwd[1] + vpP[2] * fwd[2];
       const vp = [0.5 + ((vpP[0] * right[0] + vpP[1] * right[1] + vpP[2] * right[2]) * focal) / cz / asp / 2, 0.5 + ((vpP[0] * up[0] + vpP[1] * up[1] + vpP[2] * up[2]) * focal) / cz / 2];
       const fpsScale = dtMs / 16.67;
-      const zoomNow = RM.matches ? S.zoom * 0.4 : 1 - Math.pow(1 - (S.zoom + S.surge * 0.012 + 0.0012), fpsScale);
+      const zoomNow = RM.matches ? S.zoom * 0.4 : 1 - Math.pow(1 - (S.zoom + S.surge * 0.003 + 0.0012), fpsScale);
       G.into(dreamB);
       G.bindTex(0, scene.tex); G.bindTex(1, dreamA.tex);
       G.use(pDream, { uScene: 0, uPrev: 1, uVP: vp, uZoom: zoomNow, uDream: RM.matches ? S.dream * 0.5 : S.dream + env.crash * 0.25 * (1 - S.dream), uWild: S.wild + env.snare * 0.5, uT: now / 1000, uKick: env.kick });

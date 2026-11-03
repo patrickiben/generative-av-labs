@@ -38,6 +38,15 @@ The audio estimator, on a synthetic loop of about 8 kicks, 8 snares and 16 hats,
 
 **The first published build failed this badly.** Up to 88% of a region flashed more than three times a second in the demo, and the whole frame flashed up to 7 times a second under the brutal case, while the page claimed a cap that covered only the crash flash. It was live for about two hours on 2026-11-02 before the limiter described in [Methods](METHODS.md) replaced it. The check now passes and stays in this folder so that does not recur.
 
+Worst share of any region flashing more than three times a second, on the build that shipped. The limit is 25%:
+
+| Page | Demo | Brutal case | Demo, reduced motion | Brutal, reduced motion |
+|---|---|---|---|---|
+| Nebula | 4% | 5% | 3% | 1% |
+| Endless Cockpit | 9% | 15% to 21% over six runs | 4% | 15% |
+
+The whole frame never flashed in any of these runs. Endless's brutal case has the least margin. Its flashing sits at the far end of the road, and the road's hit-driven surge and hi-hat sparks were trimmed to reach these numbers.
+
 It is a screen, not a certificate. It does not test saturated red flashes, and it says nothing about comfort.
 
 ## Numbers with known answers
@@ -81,3 +90,28 @@ Neither page is LIVE-VERIFIED or OWNER-APPROVED yet.
 ## Not tested
 
 Firefox, Edge, Safari, and any phone hardware. Phone width was checked by layout only. Bluetooth cadence was ported unchanged from the earlier version and has not been run against a real sensor here. Video capture was not exercised end to end.
+
+## Enter
+
+Checked on 2026-11-02 in Chrome on the same Apple M4 Max Mac. **No real kit and no outside visitor has used it yet.**
+
+`tests/run_states.py`, pointed at `enter.html` from a scratch copy, passed 49 of 49 input-state checks, using the same real and stubbed paths as above. Audio hits moved the picture by 12.94 against 2.59 at rest, and MIDI hits by 7.98. The estimator read 9 kicks, 9 snares and 16 hats from the synthetic loop.
+
+`tests/run_enter.py` downloads the real model, so it is run by hand. It passed 26 of 26:
+
+- With no picture chosen, the page made no outside request in any of the three worlds.
+- It asks before downloading, naming the size and both hosts, and shows byte progress to 76 of 76 MB.
+- On WebGPU, with the half-precision model, a 1440 × 900 picture was estimated at 826 × 518 in about 150 ms after a 2 s start. Only GET requests went out, to huggingface.co, us.aws.cdn.hf.co and cdn.jsdelivr.net.
+- Size and SHA-256 are checked against the files measured on 2026-11-02. A stored model is reused after a reload with no download, and it can be removed.
+- On the painted scene, whose depth is known, the estimate correlated with the true depth at r = 0.95. That is one scene, not a measure of the model.
+- With WebGPU removed from the page, which is **stubbed**, the processor path used the quantized model and estimated at 630 × 392 in about 2.6 s.
+- With Hugging Face blocked, the page says the download failed and keeps the last relief. The brightness rule still works, and it is labeled as a rule.
+- The cast of the built-in sound gave 242,496 faces. It is watertight by an edge check on the mesh, and every edge in the downloaded STL file is paired. The same sound gave the same shape.
+- A 440 Hz test tone lifted to atoms averaging 431 Hz.
+- Hits changed the picture in all three worlds: sound 17.96 against 2.15 at rest, picture 6.85 against 0.74, and print 14.93 against 2.48.
+
+Measured while building: fp16 and fp32 depth correlate at 0.9997, and the quantized model against fp32 on the processor at 0.987.
+
+`App_Validation_Harness/web_gate.py` (`enter_web`), on the local file, gave A1, A3 and A7 RUN, with no red. A0, A2, A4, A5, A8, A9 and A10 are PARTIAL until the author signs. A6 is NOT RUN until it is deployed. The open decisions under A10 are the 76 MB first download and a reading of jsDelivr's terms in a browser.
+
+Not tested: Safari, Firefox, Edge, phone hardware, a real browser without WebGPU, a slow connection, and file:// with the model. The marching tetrahedra here are not the desktop app's marching cubes, so the two apps give different meshes for the same sound.
