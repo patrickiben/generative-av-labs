@@ -134,3 +134,23 @@ Checked on 2026-11-02 in Chrome on the same Apple M4 Max Mac. **No real kit and 
 `App_Validation_Harness/web_gate.py` (`chimera_web`), on the local file: A1, A3 and A7 RUN, with no red and no amber. A0, A2, A4, A5, A8, A9 and A10 are PARTIAL until the author signs. A6 is NOT RUN until it is deployed. Sixteen known answers matched, among them the genome round trip, the log-frequency morph midpoint (671 Hz between 900 and 500), the sub's octave folding, E(5,16) and the phase verdict's range.
 
 Not tested: a real drum kit or keyboard, Safari itself, Edge, phone hardware and Bluetooth MIDI. The desktop app's own page is unchanged and is kept in `legacy/`.
+
+## Displacer
+
+Checked on 2026-11-03 in Chrome on the same Mac. **No real MIDI controller and no outside visitor has used it yet.**
+
+Displacer takes files and a MIDI controller, not a drum kit, so the shell's drum demo, hit strip, kit badge, audio input, session recorder and signal view are off on this page, and the cloud does not react to hits. The mod wheel moves the blend, as in the desktop app, and a MIDI keyboard can play a grown patch.
+
+`tests/displacer_states.py` passed 49 of 49 in real Chrome:
+
+- Both kinds, every method, split compare, both views, and the cloud of each kind. No drum part shows, and the shell's drum keys and drum demo key do nothing. The page never opens the microphone, even when another page on the site has set the shared reconnect option and permission is granted; on Nebula the same setup opens it, as it should there.
+- Files: PNG and JPEG pictures, and WAV, AIFF and M4A sounds. Chrome cannot read AIFF, so the page reads it. A text file and a CAF file are refused, with their reasons. A long WAV is cut to its first six seconds.
+- Every saved file is checked by its bytes: the blend as a PNG at A's own size, the strip, a 1600 × 900 poster, cloud and splat `.ply` files of the right length, and the blend, the sweep and the atoms as 16-bit WAVs at the render rate.
+- The built-in sound blend at 0.5 has an RMS of 0.13. The desktop engine gave about 0.001 for the same pair, because its overlap-add divided by a nearly zero window at the edges, and that spike set the normalization. The granular effect now gives identical bytes twice; the desktop one was unseeded.
+- Genopatch grew a patch with an 80% spectrum match on the fast setting, it saved as JSON, and a MIDI keyboard note played it.
+- CC1 at 127 and at 0 put the blend at B and at A. Right arrow and V work. Perform hides the controls and Esc brings them back.
+- At 390 wide nothing runs off the side. With reduced motion the cloud holds still.
+
+Flicker. With no drum input, the one way to change the picture fast is the slider. Dragging it at five full swings a second between the dark and the bright built-in picture measured 0% of a region flashing more than three times a second in Flat, and 9 to 10% in Space, against a limit of 25%. Before the stage's 0.15 second glide, Space measured 26%, because a bright sun moving onto the near-black backdrop drops faster than the shared limiter can hold.
+
+`tests/smoke.py` checks Displacer by the cloud it builds, since it has no drum demo, and passes on all four pages under software rendering.

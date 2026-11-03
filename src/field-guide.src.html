@@ -2,7 +2,7 @@
 <div class="site-wrap">
   <header class="site-head">
     <a class="site-brand" href="./"><svg viewBox="0 0 24 28" aria-hidden="true"><circle cx="12" cy="14" r="9"/><circle cx="12" cy="14" r="3"/></svg>__SITE_NAME__</a>
-    <nav class="site-nav" aria-label="Pages"><a href="nebula.html">Nebula</a><a href="endless-cockpit.html">Endless Cockpit</a><a href="chimera.html">Chimera Synth</a></nav>
+    <nav class="site-nav" aria-label="Pages"><a href="nebula.html">Nebula</a><a href="endless-cockpit.html">Endless Cockpit</a><a href="chimera.html">Chimera Synth</a><a href="displacer.html">Displacer</a></nav>
   </header>
   <main class="guide">
     <div class="hero-title">
@@ -81,7 +81,7 @@
 
     <section id="chimera">
       <h2>Chimera Synth</h2>
-      <p>Chimera is the one page here that makes sound. Your kit or a keyboard plays it over MIDI, and it never listens to an audio input. Tested in Chrome on a Mac with a virtual MIDI port. <b>No real kit has played it yet.</b></p>
+      <p>Chimera is the synth here. Your kit or a keyboard plays it over MIDI, and it never listens to an audio input. Tested in Chrome on a Mac with a virtual MIDI port. <b>No real kit has played it yet.</b></p>
       <ul>
         <li><b>Wiring.</b> The same MIDI route as above. Only the MIDI cable matters here. The sound plays through the computer's output, such as the Apollo's monitors or headphones.</li>
         <li><b>What each drum plays.</b> A stated mapping, a musical choice: the kick plays the root an octave down, the snare +2, the side stick +3, the hi-hat +10, or +11 open, the toms -8, -5 and -3 from low to high, crashes +5 and rides +6. The hi-hat pedal (CC4) lets an open hat ring longer, and grabbing a cymbal cuts its lean short. Other notes play as keys, with middle C as the root.</li>
@@ -90,6 +90,16 @@
       </ul>
     </section>
 
+    <section id="displacer">
+      <h2>Displacer</h2>
+      <p>Displacer blends two pictures or two sounds from files, so it needs no kit and listens to no input. Tested in Chrome on a Mac, with MIDI fed through the page's own parser. <b>No real controller has driven it yet.</b></p>
+      <ul>
+        <li><b>The mod wheel.</b> CC1 moves the slider from A at 0 to B at 127, as in the desktop app. Any MIDI controller with a mod wheel works.</li>
+        <li><b>A MIDI keyboard.</b> With a patch grown and its box ticked, the keyboard plays the patch, with middle C as its root.</li>
+        <li><b>Files.</b> Decoded in the browser and never uploaded. Chrome opens WAV, MP3, M4A, FLAC and Ogg, and the page reads AIFF itself. CAF is refused with its name. A sound uses its first six seconds.</li>
+        <li><b>Performance.</b> Perform fills the screen with the stage alone, and Esc leaves. For a projector, drag the window onto it first.</li>
+      </ul>
+    </section>
     <section id="safety">
       <h2>Safety and privacy</h2>
       <p>A limiter slows any large change in brightness, and these pages measure under the WCAG limit of three flashes a second, even with hard playing. That is a measured screen, not a medical guarantee. If flashing or moving light affects you, take care, and turn on your system's reduced-motion setting, which tightens the limiter, calms the camera and removes the flash.</p>

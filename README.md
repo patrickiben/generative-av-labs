@@ -1,8 +1,8 @@
 # Generative AV Labs
 
-**[Open the home page](https://patrickiben.github.io/generative-av-labs/)** · [Nebula](https://patrickiben.github.io/generative-av-labs/nebula.html) · [Endless Cockpit](https://patrickiben.github.io/generative-av-labs/endless-cockpit.html) · [Enter](https://patrickiben.github.io/generative-av-labs/enter.html) · [Chimera Synth](https://patrickiben.github.io/generative-av-labs/chimera.html) · [Field guide](https://patrickiben.github.io/generative-av-labs/field-guide.html)
+**[Open the home page](https://patrickiben.github.io/generative-av-labs/)** · [Nebula](https://patrickiben.github.io/generative-av-labs/nebula.html) · [Endless Cockpit](https://patrickiben.github.io/generative-av-labs/endless-cockpit.html) · [Enter](https://patrickiben.github.io/generative-av-labs/enter.html) · [Chimera Synth](https://patrickiben.github.io/generative-av-labs/chimera.html) · [Displacer](https://patrickiben.github.io/generative-av-labs/displacer.html) · [Field guide](https://patrickiben.github.io/generative-av-labs/field-guide.html)
 
-Browser instruments that turn an electronic drum kit into light and sound. Plug audio and MIDI into your computer and open a page. There is no helper app and no server, and your audio, MIDI and pictures never leave the browser. Nebula, Endless Cockpit and Chimera Synth use no model. Enter uses one, a depth estimate for your own picture, which downloads only when you ask.
+Generative light and sound in the browser. Each page takes something different: a picture, a sound, a keyboard, a drum kit or a bike sensor. There is no helper app and no server, and your audio, MIDI and pictures never leave the browser. Nebula, Endless Cockpit, Chimera Synth and Displacer use no model. Enter uses one, a depth estimate for your own picture, which downloads only when you ask.
 
 ![Nebula during the demo](docs/nebula.jpg)
 
@@ -18,7 +18,11 @@ Browser instruments that turn an electronic drum kit into light and sound. Plug 
 
 ![Chimera Synth during the demo](docs/chimera.jpg)
 
-**Chimera Synth** is a bass you breed by ear, and the one page here that makes sound. A genome of 20 genes grows the voice: drag a bud toward its tip and hear the seed lean that way, then let go to grow a new seed. Morph mode blends fifteen animal voices, from a mallard to a dolphin, by sliding their formants along a log-frequency axis. A phase check measures the low end and locks the sub where it adds up. Your kit plays it over Web MIDI, each drum a stated pitch. It came from the desktop Bio-Bass Chimera Lab, whose page is kept unchanged in `legacy/`.
+**Chimera Synth** is a bass you breed by ear. A genome of 20 genes grows the voice: drag a bud toward its tip and hear the seed lean that way, then let go to grow a new seed. Morph mode blends fifteen animal voices, from a mallard to a dolphin, by sliding their formants along a log-frequency axis. A phase check measures the low end and locks the sub where it adds up. Your kit plays it over Web MIDI, each drum a stated pitch. It came from the desktop Bio-Bass Chimera Lab, whose page is kept unchanged in `legacy/`.
+
+![Displacer's two built-in pictures halfway through moving into each other](docs/displacer.jpg)
+
+**Displacer** blends two pictures or two sounds without a crossfade. It moves the mass along an optimal-transport map: colors slide toward the other picture's palette, pixels travel to new places, and a sound's energy moves along frequency. The Space view lifts the pair into a 3D cloud of splats that you can turn while the slider carries one into the other. Genopatch grows a playable FM voice that fits a sound, and every blend saves as a PNG, a WAV or a point cloud. The mod wheel moves the blend. It came from the desktop Displacer, whose page is kept unchanged in `legacy/`; two defects there, sound blends about 250 times too quiet and a granular effect that did not repeat, are fixed here.
 
 ## Wire it
 

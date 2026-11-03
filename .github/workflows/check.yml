@@ -20,6 +20,6 @@ jobs:
       - name: Built pages match src
         run: |
           python3 build.py
-          git diff --exit-code -- nebula.html endless-cockpit.html enter.html chimera.html index.html field-guide.html
+          git diff --exit-code -- nebula.html endless-cockpit.html enter.html chimera.html displacer.html index.html field-guide.html
       - run: pip install playwright && playwright install --with-deps chromium
       - run: python3 tests/smoke.py

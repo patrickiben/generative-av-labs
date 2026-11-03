@@ -60,7 +60,9 @@ if __name__ == "__main__":
         page("enter.html", "Enter", "Walk into a picture and fly through a sound: a first-person depth relief, a synesthetic sound field and a printable sculpture of the sound.", ["enter-workers.js", "enter-chrome.js", "enter.js"], extra_css=(SRC / "enter.css").read_text(), base=("gl.js",))
     if (SRC / "chimera.js").exists():
         page("chimera.html", "Chimera Synth", "A synth you breed by ear: animal voices, a playable genome and a phase-checked sub, synthesized live in your browser.", ["chimera-ui.js", "chimera-engine.js", "chimera.js"], base=("gl.js",), extra_css=(SRC / "chimera.css").read_text())
+    if (SRC / "displacer.js").exists():
+        page("displacer.html", "Displacer", "Blend two pictures or two sounds by optimal transport: the mass moves instead of two files ghosting at once.", ["displacer-engine.js", "displacer.js"], extra_css=(SRC / "displacer.css").read_text())
     if (SRC / "index.src.html").exists():
-        static("index.html", "index.src.html", "Generative AV Labs", "Nebula, Endless Cockpit, Enter and Chimera Synth: browser instruments that turn a drum kit into light and sound.")
+        static("index.html", "index.src.html", "Generative AV Labs", "Light and sound, set in motion: browser pages that each take something different, a picture, a sound, a keyboard, a drum kit or a bike sensor.")
     if (SRC / "field-guide.src.html").exists():
         static("field-guide.html", "field-guide.src.html", "Field Guide", "How to wire a drum kit to these pages, what each hit does, and what each status means.")
