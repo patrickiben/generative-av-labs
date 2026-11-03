@@ -1,6 +1,6 @@
-/* endless.js: Endless Cockpit. A procedural road that keeps time.
+/* endless.js: Endless Cockpit. A procedural road that keeps pace with your pedaling.
    The scene is raymarched each frame, then fed through a zoom-feedback loop toward the vanishing point.
-   Tempo sets the speed, each drum has a stated effect, and the horizon is the live spectrum. */
+   Cadence sets the speed, and each crank revolution sends a ring of light down the road. */
 (function () {
   'use strict';
   const { createGL, createPost, FS_HEAD, srgb } = GLKit;
@@ -19,9 +19,9 @@
 
   /* ---- the same road in JS and GLSL, so the camera, the grade readout and the picture agree ---- */
   const S = {
-    mode: 'groove', rpm: 0, speed: 0, dist: 0, vis: 40, zoom: 0, grade: 0, surge: 0, shake: 0, shakeV: 0, roll: 0,
+    rpm: 0, rev: 0, demo: false, demoT: 0, bleT: -1e12, bt: 'idle', btName: '', speed: 0, dist: 0, vis: 40, zoom: 0, grade: 0, surge: 0, shake: 0, shakeV: 0, roll: 0,
     map: { idle: 25, max: 95, maxZoom: 0.018, gamma: 1.6 }, dream: 0.55, wild: 0.35, seed: 0,
-    pedal: false, steady: null, auto: false, autoT: 0, ble: null, bleName: '', biome: 0, biomeNext: 0, biomeT: 1, crashScene: false, dusk: 0.3, ambient: 2.2,
+    pedal: false, steady: null, ble: null, bleName: '', biome: 0, biomeNext: 0, biomeT: 1, dusk: 0.3, ambient: 2.2,
   };
   const MAX_SPEED = 18, M_PER_MI = 1609.34, GRADE_K = 5;
   const pathX = (z) => 14 * Math.sin(z * 0.0113 + 1 + S.seed) + 6.5 * Math.sin(z * 0.0271 + 2.2 + S.seed * 1.7);
@@ -91,7 +91,7 @@ vec3 sky(vec3 rd,vec2 sv){
     vec3 cc=mix(uFog*.9,uSunC*1.02,.3+.55*pow(s,3.));
     c=mix(c,cc,cov*.62*smoothstep(.004,.13,rd.y));
   }
-  // stars at dusk, hats make them flicker
+  // stars at dusk
   float dark=uDusk*smoothstep(.02,.26,rd.y);
   if(dark>.01){
     vec3 q=rd*190.;vec3 id=floor(q);vec3 f=fract(q)-.5;
@@ -99,14 +99,14 @@ vec3 sky(vec3 rd,vec2 sv){
     if(h>.968){float b=(h-.968)/.032;float tw=.55+.45*sin(uT*(2.+h*6.)+h*900.);
       c+=vec3(.95,.97,1.)*b*b*(tw+uHat*(1.6+uHatOpen*1.4)+uRide*1.1*sin(uT*18.+h*400.))*exp(-dot(f,f)*42.)*dark*2.2;}
   }
-  // crash: aurora curtains
+  // aurora curtains
   if(uCrash>.01){
     float az=atan(rd.x,rd.z);
     float cur=pow(fbm2(vec2(az*4.+uT*.25,uT*.09)),3.)*5.;
     float band=smoothstep(.03,.2,rd.y)*smoothstep(.72,.22,rd.y);
     c+=mix(uEdge,vec3(.6,.9,1.),.45)*cur*band*min(uCrash,.7)*1.1;
   }
-  // toms: a band of light in the sky at the tom's height
+  // a band of light in the sky
   c+=uEdge*exp(-pow((rd.y-(.05+uTomPos*.34))*16.,2.))*uTom*.9;
   // the horizon is the live spectrum: low in the middle, high at the edges
   float u=abs(sv.x);
@@ -172,13 +172,13 @@ void main(){
     for(int i=0;i<RINGS;i++){
       vec4 r=uRing[i];
       if(r.z<=0.)continue;
-      bool snare=r.w>.5;
-      float zr=r.x+r.y*(snare?44.:78.);
-      float w=.9+r.y*(snare?2.6:2.2);
-      float g=exp(-pow((p.z-zr)/w,2.))*exp(-r.y*(snare?2.6:1.9))*r.z;
-      g*=exp(-d*(snare?.03:.3))*(.12+.88*smoothstep(1.,20.,t));
+      bool wide=r.w>.5;
+      float zr=r.x+r.y*(wide?44.:78.);
+      float w=.9+r.y*(wide?2.6:2.2);
+      float g=exp(-pow((p.z-zr)/w,2.))*exp(-r.y*(wide?2.6:1.9))*r.z;
+      g*=exp(-d*(wide?.03:.3))*(.12+.88*smoothstep(1.,20.,t));
       g*=smoothstep(46.,14.,zr-uCam.z);    // rings fade before the horizon, where they would stack into a flashing band
-      emC+=(snare?mix(uEdge,vec3(1.),.25):uEdge*1.2)*g*(snare?.22:1.25);
+      emC+=(wide?mix(uEdge,vec3(1.),.25):uEdge*1.2)*g*(wide?.22:1.25);
     }
     float fog=1.-exp(-pow(t*uFogK,1.55));
     vec3 fogC=mix(uFog,uSunC,pow(max(dot(rd,uSunDir),0.),7.)*.55)*(1.-uDusk*.55);
@@ -237,13 +237,12 @@ void main(){
   /* ---- page ---- */
   const hudHtml = `
     <div class="gauge"><span class="k">Speed</span><span class="v"><span id="g-speed">0.0</span><small>mph</small></span></div>
-    <div class="gauge hero"><span class="k" id="g-hero-k">Tempo</span><span class="v" id="g-hero">--</span></div>
+    <div class="gauge hero"><span class="k">Cadence</span><span class="v" id="g-hero">--</span></div>
     <div class="gauge"><span class="k">Distance</span><span class="v"><span id="g-dist">0.00</span><small>mi</small></span></div>`;
 
   const routeSheet = `
     <div class="field"><div class="row"><span>Scene</span><b id="scene-name">Golden coast</b></div><div class="row-actions" id="biome-row"></div></div>
     <label class="field" style="margin-top:12px">Time of day<select id="tod"><option value="auto">Moving, a four-minute cycle</option><option value="0.18">Golden hour</option><option value="0.55">Dusk</option><option value="1">Night</option></select></label>
-    <label class="check"><input type="checkbox" id="crash-scene"> Change the scene on every crash</label>
     <div class="row-actions"><button class="pill" id="new-route">New route</button><button class="pill" id="ride-sound">Ride sound: off</button></div>
     <div class="sig-title"><span>Route ahead</span><span id="grade-read">grade 0%</span></div>
     <canvas class="sig-canvas" id="elstrip" width="880" height="110" role="img" aria-label="Elevation of the procedural route ahead"></canvas>
@@ -254,14 +253,7 @@ void main(){
       <label class="field"><div class="row"><span>Wildness, warp and color split</span><b id="wild-v"></b></div><input type="range" id="wild" min="0" max="100"></label>
     </div></details>
 
-    <details id="ride-controls"><summary>Ride: cadence sensor and pedal</summary><div class="controls-grid" style="padding:10px 0 0">
-      <p class="note" style="margin:0">Ride mode takes speed from a cadence source instead of your drumming. A Bluetooth sensor connects directly from Chrome or Edge, with no other software.</p>
-      <div class="row-actions"><button class="pill" id="ble-connect">Connect cadence sensor</button><button class="pill" id="auto-ride">Interval workout: off</button></div>
-      <p class="note" id="ble-status" role="status" style="margin:0">No sensor connected.</p>
-      <label class="field"><div class="row"><span>Steady cadence</span><b id="steady-v">off</b></div><input type="range" id="steady" min="0" max="120" value="0"></label>
-    </div></details>
-
-    <details id="mapping"><summary>Tempo and cadence to motion</summary><div class="controls-grid" style="padding:10px 0 0">
+    <details id="mapping"><summary>Cadence to motion</summary><div class="controls-grid" style="padding:10px 0 0">
       <label class="field"><div class="row"><span>Idle cadence, no motion below</span><b id="v-idle"></b></div><input type="range" id="m-idle" min="0" max="60"></label>
       <label class="field"><div class="row"><span>Top cadence, full speed above</span><b id="v-max"></b></div><input type="range" id="m-max" min="60" max="130"></label>
       <label class="field"><div class="row"><span>Zoom per frame at top speed</span><b id="v-zoom"></b></div><input type="range" id="m-zoom" min="4" max="40"></label>
@@ -270,31 +262,87 @@ void main(){
       <canvas class="sig-canvas" id="curve" width="880" height="170" role="img" aria-label="Transfer curve from cadence to zoom, with the live value"></canvas>
     </div></details>`;
 
+  const connectHtml = `
+    <div class="device-card">
+      <svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>
+      <div class="device-info" id="bt-info" data-tone="idle">
+        <strong>Cadence sensor <span class="dot"></span></strong>
+        <p class="state" id="bt-state">Not connected</p>
+        <p class="why" id="bt-why">A Bluetooth cadence sensor or smart trainer connects straight from Chrome or Edge.</p>
+      </div>
+      <button class="pill" id="ble-connect">Connect</button>
+    </div>
+    <div class="device-card">
+      <svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M7 17l10-10M7 7h10v10"/></svg>
+      <div class="device-info">
+        <strong>No sensor</strong>
+        <p class="why">Hold Space, or the Hold to pedal button, to pedal at 88 rpm. Or set a steady cadence below.</p>
+      </div>
+    </div>
+    <div class="controls-grid">
+      <label class="field"><div class="row"><span>Steady cadence</span><b id="steady-v">off</b></div><input type="range" id="steady" min="0" max="120" value="0"></label>
+    </div>
+    <div class="device-card">
+      <svg viewBox="0 0 24 24" aria-hidden="true" class="ic"><path d="M7 5v14l11-7z"/></svg>
+      <div class="device-info">
+        <strong>Just looking</strong>
+        <p class="why">The demo is a synthetic interval ride. It is labeled on screen the whole time.</p>
+      </div>
+      <button class="pill" id="demo-sheet-ride">Run demo</button>
+    </div>`;
+
   const about = `
     <p class="sheet-intro">Everything you see here is a stated rule. There is no model and no server.</p>
     <table class="maptable"><tbody>
-      <tr><th>Tempo</th><td>Sets the speed. In Groove, half your BPM stands in for pedal cadence.</td></tr>
-      <tr><th>Kick</th><td>Surges you forward and sends a ring of light down the road.</td></tr>
-      <tr><th>Snare</th><td>A wide flare across the land.</td></tr>
-      <tr><th>Hi-hat</th><td>Sparks along the road edge and in the stars. Opening the pedal lengthens them.</td></tr>
-      <tr><th>Toms</th><td>A band of light in the sky, high for the high tom and low for the low tom.</td></tr>
-      <tr><th>Crash</th><td>Aurora and long trails. A choke cuts it short.</td></tr>
-      <tr><th>Ride</th><td>Stars and road edge shimmer.</td></tr>
-      <tr><th>Spectrum</th><td>The ridge on the horizon, low in the middle and high at the edges.</td></tr>
+      <tr><th>Cadence</th><td>Sets the speed, and the zoom of the picture each frame, through the curve under Route.</td></tr>
+      <tr><th>Each revolution</th><td>Sends a ring of light down the road.</td></tr>
       <tr><th>Grade</th><td>The procedural road's slope changes your speed by up to 40%, never the zoom curve.</td></tr>
+      <tr><th>Distance</th><td>Counts only the speed your cadence makes, never the slow drift at rest.</td></tr>
+      <tr><th>Time of day</th><td>A four-minute cycle from golden hour to night, or held where you choose.</td></tr>
     </tbody></table>
-    <p class="note">Keys: <b>J K L</b> kick, snare, hat · <b>U I O</b> toms · <b>P</b> crash · <b>;</b> ride · <b>D</b> demo · <b>C</b> connect · <b>B</b> next scene · <b>F</b> full screen · <b>H</b> hide controls · hold <b>Space</b> to pedal in Ride.</p>`;
+    <p class="note">Keys: hold <b>Space</b> to pedal · <b>D</b> demo · <b>C</b> connect · <b>B</b> next scene · <b>F</b> full screen · <b>H</b> hide controls.</p>`;
 
   const kit = createKit();
   let shell = null;
   const brand = '<svg viewBox="0 0 24 28" aria-hidden="true"><path d="M12 3 4 25M12 3l8 22M12 9v3M12 15v3M12 21v4"/></svg>';
+  const btView = () => {
+    if (S.bt === 'live' || S.bt === 'connected') {
+      const fresh = performance.now() - S.bleT < 3000;
+      return fresh ? ['good', `Sensor · ${Math.round(S.ble || 0)} rpm`, `Live · ${Math.round(S.ble || 0)} rpm`, S.btName] : ['warn', 'Sensor · no cadence yet', 'Connected · no cadence yet', `${S.btName}. Start pedaling. Some sensors send nothing until the crank turns.`];
+    }
+    return {
+      idle: ['idle', 'Sensor · not connected', 'Not connected', 'A Bluetooth cadence sensor or smart trainer connects straight from Chrome or Edge.'],
+      unsupported: ['bad', 'Sensor · no Bluetooth here', 'No Web Bluetooth in this browser', 'Chrome or Edge on a computer can connect a sensor. Pedal by hand here instead.'],
+      requesting: ['wait', 'Sensor · choosing', 'Choose a sensor in the browser prompt', ''],
+      'no-choice': ['warn', 'Sensor · none chosen', 'No sensor chosen', 'The prompt closed without a sensor. Wake the sensor by turning the crank, then try again.'],
+      failed: ['bad', 'Sensor · could not connect', 'Could not connect', S.btWhy || 'The sensor did not answer. Turn the crank to wake it and try again.'],
+      lost: ['bad', 'Sensor · disconnected', 'Sensor disconnected', `${S.btName || 'The sensor'} went away. Connect again when it is back.`],
+    }[S.bt];
+  };
   shell = mountShell({
     id: 'endless-cockpit', name: 'Endless Cockpit', brand, kit,
-    modes: [{ id: 'groove', label: 'Groove' }, { id: 'ride', label: 'Ride' }], mode: 'groove', modeLabel: 'What sets the speed',
-    onMode: (m) => { S.mode = m; updateModeUi(); kit.noteLane('mode', m); },
-    intro: { eyebrow: 'Endless Cockpit · a road that keeps time', title: 'The road follows your hands.', subtitle: 'Plug in your kit, or run the demo. No helper app, no server.' },
+    inputs: [], pads: false, signal: false, hitStrip: false,
+    idleLabel: 'Ambient · no cadence',
+    chips: [{ id: 'sensor', label: 'Sensor · not connected', read: () => { const v = btView(); return [v[0], v[1]]; } }],
+    connect: { title: 'Bring your ride.', intro: 'Speed comes from your cadence: a Bluetooth sensor, the pedal button, or a steady setting.', html: connectHtml },
+    demo: { isOn: () => S.demo, toggle: () => { S.demo = !S.demo; S.demoT = 0; } },
+    source: () => {
+      if (S.demo) return ['demo', 'Demo · a synthetic ride, not your cadence'];
+      if (kit.replayOn) return ['replay', 'Replay · a recorded ride, not live'];
+      const v = btView();
+      if (S.bt === 'live' || S.bt === 'connected') return [v[0] === 'good' ? 'live' : 'open', v[2]];
+      if (S.pedal) return ['live', 'Pedaling by hand'];
+      if (S.steady != null) return ['live', `Steady cadence · ${S.steady} rpm`];
+      return ['ambient', 'Ambient · no cadence'];
+    },
+    onStates: () => { const v = btView(); $('bt-info').dataset.tone = v[0]; $('bt-state').textContent = v[2]; $('bt-why').textContent = v[3]; $('ble-connect').textContent = S.bt === 'live' || S.bt === 'connected' ? 'Connected' : S.bt === 'idle' ? 'Connect' : 'Try again'; $('ble-connect').disabled = S.bt === 'unsupported' || S.bt === 'requesting'; $('demo-sheet-ride').textContent = S.demo ? 'End demo' : 'Run demo'; },
+    playing: () => S.demo || kit.replayOn || S.rpm > 2,
+    privacy: 'Cadence is read in this browser and never sent anywhere. The pages make no network requests after they load. Your scene and settings stay in this browser\'s storage.',
+    credits: '<p>No outside code is included. The feedback loop follows the idea of Milkdrop\'s warp, as in <a href="https://github.com/jberg/butterchurn" rel="noopener">Butterchurn</a> (MIT).</p>',
+    session: { intro: 'A ride file holds your cadence, scene and route over time. Nothing leaves this computer unless you share the file.', summary: (s) => `Saved ${Math.round(s.durationMs / 1000)} s of riding.` },
+    intro: { eyebrow: 'Endless Cockpit · a road that keeps your pace', title: 'Ride as far as you like.', subtitle: 'Connect a cadence sensor, or hold Space to pedal. No helper app, no server.' },
     hud: hudHtml,
-    truth: 'Procedural road with no model. Tempo sets the speed. Audio and MIDI stay in this browser.',
+    truth: 'Procedural road with no model. Your cadence sets the speed, and nothing leaves this browser.',
     sheets: [{ id: 'route', label: 'Route', icon: 'route', title: 'Choose the road.', intro: 'These change how it looks and how fast it moves. They never change the readings.', html: routeSheet }],
     about, canvas: () => cv, snapshot: snap, quality: () => `${rw} x ${rh} render`,
     onKey: (e, key) => { if (key === 'b') nextBiome(); },
@@ -308,20 +356,12 @@ void main(){
 
   const ringData = new Float32Array(12 * 4);
   const rings = [];
-  kit.on('hit', (h) => {
-    const v = h.vel;
-    if (h.voice === 'kick') { S.surge = Math.max(S.surge, v); rings.push({ z: S.vis + 2, t: performance.now(), v, k: 0 }); }
-    if (h.voice === 'snare') rings.push({ z: S.vis + 4, t: performance.now(), v: v * 0.8, k: 1 });   // no camera shake: moving the sun's edge at the hit rate reads as flashing
-    if (h.voice === 'crash' && S.crashScene && !h.est) nextBiome();
-    if (rings.length > 12) rings.shift();
-  });
   kit.on('lane', (l) => {
     if (l.name === 'rpm') S.replayRpm = l.value;
     else if (l.name === 'biome') setBiome(l.value);
-    else if (l.name === 'mode') shell.setMode(l.value);
     else if (l.name === 'seed') S.seed = l.value;
   });
-  kit.on('replay', (on) => { if (!on) { S.replayRpm = null; if (S.mode === 'ride') S.pedal = false; } });
+  kit.on('replay', (on) => { if (!on) S.replayRpm = null; });
 
   /* ---- biomes ---- */
   function setBiome(i) {
@@ -335,7 +375,6 @@ void main(){
   function nextBiome() { setBiome((S.biomeNext + 1) % BIOMES.length); }
   $('biome-row').innerHTML = BIOMES.map((b, i) => `<button class="pill${i === 0 ? ' on' : ''}" data-b="${i}">${b.name}</button>`).join('');
   $('biome-row').addEventListener('click', (e) => { const b = e.target.closest('[data-b]'); if (b) setBiome(+b.dataset.b); });
-  $('crash-scene').addEventListener('change', (e) => { S.crashScene = e.target.checked; });
   $('tod').addEventListener('change', (e) => { S.duskHold = e.target.value === 'auto' ? null : +e.target.value; });
   $('new-route').addEventListener('click', () => { S.seed = (Math.random() * 40) | 0; kit.noteLane('seed', S.seed); shell.toast('New route'); });
   document.body.style.setProperty('--accent', BIOMES[0].edge);
@@ -355,27 +394,19 @@ void main(){
   bind('m-max', () => S.map.max, (v) => { S.map.max = v; }, (v) => `${v} rpm`, 'v-max');
   bind('m-zoom', () => S.map.maxZoom * 1000, (v) => { S.map.maxZoom = v / 1000; }, (v) => `${(v / 10).toFixed(1)}%`, 'v-zoom');
   bind('m-gamma', () => S.map.gamma * 100, (v) => { S.map.gamma = v / 100; }, (v) => (v / 100).toFixed(2), 'v-gamma');
-  bind('steady', () => 0, (v) => { S.steady = v > 0 ? v : null; if (v > 0) S.auto = false; syncAuto(); }, (v) => (v > 0 ? `${v} rpm` : 'off'), 'steady-v');
+  bind('steady', () => 0, (v) => { S.steady = v > 0 ? v : null; }, (v) => (v > 0 ? `${v} rpm` : 'off'), 'steady-v');
+  $('demo-sheet-ride').addEventListener('click', () => { S.demo = !S.demo; S.demoT = 0; if (S.demo) $('connect-sheet').close(); });
 
-  function syncAuto() { $('auto-ride').textContent = `Interval workout: ${S.auto ? 'on' : 'off'}`; $('auto-ride').classList.toggle('on', S.auto); }
-  $('auto-ride').addEventListener('click', () => { S.auto = !S.auto; S.autoT = 0; if (S.auto) { $('steady').value = 0; shell.syncRange($('steady')); S.steady = null; $('steady-v').textContent = 'off'; } syncAuto(); });
-
-  /* pedal button appears on the stage in Ride */
+  /* the pedal button lives on the stage */
   const pedalBtn = document.createElement('button');
-  pedalBtn.className = 'pill primary chrome'; pedalBtn.id = 'pedal'; pedalBtn.textContent = 'Hold to pedal'; pedalBtn.hidden = true;
+  pedalBtn.className = 'pill primary chrome'; pedalBtn.id = 'pedal'; pedalBtn.textContent = 'Hold to pedal';
   document.querySelector('.dock-wrap').insertBefore(pedalBtn, document.querySelector('.badges'));
-  const pedalOn = () => { S.pedal = true; S.auto = false; syncAuto(); pedalBtn.classList.add('on'); };
+  const pedalOn = () => { S.pedal = true; pedalBtn.classList.add('on'); };
   const pedalOff = () => { S.pedal = false; pedalBtn.classList.remove('on'); };
   pedalBtn.addEventListener('pointerdown', (e) => { e.preventDefault(); pedalOn(); });
   ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => pedalBtn.addEventListener(ev, pedalOff));
-  addEventListener('keydown', (e) => { if (e.code === 'Space' && S.mode === 'ride' && !e.repeat && !e.target.closest('dialog[open], input, select, button')) { e.preventDefault(); pedalOn(); } });
+  addEventListener('keydown', (e) => { if (e.code === 'Space' && !e.repeat && !e.target.closest('dialog[open], input, select, button')) { e.preventDefault(); pedalOn(); } });
   addEventListener('keyup', (e) => { if (e.code === 'Space') pedalOff(); });
-  function updateModeUi() {
-    pedalBtn.hidden = S.mode !== 'ride';
-    $('g-hero-k').textContent = S.mode === 'ride' ? 'Cadence' : 'Tempo';
-    if (S.mode === 'ride') $('ride-controls').open = true;
-  }
-
   /* ---- Bluetooth cadence, ported unchanged from the first version: CSC and FTMS ---- */
   let lastCrankRev = null, lastCrankT = null;
   function onCSC(e) {
@@ -389,8 +420,8 @@ void main(){
         let dRev = crankRev - lastCrankRev; if (dRev < 0) dRev += 65536;
         let dT = crankT - lastCrankT; if (dT < 0) dT += 65536;
         const secs = dT / 1024;
-        if (secs > 0) { const rpm = (dRev / secs) * 60; if (rpm < 250) S.ble = rpm; }
-        if (dRev === 0 && secs > 1.5) S.ble = 0;
+        if (secs > 0 && S.bt !== 'lost') { const rpm = (dRev / secs) * 60; if (rpm < 250) { S.ble = rpm; S.bleT = performance.now(); S.bt = 'live'; } }
+        if (dRev === 0 && secs > 1.5) { S.ble = 0; S.bleT = performance.now(); }
       }
       lastCrankRev = crankRev; lastCrankT = crankT;
     }
@@ -400,26 +431,28 @@ void main(){
     let off = 2;
     if (!(flags & 0x0001)) off += 2;
     if (flags & 0x0002) off += 2;
-    if (flags & 0x0004) { const cad = dv.getUint16(off, true) * 0.5; if (cad >= 0 && cad < 250) S.ble = cad; }
+    if (flags & 0x0004 && S.bt !== 'lost') { const cad = dv.getUint16(off, true) * 0.5; if (cad >= 0 && cad < 250) { S.ble = cad; S.bleT = performance.now(); S.bt = 'live'; } }
   }
   $('ble-connect').addEventListener('click', async () => {
-    const st = $('ble-status');
-    if (!navigator.bluetooth) { st.textContent = 'This browser has no Web Bluetooth. Chrome and Edge do.'; return; }
+    if (!navigator.bluetooth) { S.bt = 'unsupported'; return; }
     try {
-      st.textContent = 'Choose a sensor in the browser prompt.';
+      S.bt = 'requesting';
       const dev = await navigator.bluetooth.requestDevice({ filters: [{ services: ['cycling_speed_and_cadence'] }, { services: ['fitness_machine'] }], optionalServices: ['cycling_speed_and_cadence', 'fitness_machine'] });
-      st.textContent = `Connecting to ${dev.name || 'sensor'}.`;
+      S.btName = dev.name || 'Cadence sensor';
       const gatt = await dev.gatt.connect();
       let svc, ch, kind;
       try { svc = await gatt.getPrimaryService('cycling_speed_and_cadence'); ch = await svc.getCharacteristic('csc_measurement'); kind = 'csc'; } catch (e) { svc = await gatt.getPrimaryService('fitness_machine'); ch = await svc.getCharacteristic('indoor_bike_data'); kind = 'ftms'; }
       await ch.startNotifications();
       ch.addEventListener('characteristicvaluechanged', kind === 'csc' ? onCSC : onFTMS);
-      S.ble = 0;
-      st.textContent = `Connected: ${dev.name || 'sensor'}. Ride mode now follows it.`;
-      if (S.mode !== 'ride') shell.setMode('ride');
-      dev.addEventListener('gattserverdisconnected', () => { S.ble = null; st.textContent = 'The sensor disconnected.'; });
-    } catch (err) { st.textContent = err.name === 'NotFoundError' ? 'No sensor chosen.' : `Could not connect: ${err.message}`; }
+      S.ble = 0; S.bleT = -1e12; S.bt = 'connected';     // no reading yet: a zero time would look fresh for the page's first 3 s
+      dev.addEventListener('gattserverdisconnected', () => { S.ble = null; S.bt = 'lost'; });
+    } catch (err) {
+      S.ble = null;
+      if (err.name === 'NotFoundError') S.bt = 'no-choice';
+      else { S.bt = 'failed'; S.btWhy = `The sensor did not connect: ${err.message}`; }
+    }
   });
+  if (!navigator.bluetooth) S.bt = 'unsupported';
 
   /* ---- ride sound: cadence-driven atoms, ported from the first version, off by default ---- */
   const ATOMS = [[98, 130.81, 196, 246.94, 293.66, 392, 493.88], [110, 146.83, 220, 277.18, 329.63, 440, 554.37], [130.81, 164.81, 196, 261.63, 392, 523.25, 659.25], [123.47, 164.81, 246.94, 329.63, 493.94, 659.25, 987.77], [82.41, 110, 164.81, 220, 277.18, 329.63, 415.3]];
@@ -488,17 +521,16 @@ void main(){
   /* ---- motion: fixed step, so a replay lands in the same place at any frame rate ---- */
   function targetRpm(h) {
     if (S.replayRpm != null) return S.replayRpm;
-    if (S.mode === 'groove') return kit.tempo.bpm ? kit.tempo.bpm / 2 : 0;
-    if (S.ble != null) return S.ble;
-    if (S.steady != null) return S.steady;
+    if (S.ble != null) return performance.now() - S.bleT < 3000 ? S.ble : 0;
     if (S.pedal) return 88;
-    if (S.auto) { S.autoT += h; const t = S.autoT % 40; return t < 12 ? 62 : t < 24 ? 92 : t < 30 ? 108 : 48; }
+    if (S.steady != null) return S.steady;
+    if (S.demo) { S.demoT += h; const t = S.demoT % 40; return t < 12 ? 62 : t < 24 ? 92 : t < 30 ? 108 : 48; }
     return 0;
   }
   let acc = 0, rpmAcc = 0;
   const H = 1 / 120;
   function step() {
-    const tau = S.ble != null ? 0.18 : S.mode === 'groove' ? 0.75 : 0.32;
+    const tau = S.ble != null ? 0.18 : 0.32;
     S.rpm += (targetRpm(H) - S.rpm) * (1 - Math.exp(-H / tau));
     if (S.rpm < 0.3) S.rpm = Math.max(0, S.rpm - H * 8);
     const m = motion01(S.rpm);
@@ -506,6 +538,8 @@ void main(){
     S.grade = gradeAt(S.vis);
     S.speed = m * MAX_SPEED * gradeFactor(S.grade);
     S.surge *= Math.exp(-H / 0.28);
+    S.rev += (S.rpm / 60) * H;
+    while (S.rev >= 1) { S.rev -= 1; rings.push({ z: S.vis + 2, t: performance.now(), v: 0.35 + 0.4 * m, k: 0 }); if (rings.length > 12) rings.shift(); }
     const surgeV = (RM.matches ? 0.2 : 1) * S.surge * 6;
     S.dist += S.speed * H;                                 // distance counts driven speed only, never the idle drift
     S.vis += (S.speed + surgeV + S.ambient * (1 - m)) * H;
@@ -590,16 +624,17 @@ void main(){
         if (r) { ringData[o] = r.z; ringData[o + 1] = (now - r.t) / 1000; ringData[o + 2] = r.v; ringData[o + 3] = r.k; } else { ringData[o + 2] = 0; }
       }
       for (let i = 0; i < kit.BANDS; i++) {
-        // The ridge rises quickly and falls slowly, so the skyline swells with the music rather than flickering.
-        const v = kit.spectrum[i], tau = v > ridge[i] ? 0.09 : 0.45;
-        ridge[i] += (v - ridge[i]) * (1 - Math.exp(-dtMs / 1000 / tau));
-        specBytes[i] = Math.round(ridge[i] * 255);
+        // A far range that drifts past as you ride: stated value noise, not a measurement.
+        const x = i * 0.23 + S.vis * 0.0012 + S.seed;
+        const n = 0.5 * Math.sin(x * 1.7) + 0.3 * Math.sin(x * 3.1 + 1.3) + 0.2 * Math.sin(x * 6.3 + 2.1);
+        ridge[i] = 0.16 + 0.12 * n + 0.08 * motion01(S.rpm);
+        specBytes[i] = Math.round(Math.max(0, Math.min(1, ridge[i])) * 255);
       }
       G.bindTex(1, tSpec);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, kit.BANDS, 1, gl.RED, gl.UNSIGNED_BYTE, specBytes);
 
-      const beatLen = Math.max(6, (kit.tempo.bpm ? (60 / kit.tempo.bpm) : 0.6) * Math.max(10, S.speed));
+      const beatLen = Math.max(6, (S.rpm > 5 ? 60 / S.rpm : 0.6) * Math.max(10, S.speed));   // one dash per revolution
 
       /* scene */
       gl.disable(gl.BLEND);
@@ -610,14 +645,14 @@ void main(){
         uCam: [camX, camY, z], uRight: right, uUp: up, uFwd: fwd,
         uSkyTop: skyTop, uSkyHz: skyHz, uSunC: sunC, uGround: mix3('ground'), uRock: mix3('rock'), uFog: fogC, uEdge: mix3('edge'), uSunDir: sd,
         uAmp: mixN('amp'), uRidge: mixN('ridge'), uSea: mixN('sea'), uSnow: mixN('snow'), uStrata: mixN('strata'), uGrid: mixN('grid'), uTrees: mixN('trees'), uDusk: S.dusk, uFogK: mixN('fogK'),
-        uKick: env.kick, uSnare: env.snare, uHat: env.hat, uHatOpen: env.hatOpen, uTom: env.tom, uTomPos: env.tomPos, uCrash: env.crash, uRide: env.ride,
+        uKick: 0, uSnare: 0, uHat: 0.12 * motion01(S.rpm), uHatOpen: 0, uTom: 0, uTomPos: 0.5, uCrash: 0, uRide: 0,
         uRing: ringData,
       });
       G.draw();
 
       /* motes */
       gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
-      G.use(pMote, { uCam: [camX, camY, z], uRight: right, uUp: up, uFwd: fwd, uFocal: focal, uAsp: rw / rh, uZ: z, uPx: rh * 0.09, uSeed: S.seed, uHat: env.hat, uRide: env.ride, uHatOpen: env.hatOpen, uSpeedN: motion01(S.rpm), uEdge: mix3('edge') });
+      G.use(pMote, { uCam: [camX, camY, z], uRight: right, uUp: up, uFwd: fwd, uFocal: focal, uAsp: rw / rh, uZ: z, uPx: rh * 0.09, uSeed: S.seed, uHat: 0, uRide: 0, uHatOpen: 0, uSpeedN: motion01(S.rpm), uEdge: mix3('edge') });
       gl.drawArrays(gl.POINTS, 0, 1500);
       gl.disable(gl.BLEND);
 
@@ -630,15 +665,15 @@ void main(){
       const zoomNow = RM.matches ? S.zoom * 0.4 : 1 - Math.pow(1 - (S.zoom + S.surge * 0.003 + 0.0012), fpsScale);
       G.into(dreamB);
       G.bindTex(0, scene.tex); G.bindTex(1, dreamA.tex);
-      G.use(pDream, { uScene: 0, uPrev: 1, uVP: vp, uZoom: zoomNow, uDream: RM.matches ? S.dream * 0.5 : S.dream + env.crash * 0.25 * (1 - S.dream), uWild: S.wild + env.snare * 0.5, uT: now / 1000, uKick: env.kick });
+      G.use(pDream, { uScene: 0, uPrev: 1, uVP: vp, uZoom: zoomNow, uDream: RM.matches ? S.dream * 0.5 : S.dream, uWild: S.wild, uT: now / 1000, uKick: 0 });
       G.draw();
       const tmp = dreamA; dreamA = dreamB; dreamB = tmp;
 
       /* bloom and grade */
       const bloom = Post.bloom(dreamA.tex, 1.15);
       Post.finish(dreamA.tex, bloom, {
-        uBloomK: 0.55 + env.kick * 0.08 + env.crash * 0.15, uExposure: 0.98 + env.kick * 0.03 + env.snare * 0.02 + S.dusk * 0.25,
-        uFlash: RM.matches ? 0 : Math.min(0.14, env.flash * 0.14), uFlashC: [1, 0.93, 0.82], uGrain: 0.022, uT: now / 1000, uVig: 0.55, uSat: 1.06, rate: RM.matches ? 0.16 : 0.36,
+        uBloomK: 0.55, uExposure: 0.98 + S.dusk * 0.25,
+        uFlash: 0, uFlashC: [1, 0.93, 0.82], uGrain: 0.022, uT: now / 1000, uVig: 0.55, uSat: 1.06, rate: RM.matches ? 0.16 : 0.36,
       }, dtMs / 1000);
 
       if (lumaRec) lumaRec(now);
@@ -648,7 +683,7 @@ void main(){
       if (frameIdx % 6 === 0) {
         $('g-speed').textContent = ((S.speed * 3600) / M_PER_MI).toFixed(1);
         $('g-dist').textContent = (S.dist / M_PER_MI).toFixed(2);
-        const heroVal = S.mode === 'ride' ? (S.rpm > 0.5 ? Math.round(S.rpm) : '--') : (kit.tempo.bpm ? Math.round(kit.tempo.bpm) : '--');
+        const heroVal = S.rpm > 0.5 ? Math.round(S.rpm) : '--';
         $('g-hero').textContent = heroVal;
         if ($('route-sheet').open) { drawElStrip(); drawCurve(); }
       }
@@ -674,7 +709,6 @@ void main(){
       resize();
       addEventListener('resize', resize);
       cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); shell.glFail('The graphics context was lost. Reload the page to get the picture back.'); });
-      updateModeUi();
       requestAnimationFrame(render);
     } catch (e) {
       console.error(e);

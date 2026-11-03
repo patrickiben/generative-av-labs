@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A short check for CI: each page boots, says it is ambient, runs the demo, and the demo really produces hits.
+"""A short check for CI: each page boots, says it is ambient, runs the demo, and the demo really produces hits, or cadence on the road.
 Chimera is a synth, so its demo is checked by the riff steps it really played instead of drum hits.
 Displacer takes files, not a kit, so it is checked by the blend and the cloud it really built instead."""
 import http.server, sys, threading
@@ -33,8 +33,8 @@ with sync_playwright() as p:
         if pg.get_attribute('#source-badge', 'data-source') != 'ambient': bad.append(f'{page}: not ambient at load')
         pg.click('#demo-button'); pg.wait_for_timeout(4000)
         if pg.get_attribute('#source-badge', 'data-source') != 'demo': bad.append(f'{page}: demo is not labeled')
-        hits = pg.evaluate('seqStep' if page == 'chimera.html' else '__app.kit.hits')
-        if hits < 3: bad.append(f'{page}: the demo produced {hits} hits')
+        hits = pg.evaluate('seqStep' if page == 'chimera.html' else 'Math.round(__app.S.rpm)' if page == 'endless-cockpit.html' else '__app.kit.hits')
+        if hits < 3: bad.append(f'{page}: the demo produced {hits} ' + ('rpm' if page == 'endless-cockpit.html' else 'hits'))
         if errors: bad.append(f'{page}: {errors[0]}')
         print(f'{page}: {hits} hits, {len(errors)} page errors')
         b.close()

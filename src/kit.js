@@ -26,8 +26,8 @@
   const PAD = Object.fromEntries(PADS.map((p) => [p.id, p]));
   const VOICES = ['kick', 'snare', 'hat', 'tom', 'crash', 'ride'];
   const PRESETS = {
-    mimic: {
-      name: 'Pearl Mimic Pro starting map',
+    ekit: {
+      name: 'E-kit starting map',
       notes: { kick: [36], snare: [38, 40, 37, 23], hat: [42, 22, 44, 46], tomH: [48, 50], tomM: [45, 47], tomL: [43, 41], crash: [49, 57, 52, 55], ride: [51, 53, 59] },
     },
     gm: {
@@ -35,7 +35,7 @@
       notes: { kick: [35, 36], snare: [38, 40, 37, 39], hat: [42, 44, 46], tomH: [48, 50], tomM: [45, 47], tomL: [41, 43], crash: [49, 57, 52, 55], ride: [51, 53, 59] },
     },
   };
-  const SOFT_NOTES = { 23: 0.55 };              // brush sweep reads as a soft snare
+  const SOFT_NOTES = { 23: 0.55 };              // a brush sweep note reads as a soft snare
   const TAU = { kick: 0.15, snare: 0.11, hat: 0.06, tom: 0.18, crash: 0.95, ride: 0.3, flash: 0.09 };
   const TEMPO_WEIGHT = { kick: 1, snare: 1, hat: 0.4, tom: 0.6, crash: 0.6, ride: 0.4 };
 
@@ -202,8 +202,9 @@ registerProcessor('kit-onset',KitOnset);`;
     const hitLog = [];                                      // recent hits, newest last
     const tempoT = [], tempoW = [];
 
-    let map = store.get('map', null) || JSON.parse(JSON.stringify(PRESETS.mimic.notes));
-    let presetId = store.get('preset', 'mimic');
+    let map = store.get('map', null) || JSON.parse(JSON.stringify(PRESETS.ekit.notes));
+    let presetId = store.get('preset', 'ekit');
+    if (!PRESETS[presetId] && presetId !== 'custom') presetId = 'ekit';    // a name from an earlier version
     let noteToPad = {};
     const buildNoteMap = () => { noteToPad = {}; Object.entries(map).forEach(([pad, notes]) => notes.forEach((n) => { noteToPad[n] = pad; })); };
     buildNoteMap();

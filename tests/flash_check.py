@@ -70,7 +70,10 @@ with sync_playwright() as p:
             pg.goto(f'{BASE}/{page}'); pg.wait_for_timeout(1500)
             pg.click('#demo-button'); pg.wait_for_timeout(1500)
             r = analyze(pg.evaluate('__app.recordLuma(9000)'))
-            pg.evaluate(HARD)
+            if page == 'endless-cockpit.html':
+                pg.evaluate("__app.S.steady = 130")        # the ride's hardest case: top cadence, a ring on every revolution
+            else:
+                pg.evaluate(HARD)
             if page in HARDER: pg.evaluate(HARDER[page])
             h = analyze(pg.evaluate('__app.recordLuma(6000)'))
             print(page, motion, 'demo', json.dumps(r)); print(page, motion, 'hardest', json.dumps(h))
