@@ -128,7 +128,7 @@ Checked on 2026-11-02 and 2026-11-03 in Chrome on the same Apple M4 Max Mac. **N
 
 `App_Validation_Harness/web_gate.py` (`chimera_web`), on the local file: A1, A3 and A7 RUN, with no red and no amber. A0, A2, A4, A5, A8, A9 and A10 are PARTIAL until the author signs. A6 is NOT RUN until it is deployed. Sixteen known answers matched, among them the genome round trip, the log-frequency morph midpoint (671 Hz between 900 and 500), the sub's octave folding, E(5,16) and the phase verdict's range.
 
-Not tested: a real MIDI keyboard, Safari itself, Edge, phone hardware and Bluetooth MIDI. The desktop app's own page is unchanged and is kept in `legacy/`.
+Not tested: a real MIDI keyboard, Safari itself, Edge, phone hardware and Bluetooth MIDI. The desktop app's own page is unchanged; the copy in `legacy/` differs from it only by one removed hardware comment.
 
 ## Displacer
 
