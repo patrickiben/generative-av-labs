@@ -103,3 +103,34 @@ Checked on 2026-11-02 and 2026-11-03 in Chrome on the same Apple M4 Max Mac. **N
 `App_Validation_Harness/web_gate.py` (`chimera_web`), on the local file: A1, A3 and A7 RUN, with no red and no amber. A0, A2, A4, A5, A8, A9 and A10 are PARTIAL until the author signs. A6 is NOT RUN until it is deployed. Sixteen known answers matched, among them the genome round trip, the log-frequency morph midpoint (671 Hz between 900 and 500), the sub's octave folding, E(5,16) and the phase verdict's range.
 
 Not tested: a real MIDI keyboard, Safari itself, Edge, phone hardware and Bluetooth MIDI. The desktop app's own page is unchanged; the copy in `legacy/` differs from it only by one removed hardware comment.
+
+## Detail Forge Analog
+
+Checked on 2026-11-03 in Chrome on a Mac. **No outside listener has used it yet.** It takes a sound file and nothing live: no microphone, no MIDI and no kit.
+
+`tests/analog_numbers.py` runs the desktop app's own Python (`legacy/analog/dfa/`) and the page's JavaScript, under Node, on the same sounds. It passed 230 of 230 on 2026-11-03 with numpy 2.5.1 and scipy 1.18, and it runs in CI:
+
+- Floor, Exciter, Transient and SBR with the desktop's phases give samples within 1.8 × 10<sup>-7</sup> of the desktop's, and every measure is equal to four decimals.
+- SBR with the page's own seeded phases lands inside the desktop's run-to-run spread over 16 seeds, and the desktop self-test's invariants hold on the page's output.
+- The 24-bit WAV is identical to libsndfile's rule.
+
+**One desktop defect is fixed only in the page.** With a range selected, the desktop app processes the range but measures the first 2<sup>18</sup> samples of the whole file, so a range that starts past 5.94 s at 44.1 kHz, or 5.46 s at 48 kHz, reads as unchanged. On the test sound, a range from 6.20 to 7.80 s read -94.0 dB above the cutoff before and after under the desktop's window. The page measures the processed range, where it read -96.6 dB before and -58.9 dB after. The desktop app itself is unchanged.
+
+`tests/analog_states.py` passed 51 of 51, by real clicks, keys and mouse drags:
+
+- At load the synthetic test sound is labeled "not a recording" and processed with SBR at once: cutoff 10,982 Hz, bandwidth to 19,983 Hz. Nothing plays and no audio context exists before a click, and the page never asks for a microphone or MIDI.
+- Start listening plays A and hands the keys to the stage. Space flips to B, a held key's repeats do not flip it back, and P stops. B plays at the measured BS.1770 gain.
+- Keys 1 to 4 choose each engine while playing, each labeled amplified or synthesized. Floor left the measured bandwidth where it was, 10,982 to 10,993 Hz, as a shelf must.
+- A range dragged from 6.2 to 7.8 s was processed and measured there, and a click on the stage cleared it.
+- The 24-bit WAV, read back in Python, equals the page's output within one 24-bit step inside the range and is the untouched source outside it. The numbers file matches the readouts, and the picture arrives.
+- One 3 s stereo sound at 44.1 kHz went through the real Open button as WAV, AIFF, FLAC, Ogg Vorbis, MP3 and M4A, plus a 24-bit WAV at 96 kHz, and each was decoded at its own rate. WAV, AIFF and the 96 kHz WAV were read sample for sample, and the sound's 9 kHz cutoff measured 9,001 Hz. Chrome decodes FLAC itself and scales positive samples by 1/32767, so FLAC samples differ from the desktop's by up to 0.003 %, though each maps back to the same 16-bit value. The lossy files correlated with the original at 0.995 to 0.9997.
+- A text file and a 0.1 s file got plain messages and left the last sound loaded. The page requested nothing but itself.
+- Playwright's WebKit, standing in for Safari and not Safari itself, and Firefox processed the test sound and opened all six formats at 44.1 kHz.
+
+On the test sound, Exciter raised the level above the cutoff by 47.5 dB while the bandwidth readout stayed near 11 kHz. Transient raised that level by 33 dB, from a nearly empty band, because a moving gain spreads a little energy upward. It is labeled amplified, as in the desktop app, because it synthesizes no band.
+
+`tests/flash_check.py` plays the test sound, then switches engines and flips A and B while playing, every 110, 250 and 400 ms. Switching every 110 ms outruns processing, so only 2 or 3 results reached the screen; at 250 and 400 ms every switch did, 30 and 18 results. The worst region was 1.6 % against the 25 % limit, with no whole-frame flash, in both motion settings. The About sheet's safety line rests on this run.
+
+`App_Validation_Harness/web_gate.py` (`analog_web`), on the local file, after two repair rounds: A1, A3 and A7 RUN, with no red and no amber. The first round found that the A/B button's spoken name did not contain its visible text and that the engine label was cut off at phone width; both are fixed. A0, A2, A4, A5, A8, A9 and A10 are PARTIAL until the author signs, and A6 is NOT RUN until it is deployed. Eight known answers matched, among them the test sound's 11 kHz cutoff, libsndfile's 24-bit codes, the desktop's window reading a late range as unchanged, and a shelf adding no band above a brick-wall cutoff.
+
+Not tested: an outside listener, Safari itself, Edge, phone hardware, a file dropped onto the page rather than opened, Opus and CAF files, files near the 10-minute limit, and the sound reaching speakers. The tests check what plays and at what gain, not the output device. The copy in `legacy/analog/` differs from the desktop app only in one comment's wording.
