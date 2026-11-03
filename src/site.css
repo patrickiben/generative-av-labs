@@ -1,0 +1,50 @@
+
+/* home page and field guide */
+html, body { height: auto; }
+body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%, #2a2352 0%, transparent 60%), radial-gradient(1100px 700px at 8% 12%, #122c40 0%, transparent 62%), #0d1120; min-height: 100svh; }
+.site-wrap { max-width: 1120px; margin: 0 auto; padding: 34px 28px 60px; }
+.site-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 42px; }
+.site-brand { display: flex; align-items: center; gap: 11px; font-size: 15px; font-weight: 500; letter-spacing: -0.3px; color: var(--ink); text-decoration: none; }
+.site-brand svg { width: 22px; height: 26px; stroke: var(--accent); fill: none; stroke-width: 1.2; }
+.site-nav { display: flex; gap: 8px; }
+.site-nav a { font-size: 12px; color: var(--ink); text-decoration: none; border: 1px solid var(--line); background: var(--glass); border-radius: 999px; padding: 9px 14px; }
+.site-nav a:hover { background: var(--soft); }
+.hero-title { text-align: center; margin: 0 0 36px; }
+.hero-title .eyebrow { margin-bottom: 14px; }
+.hero-title h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(36px, 5vw, 64px); letter-spacing: -1.5px; line-height: 1.1; margin: 0; }
+.hero-title p:last-child { color: var(--muted); font-size: 15px; margin: 14px auto 0; max-width: 560px; line-height: 1.55; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
+.app-card { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: var(--glass); backdrop-filter: blur(14px); text-decoration: none; color: inherit; box-shadow: 0 18px 70px var(--shadow); transition: transform 0.35s ease, border-color 0.35s ease; }
+.app-card:hover { transform: translateY(-4px); border-color: var(--accent); }
+.app-card img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; background: #0b0f1c; }
+.app-card .body { padding: 20px 22px 22px; }
+.app-card h2 { font-family: var(--serif); font-weight: 400; font-size: 27px; letter-spacing: -0.6px; margin: 0 0 7px; }
+.app-card p { font-size: 13px; line-height: 1.6; color: var(--muted); margin: 0 0 14px; }
+.app-card .go { font-size: 12px; color: var(--accent); }
+.tile a { color: var(--accent); }
+.strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 18px; }
+.tile { border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; background: rgba(24, 28, 46, 0.55); }
+.tile .k { font-size: 9px; letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted); }
+.tile b { display: block; font-family: var(--serif); font-weight: 400; font-size: 20px; letter-spacing: -0.3px; margin: 7px 0 5px; }
+.tile span.d { font-size: 12px; color: var(--muted); line-height: 1.55; }
+.site-foot { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); line-height: 1.7; display: flex; flex-wrap: wrap; gap: 6px 22px; justify-content: space-between; }
+.guide { max-width: 860px; margin: 0 auto; }
+.guide section { border: 1px solid var(--line); border-radius: 22px; background: rgba(24, 28, 46, 0.6); padding: 24px 26px; margin-bottom: 16px; }
+.guide h2 { font-family: var(--serif); font-weight: 400; font-size: 25px; letter-spacing: -0.4px; margin: 0 0 12px; }
+.guide p, .guide li { font-size: 13.5px; line-height: 1.65; color: var(--muted); }
+.guide p { margin: 0 0 10px; }
+.guide ol, .guide ul { margin: 0 0 8px; padding-left: 20px; }
+.guide li { margin-bottom: 7px; }
+.guide b { color: var(--ink); font-weight: 500; }
+.guide table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.guide th, .guide td { text-align: left; vertical-align: top; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--line); color: var(--muted); font-weight: 400; }
+.guide th { color: var(--ink); font-weight: 500; }
+.guide tr:last-child th, .guide tr:last-child td { border-bottom: 0; }
+.statechip { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; color: var(--ink); }
+.statechip i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+@media (max-width: 720px) {
+  .site-wrap { padding: 20px 16px 44px; }
+  .site-head { margin-bottom: 28px; }
+  .guide section { padding: 18px 16px; }
+  .guide td, .guide th { padding-right: 8px; }
+}

@@ -1,0 +1,36 @@
+name: Deploy GitHub Pages (manual)
+
+# Publishing is an explicit repository-owner action; pushes do not deploy.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/configure-pages@v6
+      - name: Assemble the site
+        run: |
+          mkdir -p _site/docs
+          cp index.html nebula.html endless-cockpit.html field-guide.html README.md _site/
+          cp docs/*.md docs/*.jpg _site/docs/
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v5

@@ -1,0 +1,60 @@
+# Methods
+
+Everything here is a stated rule. Nothing is learned, and there is no model anywhere.
+
+## One bus for every source
+
+Real audio, real MIDI, the demo, keyboard pads and session replay all end in the same hit bus and the same 64-band spectrum (`src/kit.js`), so the pictures do not need to know where a hit came from. The page labels the source separately.
+
+When MIDI notes have arrived within the last 15 seconds, audio onsets stop producing hits and audio only shapes the spectrum. This is what keeps one drum stroke from firing twice.
+
+## Onsets from audio
+
+An AudioWorklet (`kit-onset`) runs on the audio thread and reads about every 5.3 ms.
+
+1. The two input channels are mixed and split into four bands: low pass 110 Hz, band pass 260 Hz, band pass 1.8 kHz, high pass 6.5 kHz.
+2. Each band has a peak follower with its own decay, from 30 ms in the lows to 6 ms in the highs, so a low sine's ripple does not read as new energy.
+3. The onset function is the largest band's rise in dB over the last few frames, plus a quarter of the sum across bands. It must clear an adaptive threshold between 9 and 22 dB, the band must be above -62 dBFS, and a 45 ms refractory period follows each hit.
+4. Three frames later, the peak levels in the four bands choose a voice with the rule in `classify()`. High-only hits that are still ringing 170 ms later also send a soft crash.
+
+This is a heuristic. A ride is not told apart, and a low tom can read as a kick. It was tuned on synthetic drums, not on a real module.
+
+## Spectrum
+
+An AnalyserNode with a 2048-point FFT gives the frame's spectrum, read into 64 log-spaced bands from 30 Hz to 16 kHz, with a 3 dB per octave tilt so cymbals read beside the kick. The top of the range follows the loudest recent level and falls at 1.2 dB per second, so a quiet kit and a loud kit both fill it. A floor of -55 dB on that top keeps a noise floor from being stretched to full scale.
+
+With MIDI and no audio, each hit paints a stated shape in place of a measured spectrum.
+
+## States
+
+An open audio input reads as **no signal** until its peak passes -65 dBFS, and goes back after 6 seconds below it. An open MIDI port reads as no signal until a message that is not clock or active sensing arrives, and goes back after 8 seconds. Permission and device errors come directly from the browser's exception names.
+
+## Tempo
+
+All pairs of hits in the last 8 seconds that are under 2.2 seconds apart vote in a histogram, folded by octaves into 70 to 180 BPM, weighted by drum and by how close the pair is. The peak is refined by a parabola. It is an estimate, and the page shows it as one. A 60 BPM pulse reads as 120.
+
+## Endless Cockpit
+
+The road and its hills are a raymarched height field. The scene passes through a feedback loop like Milkdrop's: the last frame is zoomed toward the vanishing point, slightly warped, and mixed under the new frame. Only emitters leave long trails, tracked in the alpha channel, so the sun and sky never smear over the land.
+
+`motion01(rpm)` maps cadence to a 0 to 1 motion value with a set idle, top and response curve. Zoom per frame is exactly that value times the maximum. The road's grade changes speed by a factor from 0.6 to 1.35 after the mapping, so the curve stays truthful. Motion runs on a fixed 1/120 s step, so a replay lands in the same place at any frame rate. Distance counts driven speed only, never the slow drift shown at rest.
+
+In Groove, cadence is half the estimated BPM. In Ride, it comes from a Bluetooth CSC or FTMS sensor, a steady slider, the hold-to-pedal button, or an interval workout.
+
+## Nebula
+
+Particle positions and velocities live in floating-point textures updated by a shader: 16,384, 65,536 or 262,144 particles, chosen by frame rate.
+
+In Field mode each particle has a fixed age and frequency. Its home is on a two-armed spiral, or on a plane in River, and its brightness and lift come from the spectrum history at its age and frequency. So a hit shows up at the core and travels outward over about 12.8 seconds, without the particles having to carry it.
+
+Each drum pushes the particles in its stated way (see the About sheet). Hits also inject velocity into a small fluid simulation, with semi-Lagrangian advection and 10 Jacobi pressure steps on a 160 by 160 grid, which the particles sample.
+
+Form mode carries over the desktop Nebula's method. A picture lifts to a cloud by a stated rule (position from the pixel, depth from brightness). A sound lifts by matching pursuit into Gabor atoms (time, log-frequency, salience). The two clouds are matched by sliced optimal transport over position and color, 32 iterations in a Web Worker, and the slider moves the mass along those transport vectors. The picture's relief is a heuristic, not a reconstructed scene.
+
+## What is stored
+
+A session file holds hit times, velocities, pedal moves and 30 Hz spectrum levels. It holds no audio. Video capture runs only if you tick it, and saves to your own computer. Device choice and pad map stay in the browser's local storage.
+
+## Safety
+
+Full-field flashes are limited to one every 340 ms, about three a second. With the system's reduced-motion setting on, the flash is removed and the camera's shake, surge and rotation are reduced or stopped.

@@ -1,0 +1,103 @@
+<body class="site">
+<div class="site-wrap">
+  <header class="site-head">
+    <a class="site-brand" href="./"><svg viewBox="0 0 24 28" aria-hidden="true"><circle cx="12" cy="14" r="9"/><circle cx="12" cy="14" r="3"/></svg>__SITE_NAME__</a>
+    <nav class="site-nav" aria-label="Pages"><a href="nebula.html">Nebula</a><a href="endless-cockpit.html">Endless Cockpit</a></nav>
+  </header>
+  <main class="guide">
+    <div class="hero-title">
+      <p class="eyebrow">Field guide</p>
+      <h1>From the kit to the light.</h1>
+      <p>How to wire it, what each status means, and what each drum does.</p>
+    </div>
+
+    <section id="status">
+      <h2>Where this stands</h2>
+      <p>Tested in Chrome on a Mac with a simulated audio input and a virtual MIDI port, using a synthetic drum loop. <b>No real drum kit has been played through it yet</b>, so the pad map and the audio estimates are starting points.</p>
+    </section>
+
+    <section id="wiring">
+      <h2>Wiring</h2>
+      <p>This route is for a Pearl Mimic Pro and a Universal Audio Apollo Solo. Any interface and any kit with 5-pin or USB MIDI works the same way.</p>
+      <ol>
+        <li><b>Audio.</b> Two 1/4-inch TRS cables from the Mimic Pro's Line Out 1 and 2, which carry the main mix, to the Apollo Solo's rear Mic/Line 1 and 2. Set both inputs to Line, and leave the front Hi-Z jack empty, because a plug there takes over input 1.</li>
+        <li><b>MIDI.</b> The Apollo Solo has no MIDI ports, and the Mimic Pro's USB slot is for installing samples. Run a 5-pin cable from the module's MIDI OUT into a USB-MIDI interface, and plug that into the computer.</li>
+        <li><b>In the page.</b> Press Connect, then Connect audio and MIDI, and allow both prompts. Choose "Universal Audio Thunderbolt" for audio. The MIDI list shows your interface's name, not the module's.</li>
+        <li><b>Listening.</b> These pages never play your input back, so keep monitoring through your interface.</li>
+      </ol>
+    </section>
+
+    <section id="browsers">
+      <h2>Browsers</h2>
+      <table>
+        <thead><tr><th>Browser</th><th>Audio</th><th>MIDI</th></tr></thead>
+        <tbody>
+          <tr><th>Chrome, Edge</th><td>Yes</td><td>Yes, after a permission prompt</td></tr>
+          <tr><th>Firefox</th><td>Yes</td><td>Only with a site permission add-on</td></tr>
+          <tr><th>Safari</th><td>Yes</td><td>No. Safari has no Web MIDI, so hits come from audio</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:12px">Only Chrome has been tested so far. Capture and MIDI both need a secure page, which the published pages are.</p>
+    </section>
+
+    <section id="states">
+      <h2>What the status means</h2>
+      <table>
+        <tbody>
+          <tr><th><span class="statechip"><i style="background:#8d93ad"></i>Ambient</span></th><td>Nothing is connected. The picture is idling, not responding to anything.</td></tr>
+          <tr><th><span class="statechip"><i style="background:#f4a3a3"></i>Permission denied</span></th><td>The browser or the system refused. The Connect sheet says which and how to allow it.</td></tr>
+          <tr><th><span class="statechip"><i style="background:#f4a3a3"></i>No device</span></th><td>The browser allowed it, and the computer shows no such input.</td></tr>
+          <tr><th><span class="statechip"><i style="background:#f1cf8e"></i>No signal</span></th><td>The device is open and nothing is arriving. Check the cable, the module's volume and the input gain.</td></tr>
+          <tr><th><span class="statechip"><i style="background:#bfe8a6"></i>Live</span></th><td>Signal is arriving. The label says whether hits come from MIDI or are estimated from audio.</td></tr>
+          <tr><th><span class="statechip"><i style="background:#e6c7a3"></i>Demo</span></th><td>A synthetic drum machine, not your kit. The label stays up as long as it runs.</td></tr>
+          <tr><th><span class="statechip"><i style="background:#a8c6f4"></i>Replay</span></th><td>A session file you loaded. Nothing in it is live.</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="inputs">
+      <h2>MIDI and audio together</h2>
+      <p>MIDI names the drum, its velocity, the hi-hat pedal and cymbal chokes. Audio gives the picture its real spectrum. When both are live, MIDI decides the hits, so nothing fires twice.</p>
+      <p>With audio alone, four frequency bands estimate kick, snare, hat, tom and crash by a stated rule, and a ride is not told apart. With MIDI alone, each hit paints a stated spectrum shape rather than a measured one.</p>
+      <p>The note numbers on your module can be changed, so the map is a starting point. Open Connect, then Pad map and Learn, press Learn beside a pad and hit it.</p>
+    </section>
+
+    <section id="map">
+      <h2>What each drum does</h2>
+      <table>
+        <thead><tr><th>Drum</th><th>Nebula</th><th>Endless Cockpit</th></tr></thead>
+        <tbody>
+          <tr><th>Kick</th><td>A pulse outward from the core</td><td>A surge forward and a ring of light down the road</td></tr>
+          <tr><th>Snare</th><td>Scatters the field and stirs the fluid</td><td>A flare across the land and a small shake</td></tr>
+          <tr><th>Hi-hat</th><td>Sparkle in the top third, wider with the pedal open</td><td>Sparks on the road edge and stars, longer with the pedal open</td></tr>
+          <tr><th>Toms</th><td>A swell at that tom's height</td><td>A band of light in the sky at that tom's height</td></tr>
+          <tr><th>Crash</th><td>Long trails and a brief wash</td><td>Aurora and long trails</td></tr>
+          <tr><th>Ride</th><td>A fine shimmer</td><td>Stars and road edge shimmer</td></tr>
+          <tr><th>Tempo</th><td>A readout</td><td>The speed: half your BPM stands in for cadence</td></tr>
+          <tr><th>Spectrum</th><td>Color and brightness along the spiral</td><td>The ridge on the horizon</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="safety">
+      <h2>Safety and privacy</h2>
+      <p>Full-field flashes are capped at about three a second. If bright or moving light troubles you, turn on your system's reduced-motion setting: the pages then calm the camera and remove the flash.</p>
+      <p>Audio and MIDI are analyzed in this browser and never sent anywhere. A session file holds hits, pedal moves and levels, with no audio in it.</p>
+    </section>
+
+    <section id="credits">
+      <h2>Credits</h2>
+      <p>No outside code is included. Ideas came from these projects:</p>
+      <ul>
+        <li><a href="https://github.com/jberg/butterchurn" rel="noopener">Butterchurn</a> (MIT): Milkdrop's feedback warp, behind the road's trails.</li>
+        <li><a href="https://github.com/PavelDoGreat/WebGL-Fluid-Simulation" rel="noopener">WebGL Fluid Simulation</a> (MIT): one splat per impact, behind Nebula's stirred field.</li>
+        <li><a href="https://github.com/loqwai/paper-cranes" rel="noopener">paper-cranes</a> (BSD-3-Clause): reading each audio feature against its own recent range.</li>
+        <li><a href="https://github.com/audiojs/beat" rel="noopener">@audio/beat</a>: energy flux for percussive onsets.</li>
+        <li><a href="https://github.com/dlepaux/realtime-bpm-analyzer" rel="noopener">realtime-bpm-analyzer</a> (Apache-2.0): tempo from live input.</li>
+      </ul>
+    </section>
+  </main>
+  <footer class="site-foot"><span>Procedural visuals with stated rules. No model and no network after the page loads.</span><span><a href="./">Home</a> · MIT license</span></footer>
+</div>
+</body>
+</html>

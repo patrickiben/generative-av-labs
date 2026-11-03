@@ -1,0 +1,2421 @@
+<!doctype html>
+<html lang="en-US">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#101525">
+<title>Nebula</title>
+<meta name="description" content="A particle nebula made from the last twelve seconds of live drums: time winds outward from the core and frequency sets the color.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23101525'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%23b8b7ff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2' fill='%23b8b7ff'/%3E%3C/svg%3E">
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #101525;
+  --ink: #eeedfb;
+  --muted: #b6b9cf;
+  --faint: #8d93ad;
+  --accent: #b8b7ff;
+  --line: rgba(191, 194, 236, 0.17);
+  --glass: rgba(24, 28, 46, 0.72);
+  --sheet: #1a2032;
+  --soft: rgba(184, 183, 255, 0.1);
+  --shadow: rgba(2, 6, 19, 0.45);
+  --good: #bfe8a6;
+  --warn: #f1cf8e;
+  --bad: #f4a3a3;
+  --demo: #e6c7a3;
+  --serif: Georgia, "Times New Roman", serif;
+  --sans: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-weight: 400; overflow: hidden; -webkit-font-smoothing: antialiased; }
+button, input, select { font: inherit; }
+button, a, input, select { touch-action: manipulation; }
+button { color: inherit; cursor: pointer; border: 0; background: none; }
+button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+a { color: var(--accent); }
+[hidden] { display: none !important; }
+
+.scene { position: relative; height: 100svh; min-height: 540px; isolation: isolate; overflow: hidden; }
+#stage { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -2; display: block; touch-action: none; }
+.vignette { position: absolute; inset: 0; z-index: -1; pointer-events: none; background: linear-gradient(180deg, rgba(5, 8, 18, 0.5) 0%, transparent 18%, transparent 58%, rgba(5, 8, 18, 0.72) 100%); }
+.chrome { transition: opacity 0.7s ease; }
+body.quiet .chrome { opacity: 0; }
+body.quiet .chrome:focus-within { opacity: 1; }
+body.quiet .chip { display: none; }
+
+.header { position: absolute; left: 42px; right: 42px; top: max(28px, env(safe-area-inset-top)); display: flex; justify-content: space-between; align-items: center; gap: 20px; }
+.brand { display: flex; align-items: center; gap: 12px; font-size: 16px; letter-spacing: -0.35px; color: var(--ink); text-shadow: 0 1px 14px rgba(0, 0, 0, 0.6); text-decoration: none; }
+.brand svg { width: 24px; height: 28px; stroke: var(--accent); fill: none; stroke-width: 1.15; }
+.brand span { font-weight: 500; }
+.top-actions { display: flex; align-items: center; gap: 10px; }
+.top-action { border: 1px solid var(--line); border-radius: 999px; padding: 10px 15px; color: var(--ink); font-size: 12px; background: var(--glass); backdrop-filter: blur(12px); transition: background 0.25s; }
+.top-action:hover { background: var(--soft); }
+.top-action.icon { padding: 9px; display: grid; place-items: center; }
+.top-action.icon svg { width: 16px; height: 16px; }
+.mode-switch { position: absolute; top: max(25px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); display: flex; padding: 4px; border: 1px solid var(--line); border-radius: 30px; background: var(--glass); backdrop-filter: blur(12px); }
+.mode-switch button { padding: 10px 27px; min-height: 38px; border-radius: 25px; font-size: 13px; color: var(--muted); transition: background 0.35s, color 0.35s; }
+.mode-switch button[aria-pressed="true"] { background: var(--soft); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+
+.intro { position: absolute; top: 17%; left: 20px; right: 20px; text-align: center; pointer-events: none; transition: opacity 0.9s ease, transform 0.9s ease; text-shadow: 0 1px 3px rgba(4, 6, 16, 0.55), 0 2px 26px rgba(4, 6, 16, 0.85); }
+.intro::before { content: ""; position: absolute; left: 50%; top: 50%; width: min(1100px, 130%); height: 340px; transform: translate(-50%, -50%); background: radial-gradient(ellipse at center, rgba(8, 10, 22, 0.52), rgba(8, 10, 22, 0.28) 45%, transparent 72%); z-index: -1; }
+body.playing .intro { opacity: 0; transform: translateY(-10px); }
+.eyebrow { font-size: 10px; letter-spacing: 3.3px; color: var(--ink); text-transform: uppercase; margin: 0 0 17px; }
+.intro h1 { font-family: var(--serif); font-size: clamp(34px, 4.3vw, 62px); font-weight: 400; letter-spacing: -1.4px; line-height: 1.15; margin: 0; }
+.intro p:last-child { color: var(--ink); font-size: 13px; letter-spacing: 0.05px; margin: 15px 0 0; }
+
+.dock-wrap { position: absolute; bottom: max(20px, calc(env(safe-area-inset-bottom) + 12px)); left: 12px; right: 12px; display: flex; align-items: center; flex-direction: column; gap: 12px; }
+#hud { display: flex; align-items: flex-end; justify-content: center; gap: clamp(18px, 4vw, 56px); text-shadow: 0 1px 16px rgba(4, 6, 16, 0.85); }
+.gauge { text-align: center; min-width: 74px; }
+.gauge .k { display: block; font-size: 9px; letter-spacing: 2.4px; color: var(--muted); text-transform: uppercase; margin-bottom: 5px; }
+.gauge .v { font-size: 22px; font-weight: 300; letter-spacing: -0.4px; font-variant-numeric: tabular-nums; }
+.gauge .v small { font-size: 11px; font-weight: 400; color: var(--muted); letter-spacing: 0.2px; margin-left: 3px; }
+.gauge.hero .v { font-size: clamp(44px, 5vw, 66px); font-weight: 200; letter-spacing: -2px; line-height: 1; }
+.gauge.hero .v small { display: none; }
+
+#hit-strip { display: flex; gap: 12px; align-items: center; justify-content: center; }
+.hitdot { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 9px; letter-spacing: 1.4px; color: var(--muted); }
+.hitdot i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); opacity: 0.16; box-shadow: 0 0 calc(var(--l, 0) * 18px) var(--accent); }
+
+.badges { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; align-items: center; }
+.source-badge, .chip { display: inline-flex; gap: 8px; align-items: center; font-size: 11px; color: var(--ink); border: 1px solid var(--line); border-radius: 20px; background: rgba(20, 24, 40, 0.68); padding: 8px 12px; backdrop-filter: blur(8px); }
+.chip { color: var(--muted); max-width: 46vw; }
+.chip span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--faint); flex: none; }
+.source-badge[data-source="live"] .dot, .chip[data-tone="good"] .dot { background: var(--good); box-shadow: 0 0 12px #bfe8a688; }
+.source-badge[data-source="demo"] { border-color: #e6c7a366; background: rgba(66, 48, 28, 0.72); }
+.source-badge[data-source="demo"] .dot { background: var(--demo); box-shadow: 0 0 10px #e6c7a388; }
+.source-badge[data-source="replay"] .dot { background: #a8c6f4; }
+.source-badge[data-source="open"] .dot, .chip[data-tone="warn"] .dot { background: var(--warn); }
+.chip[data-tone="bad"] .dot { background: var(--bad); }
+.chip[data-tone="wait"] .dot { background: var(--accent); animation: pulse 1.1s ease-in-out infinite; }
+.chip[data-tone="bad"] { color: #ffdcdc; border-color: rgba(244, 163, 163, 0.35); }
+.chip[data-tone="good"] { color: var(--ink); }
+.source-badge.keep { transition: none; }
+body.quiet .keep-visible { opacity: 0.85; }
+@keyframes pulse { 50% { opacity: 0.3; } }
+
+.dock { display: flex; align-items: center; padding: 7px 9px; border: 1px solid var(--line); background: var(--glass); border-radius: 24px; box-shadow: 0 16px 60px var(--shadow); backdrop-filter: blur(24px); gap: 4px; }
+.dock button { display: flex; align-items: center; flex-direction: column; gap: 7px; padding: 11px 19px 10px; border-radius: 17px; min-width: 74px; transition: background 0.2s; }
+.dock button:hover, .dock button[aria-expanded="true"] { background: var(--soft); }
+.dock button span { font-size: 10px; letter-spacing: 0.2px; color: var(--muted); }
+.dock button.connected svg { color: var(--accent); }
+.dock button.rec svg { color: var(--bad); }
+.dock-divider { height: 30px; width: 1px; background: var(--line); margin: 0 5px; }
+.truth { font-size: 10px; letter-spacing: 0.3px; color: var(--muted); text-align: center; margin: 0; max-width: 680px; line-height: 1.5; text-shadow: 0 1px 10px rgba(4, 6, 16, 0.9); }
+
+.sheet:focus { outline: none; }
+.sheet { color: var(--ink); background: var(--sheet); border: 1px solid var(--line); border-radius: 28px; padding: 30px; width: calc(100% - 32px); max-width: 480px; max-height: min(86svh, 780px); overflow-y: auto; box-shadow: 0 25px 100px #0005; }
+.sheet.wide { max-width: 780px; }
+.sheet::backdrop { background: #060c1690; backdrop-filter: blur(9px); }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; gap: 16px; }
+.sheet h2 { font-family: var(--serif); font-size: 30px; letter-spacing: -0.5px; font-weight: 400; margin: 0; }
+.close { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: var(--muted); background: var(--soft); flex: none; }
+.close svg { width: 17px; height: 17px; }
+.sheet-intro { color: var(--muted); font-size: 13px; line-height: 1.65; margin: 12px 0 22px; }
+.pill { border: 1px solid var(--line); border-radius: 999px; padding: 9px 15px; font-size: 12px; background: var(--soft); color: var(--ink); white-space: nowrap; transition: background 0.2s, border-color 0.2s; }
+.pill:hover:not(:disabled) { border-color: var(--accent); }
+.pill.primary { background: var(--accent); color: #141627; border-color: transparent; font-weight: 500; }
+.pill.wide { width: 100%; padding: 12px 15px; font-size: 13px; }
+.pill.on { background: var(--accent); color: #141627; }
+.device-card { display: flex; align-items: flex-start; gap: 14px; padding: 16px 0 12px; border-top: 1px solid var(--line); margin-top: 14px; }
+.device-card svg.ic { width: 26px; height: 26px; fill: none; stroke: var(--accent); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; flex: none; margin-top: 2px; }
+.device-info { flex: 1; min-width: 0; }
+.device-info strong { font-weight: 500; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+.device-info strong .dot { display: inline-block; }
+.device-info[data-tone="good"] strong .dot { background: var(--good); box-shadow: 0 0 10px #bfe8a688; }
+.device-info[data-tone="warn"] strong .dot { background: var(--warn); }
+.device-info[data-tone="bad"] strong .dot { background: var(--bad); }
+.device-info[data-tone="wait"] strong .dot { background: var(--accent); animation: pulse 1.1s ease-in-out infinite; }
+.device-info .state { font-size: 12px; color: var(--ink); margin: 5px 0 0; font-weight: 500; }
+.device-info .why { font-size: 12px; color: var(--muted); margin: 3px 0 0; line-height: 1.5; }
+.controls-grid { display: grid; gap: 11px; padding: 0 0 8px 40px; }
+.field { display: grid; gap: 5px; font-size: 11px; color: var(--muted); letter-spacing: 0.15px; }
+.field .row { display: flex; justify-content: space-between; gap: 10px; }
+.field b { font-weight: 400; color: var(--ink); font-variant-numeric: tabular-nums; }
+select { background: #111627; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 12px; width: 100%; }
+input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 22px; background: transparent; margin: 0; }
+input[type="range"]::-webkit-slider-runnable-track { height: 3px; border-radius: 3px; background: linear-gradient(90deg, var(--accent) calc(var(--val, 50) * 1%), var(--line) calc(var(--val, 50) * 1%)); }
+input[type="range"]::-moz-range-track { height: 3px; border-radius: 3px; background: linear-gradient(90deg, var(--accent) calc(var(--val, 50) * 1%), var(--line) calc(var(--val, 50) * 1%)); }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%; background: var(--ink); margin-top: -5.5px; box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.25); }
+input[type="range"]::-moz-range-thumb { width: 14px; height: 14px; border: 0; border-radius: 50%; background: var(--ink); }
+.meter { display: grid; gap: 3px; }
+.meter div { height: 4px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--good), var(--good) 70%, var(--warn) 88%, var(--bad)); }
+pre.monitor { font-family: var(--mono); font-size: 11px; line-height: 1.55; color: var(--muted); background: #111627; border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; margin: 0; min-height: 74px; white-space: pre-wrap; overflow: hidden; }
+details { border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px; }
+summary { font-size: 13px; cursor: pointer; color: var(--ink); padding: 3px 0; }
+details > div, details > ol, details > p { font-size: 12px; color: var(--muted); line-height: 1.6; }
+details ol { padding-left: 18px; margin: 10px 0 2px; }
+details li { margin-bottom: 7px; }
+.check { display: flex; gap: 9px; align-items: center; font-size: 12px; color: var(--muted); margin-top: 14px; }
+.padrow { display: grid; grid-template-columns: 74px 1fr auto; gap: 10px; align-items: center; padding: 5px 0; font-size: 12px; }
+.padrow code { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.padrow .pill { padding: 5px 11px; font-size: 11px; }
+
+.sig-canvas { width: 100%; display: block; border-radius: 12px; background: #0b0f1c; border: 1px solid var(--line); }
+.sig-title { display: flex; justify-content: space-between; gap: 12px; font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); margin: 16px 0 7px; }
+.statgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 9px; margin-top: 14px; }
+.stat { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: rgba(184, 183, 255, 0.04); }
+.stat .k { display: block; font-size: 9px; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; margin-bottom: 5px; }
+.stat .v { font-size: 17px; font-weight: 300; font-variant-numeric: tabular-nums; }
+.stat .n { display: block; font-size: 10px; color: var(--muted); margin-top: 3px; }
+table.maptable { width: 100%; border-collapse: collapse; font-size: 12px; margin: 8px 0 4px; }
+table.maptable th, table.maptable td { text-align: left; padding: 7px 8px 7px 0; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--muted); font-weight: 400; }
+table.maptable th { color: var(--ink); font-weight: 500; white-space: nowrap; }
+.tag { font-size: 9px; letter-spacing: 1px; text-transform: uppercase; border: 1px solid var(--line); border-radius: 8px; padding: 2px 6px; color: var(--muted); }
+.note { font-size: 12px; color: var(--muted); line-height: 1.6; margin: 10px 0; }
+.row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+#toast { position: absolute; left: 50%; top: 92px; transform: translateX(-50%); padding: 9px 15px; border-radius: 999px; font-size: 12px; background: var(--glass); border: 1px solid var(--line); backdrop-filter: blur(14px); opacity: 0; pointer-events: none; transition: opacity 0.3s; max-width: 90vw; text-align: center; z-index: 5; }
+#toast.show { opacity: 1; }
+#gl-error { position: absolute; left: 50%; top: 42%; transform: translate(-50%, -50%); max-width: 460px; width: calc(100% - 40px); text-align: center; font-size: 14px; line-height: 1.6; color: var(--ink); background: var(--glass); border: 1px solid var(--line); border-radius: 18px; padding: 18px 22px; }
+
+@media (max-width: 860px) {
+  .header { left: 18px; right: 18px; top: max(14px, env(safe-area-inset-top)); }
+  .mode-switch { top: max(62px, calc(env(safe-area-inset-top) + 48px)); }
+  .mode-switch button { padding: 8px 24px; font-size: 12px; min-height: 34px; }
+  .intro { top: 22%; }
+  .eyebrow { font-size: 9px; letter-spacing: 2.6px; margin-bottom: 13px; }
+  .intro h1 { font-size: 34px; letter-spacing: -1px; }
+  .intro p:last-child { font-size: 12px; max-width: 280px; margin: 12px auto 0; line-height: 1.6; }
+  .dock { padding: 5px; gap: 0; border-radius: 22px; }
+  .dock button { padding: 10px 11px 9px; min-width: 62px; gap: 6px; }
+  .dock button svg { width: 19px; height: 19px; }
+  .dock-divider { margin: 0 2px; }
+  .source-badge, .chip { font-size: 10px; padding: 7px 10px; }
+  .truth { font-size: 10px; }
+  #hud { gap: 12px; }
+  .gauge { min-width: 62px; }
+  .gauge .v { font-size: 18px; }
+  .gauge.hero .v { font-size: 44px; }
+  .sheet { padding: 24px; position: fixed; margin: auto auto 0; border-bottom-left-radius: 0; border-bottom-right-radius: 0; width: 100%; max-width: 560px; max-height: 88svh; padding-bottom: calc(26px + env(safe-area-inset-bottom)); }
+  .sheet.wide { max-width: 100%; }
+  .sheet h2 { font-size: 27px; }
+  .controls-grid { padding-left: 0; }
+}
+@media (max-height: 640px) {
+  .intro { display: none; }
+  .truth { display: none; }
+  #hit-strip { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
+}
+
+</style>
+</head>
+<body>
+<main class="scene" id="scene" aria-label="Nebula">
+<canvas id="stage" role="img" aria-label="A particle nebula made from the last twelve seconds of live drums: time winds outward from the core and frequency sets the color."></canvas>
+</main>
+<script>
+/* kit.js: live drum input for the browser.
+   Audio capture, Web MIDI, a demo, keyboard pads and session replay all end in one hit bus
+   and one spectrum, so the visuals never need to know where a hit came from.
+   Nothing here touches the network. Raw audio is analyzed in memory and never stored. */
+(function (global) {
+  'use strict';
+
+  const BANDS = 64, FMIN = 30, FMAX = 16000;
+  const HIST_W = 512, HIST_RATE = 40;           // about 12.8 s of spectrum history
+  const SESSION_RATE = 30;
+  const NOISE_GATE_DB = -65;                    // below this an open input reads as no signal
+  const LIVE_HOLD_MS = 6000, MIDI_HOLD_MS = 8000;
+  const MIDI_OWNS_HITS_MS = 15000;              // recent MIDI notes make audio onsets texture only
+  const FLASH_GAP_MS = 340;                     // at most about 3 full-field flashes a second
+
+  const PADS = [
+    { id: 'kick', label: 'Kick', voice: 'kick' },
+    { id: 'snare', label: 'Snare', voice: 'snare' },
+    { id: 'hat', label: 'Hi-hat', voice: 'hat' },
+    { id: 'tomH', label: 'High tom', voice: 'tom', pos: 0.8 },
+    { id: 'tomM', label: 'Mid tom', voice: 'tom', pos: 0.5 },
+    { id: 'tomL', label: 'Low tom', voice: 'tom', pos: 0.2 },
+    { id: 'crash', label: 'Crash', voice: 'crash' },
+    { id: 'ride', label: 'Ride', voice: 'ride' },
+  ];
+  const PAD = Object.fromEntries(PADS.map((p) => [p.id, p]));
+  const VOICES = ['kick', 'snare', 'hat', 'tom', 'crash', 'ride'];
+  const PRESETS = {
+    mimic: {
+      name: 'Pearl Mimic Pro starting map',
+      notes: { kick: [36], snare: [38, 40, 37, 23], hat: [42, 22, 44, 46], tomH: [48, 50], tomM: [45, 47], tomL: [43, 41], crash: [49, 57, 52, 55], ride: [51, 53, 59] },
+    },
+    gm: {
+      name: 'General MIDI',
+      notes: { kick: [35, 36], snare: [38, 40, 37, 39], hat: [42, 44, 46], tomH: [48, 50], tomM: [45, 47], tomL: [41, 43], crash: [49, 57, 52, 55], ride: [51, 53, 59] },
+    },
+  };
+  const SOFT_NOTES = { 23: 0.55 };              // brush sweep reads as a soft snare
+  const TAU = { kick: 0.15, snare: 0.11, hat: 0.06, tom: 0.18, crash: 0.95, ride: 0.3, flash: 0.09 };
+  const TEMPO_WEIGHT = { kick: 1, snare: 1, hat: 0.4, tom: 0.6, crash: 0.6, ride: 0.4 };
+
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('drv.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('drv.' + k, JSON.stringify(v)); } catch (e) { /* private window */ } },
+  };
+
+  /* ------------------------------------------------- pure math, testable from the page */
+
+  // Which drum does a hit look like, from peak levels in four bands (dB)? A stated heuristic, not a model.
+  function classify(L, M1, M2, H) {
+    if (H >= M2 - 1 && H - Math.max(L, M1) > 8) return 'hat';
+    if (L - M2 > 10 && L - M1 > -1.5) return 'kick';
+    if (Math.max(L, M1) - M2 > 9) return 'tom';
+    return 'snare';
+  }
+
+  // Tempo from hit times: a weighted histogram of intervals, folded by octaves into 70 to 180 BPM.
+  function estimateTempo(times, weights) {
+    const n = times.length;
+    if (n < 4) return { bpm: null, conf: 0 };
+    const lo = 70, hi = 180, bins = new Float64Array(hi - lo + 2);
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        const dt = times[j] - times[i];
+        if (dt > 2.2) break;
+        if (dt < 0.09) continue;
+        let b = 60 / dt;
+        while (b > hi) b /= 2;
+        while (b < lo) b *= 2;
+        if (b > hi) continue;
+        const w = (weights ? weights[i] * weights[j] : 1) * Math.exp(-dt / 1.6);
+        const x = b - lo, k = Math.floor(x), f = x - k;
+        bins[k] += w * (1 - f);
+        bins[k + 1] += w * f;
+      }
+    }
+    let best = 0, sum = 0;
+    const s = new Float64Array(bins.length);
+    for (let i = 0; i < bins.length; i++) {
+      s[i] = (bins[i - 1] || 0) * 0.25 + bins[i] * 0.5 + (bins[i + 1] || 0) * 0.25;
+      sum += s[i];
+      if (s[i] > s[best]) best = i;
+    }
+    if (!sum) return { bpm: null, conf: 0 };
+    const a = s[best - 1] || 0, b = s[best], c = s[best + 1] || 0, d = a - 2 * b + c;
+    const refine = d ? clamp((0.5 * (a - c)) / d, -0.5, 0.5) : 0;
+    return { bpm: lo + best + refine, conf: clamp((b * 12) / sum, 0, 1) };
+  }
+
+  function analyzeSession(sess) {
+    const hits = (sess && sess.hits) || [];
+    const per = {};
+    VOICES.forEach((v) => { per[v] = { n: 0, velMean: 0, velSD: 0 }; });
+    const times = [], weights = [];
+    hits.forEach((h) => {
+      const p = per[h.voice] || (per[h.voice] = { n: 0, velMean: 0, velSD: 0 });
+      p.n++; p.velMean += h.vel;
+      times.push(h.t / 1000); weights.push(TEMPO_WEIGHT[h.voice] || 0.5);
+    });
+    Object.values(per).forEach((p) => { if (p.n) p.velMean /= p.n; });
+    hits.forEach((h) => { const p = per[h.voice]; p.velSD += (h.vel - p.velMean) ** 2; });
+    Object.values(per).forEach((p) => { p.velSD = p.n > 1 ? Math.sqrt(p.velSD / (p.n - 1)) : 0; });
+    const tempo = estimateTempo(times, weights);
+    let ioiDevMs = null;
+    if (tempo.bpm && times.length > 8) {
+      const grid = 60 / tempo.bpm / 4, dev = [];
+      for (let i = 1; i < times.length; i++) {
+        const ioi = times[i] - times[i - 1];
+        if (ioi < 0.06 || ioi > 1) continue;
+        dev.push(Math.abs(ioi - Math.round(ioi / grid) * grid) * 1000);
+      }
+      if (dev.length) { dev.sort((a, b) => a - b); ioiDevMs = dev[dev.length >> 1]; }
+    }
+    const durationS = (sess && sess.durationMs ? sess.durationMs : 0) / 1000;
+    return { durationS, hits: hits.length, perVoice: per, bpm: tempo.bpm, ioiDevMs, hitsPerMin: durationS ? (hits.length / durationS) * 60 : 0 };
+  }
+
+  function bandFreq(i) { return FMIN * Math.pow(FMAX / FMIN, (i + 0.5) / BANDS); }
+  function bump(center, widthOct, gain) {
+    const out = new Float32Array(BANDS);
+    for (let i = 0; i < BANDS; i++) {
+      const o = Math.log2(bandFreq(i) / center) / widthOct;
+      out[i] = gain * Math.exp(-0.5 * o * o);
+    }
+    return out;
+  }
+  function mix2(a, b) { return a.map((v, i) => Math.max(v, b[i])); }
+  // With MIDI and no audio, a hit still paints a spectrum. These are stated shapes, not a measurement.
+  const SHAPES = {
+    kick: mix2(bump(70, 0.9, 1), bump(3000, 1.2, 0.18)),
+    snare: mix2(bump(220, 0.7, 0.7), bump(2500, 2.2, 0.85)),
+    hat: bump(9000, 1.0, 1),
+    crash: bump(7000, 2.2, 1),
+    ride: mix2(bump(4200, 0.6, 0.6), bump(9000, 1.2, 0.6)),
+    tomL: bump(95, 0.7, 1), tomM: bump(150, 0.7, 1), tomH: bump(230, 0.7, 1),
+  };
+
+  /* ------------------------------------------------- onset detection inside the audio thread */
+
+  const WORKLET_SRC = `
+${classify.toString()}
+class Biquad{constructor(t,f,q,sr){const w=2*Math.PI*f/sr,c=Math.cos(w),s=Math.sin(w),a=s/(2*q);let b0,b1,b2;const a0=1+a,a1=-2*c,a2=1-a;
+  if(t==='lp'){b0=(1-c)/2;b1=1-c;b2=(1-c)/2}else if(t==='hp'){b0=(1+c)/2;b1=-(1+c);b2=(1+c)/2}else{b0=a;b1=0;b2=-a}
+  this.b0=b0/a0;this.b1=b1/a0;this.b2=b2/a0;this.a1=a1/a0;this.a2=a2/a0;this.z1=0;this.z2=0}
+  run(x){const y=this.b0*x+this.z1;this.z1=this.b1*x-this.a1*y+this.z2;this.z2=this.b2*x-this.a2*y;return y}}
+const db=(v)=>20*Math.log10(v+1e-9);
+class KitOnset extends AudioWorkletProcessor{
+  constructor(){super();const sr=sampleRate;
+    this.f=[new Biquad('lp',110,.7,sr),new Biquad('bp',260,.9,sr),new Biquad('bp',1800,.8,sr),new Biquad('hp',6500,.7,sr)];
+    const taus=[.03,.02,.01,.006];this.dec=taus.map((t)=>Math.exp(-1/(t*sr)));
+    this.env=[0,0,0,0];this.hop=Math.max(64,Math.round(sr*.00533));this.n=0;this.h=[];for(let i=0;i<4;i++)this.h.push(-180);
+    this.lag=[[],[],[],[]];this.odf=new Float32Array(96);this.oi=0;this.ref=0;this.pend=null;this.cym=null;this.sens=1;
+    this.pk=[0,0];this.sq=0;this.mc=0;this.ch=0;this.meterEvery=Math.round(sr/30/this.hop);this.hc=0;this.last=-1;
+    this.port.onmessage=(e)=>{if(e.data&&e.data.sens)this.sens=e.data.sens};}
+  process(inputs){const inp=inputs[0];if(!inp||!inp.length||!inp[0]){this.tickSilent();return true}
+    const L=inp[0],R=inp[1]||L;this.ch=inp.length;const f=this.f,d=this.dec,e=this.env;
+    for(let i=0;i<L.length;i++){const x=(L[i]+R[i])*.5,al=Math.abs(L[i]),ar=Math.abs(R[i]);
+      if(al>this.pk[0])this.pk[0]=al;if(ar>this.pk[1])this.pk[1]=ar;this.sq+=x*x;this.mc++;
+      for(let b=0;b<4;b++){const y=Math.abs(f[b].run(x));e[b]=y>e[b]?y:e[b]*d[b]}
+      if(++this.n>=this.hop){this.n=0;this.frame()}}
+    return true}
+  tickSilent(){this.mc+=128;if(this.mc>=this.hop*this.meterEvery){this.port.postMessage({type:'meter',peakL:0,peakR:0,rms:0,ch:0});this.mc=0}}
+  frame(){const dbs=this.env.map(db);let maxd=0,sumd=0,top=0;
+    for(let b=0;b<4;b++){const q=this.lag[b];q.push(dbs[b]);if(q.length>4)q.shift();const dd=Math.max(0,dbs[b]-q[0]);sumd+=dd;if(dd>maxd){maxd=dd;top=b}}
+    const o=maxd+.25*sumd;const w=this.odf;w[this.oi++%w.length]=o;
+    const sorted=Array.from(w).sort((a,b)=>a-b),med=sorted[48],mad=sorted[72]-med;
+    const thr=Math.max(9/this.sens,Math.min(22/this.sens,med+3*mad+5));
+    this.ref=Math.max(0,this.ref-1);
+    if(this.pend){const p=this.pend;for(let b=0;b<4;b++)if(dbs[b]>p.b[b])p.b[b]=dbs[b];
+      if(--p.wait<=0){const v=classify(p.b[0],p.b[1],p.b[2],p.b[3]),peak=Math.max.apply(null,p.b);
+        this.port.postMessage({type:'onset',voice:v,peakDb:peak,bands:p.b.slice(),strength:p.o,time:currentTime});
+        if(v==='hat')this.cym={at:p.b[3],wait:Math.round(.17*sampleRate/this.hop),m:p.b[2]};this.pend=null}}
+    if(this.cym){if(--this.cym.wait<=0){if(dbs[3]>this.cym.at-14)this.port.postMessage({type:'onset',voice:'crash',peakDb:this.cym.at,bands:dbs,strength:0,wash:true,time:currentTime});this.cym=null}}
+    if(o>thr&&this.ref===0&&dbs[top]>-62){this.ref=Math.round(.045*sampleRate/this.hop);this.pend={b:dbs.slice(),wait:3,o};if(this.cym)this.cym=null}
+    if(++this.hc>=this.meterEvery){this.hc=0;this.port.postMessage({type:'meter',peakL:this.pk[0],peakR:this.pk[1],rms:Math.sqrt(this.sq/Math.max(1,this.mc)),ch:this.ch});this.pk[0]=0;this.pk[1]=0;this.sq=0;this.mc=0}}
+}
+registerProcessor('kit-onset',KitOnset);`;
+
+  /* ------------------------------------------------- the kit */
+
+  function createKit() {
+    const listeners = {};
+    const on = (ev, fn) => { (listeners[ev] = listeners[ev] || []).push(fn); return kit; };
+    const emit = (ev, data) => { (listeners[ev] || []).forEach((fn) => { try { fn(data); } catch (e) { console.error(e); } }); };
+
+    const audio = { state: 'idle', detail: '', devices: [], deviceId: store.get('audioDevice', null), label: '', peakDb: -120, peakL: 0, peakR: 0, zero: false, clipAt: -1e12, quietMs: 0, sampleRate: 0, channels: 0, latencyMs: null, needsGesture: false, trimDb: store.get('trim', 0), sens: store.get('sens', 1) };
+    const midi = { state: 'idle', detail: '', inputs: [], inputId: store.get('midiPort', 'all'), label: '', last: '', log: [], lastT: 0, lastNoteT: -1e12, count: 0, quietMs: 0, flipPedal: store.get('flipPedal', false) };
+    const env = { kick: 0, snare: 0, hat: 0, tom: 0, crash: 0, ride: 0, flash: 0, hatOpen: 0, tomPos: 0.5 };
+
+    const spectrum = new Float32Array(BANDS);
+    const audioSpec = new Float32Array(BANDS);
+    const rawDb = new Float32Array(BANDS);
+    const hist = new Uint8Array(HIST_W * BANDS * 2);       // RG: level, tonalness
+    const column = new Uint8Array(BANDS * 2);
+    let histX = 0, histAcc = 0;
+
+    let ctx = null, inputBus = null, analyser = null, worklet = null, sink = null, recDest = null;
+    let stream = null, micNode = null, connectSeq = 0, lastSignal = -1e12, freqData = null, binEdges = null;
+    let midiAccess = null, demo = null, replay = null, session = null;
+    let lastFlash = -1e12, keysT = -1e12, lastTick = 0, ceilDb = -55, lastTempo = 0;
+    const hitLog = [];                                      // recent hits, newest last
+    const tempoT = [], tempoW = [];
+
+    let map = store.get('map', null) || JSON.parse(JSON.stringify(PRESETS.mimic.notes));
+    let presetId = store.get('preset', 'mimic');
+    let noteToPad = {};
+    const buildNoteMap = () => { noteToPad = {}; Object.entries(map).forEach(([pad, notes]) => notes.forEach((n) => { noteToPad[n] = pad; })); };
+    buildNoteMap();
+    let learning = null;
+
+    const midiOwnsHits = () => (midi.state === 'live' || midi.state === 'no-signal') && performance.now() - midi.lastNoteT < MIDI_OWNS_HITS_MS;
+
+    const kit = {
+      on, audio, midi, env, spectrum, rawDb, hist, column,
+      BANDS, HIST_W, HIST_RATE, PADS, PRESETS,
+      low: 0, mid: 0, high: 0, loud: 0, tonal: 0,
+      tempo: { bpm: null, conf: 0 },
+      hitLog,
+      hits: 0, lastHit: null, hitAge: null,
+      get histX() { return histX; },
+      get mode() { return demo ? 'demo' : replay ? 'replay' : (audio.state === 'live' || midi.state === 'live' || performance.now() - keysT < 8000) ? 'live' : (stream || midi.state === 'no-signal') ? 'open' : 'none'; },
+      get demoOn() { return !!demo; },
+      get replayOn() { return !!replay; },
+      get recording() { return !!session; },
+      get hitSource() {
+        if (demo) return 'demo';
+        if (replay) return 'replay';
+        if (midiOwnsHits()) return 'midi';
+        if (audio.state === 'live') return 'audio';
+        if (performance.now() - keysT < 8000) return 'keys';
+        return 'none';
+      },
+      get map() { return map; }, get presetId() { return presetId; }, get learning() { return learning; },
+    };
+
+    const notifyState = () => emit('state', kit);
+    const setAudio = (state, detail) => { const ch = audio.state !== state || audio.detail !== (detail || ''); audio.state = state; audio.detail = detail || ''; if (ch) notifyState(); };
+    const setMidi = (state, detail) => { const ch = midi.state !== state || midi.detail !== (detail || ''); midi.state = state; midi.detail = detail || ''; if (ch) notifyState(); };
+
+    /* ---------------- hits ---------------- */
+    function hit(padId, vel, src, extra) {
+      const pad = PAD[padId] || { voice: 'snare' };
+      const v = pad.voice, now = performance.now();
+      env[v] = Math.max(env[v], vel);
+      if (v === 'tom' && pad.pos != null) env.tomPos = pad.pos;
+      if (v === 'crash' && now - lastFlash >= FLASH_GAP_MS && !(extra && extra.wash)) { env.flash = Math.max(env.flash, vel); lastFlash = now; }
+      const h = { t: now, voice: v, pad: padId, vel, src, note: extra && extra.note != null ? extra.note : null, est: !!(extra && extra.est) };
+      hitLog.push(h);
+      if (hitLog.length > 400) hitLog.shift();
+      tempoT.push(now / 1000); tempoW.push(TEMPO_WEIGHT[v] || 0.5);
+      while (tempoT.length && now / 1000 - tempoT[0] > 8) { tempoT.shift(); tempoW.shift(); }
+      kit.hits++; kit.lastHit = h;
+      if (session) session.hits.push({ t: now - session.t0, voice: v, pad: padId, vel: +vel.toFixed(3), src, note: h.note });
+      emit('hit', h);
+    }
+    function pedal(value, src) {
+      env.hatOpen = midi.flipPedal ? clamp(value / 127, 0, 1) : 1 - clamp(value / 127, 0, 1);
+      if (session) session.ctrl.push({ t: performance.now() - session.t0, k: 'pedal', v: value });
+      if (src !== 'replay') emit('cc', { cc: 4, value });
+    }
+    function choke(voice) {
+      if (voice === 'crash') { env.crash *= 0.12; env.flash = 0; } else if (voice === 'ride') { env.ride *= 0.12; }
+      if (session) session.ctrl.push({ t: performance.now() - session.t0, k: 'choke', v: voice });
+      emit('choke', voice);
+    }
+
+    function handleMidi(data, src) {
+      const st = data[0];
+      if (st >= 0xf8) return;                                // clock and active sensing are not playing
+      const type = st & 0xf0, ch = (st & 0x0f) + 1, d1 = data[1], d2 = data[2];
+      const now = performance.now();
+      if (src === 'midi') {
+        midi.lastT = now; midi.count++; midi.quietMs = 0;
+        const text = type === 0x90 ? `note ${d1} vel ${d2} ch ${ch}` : type === 0x80 ? `off ${d1} ch ${ch}` : type === 0xb0 ? `CC${d1} = ${d2} ch ${ch}` : type === 0xa0 ? `aftertouch ${d1} = ${d2} ch ${ch}` : `0x${st.toString(16)} ${d1 ?? ''} ${d2 ?? ''}`;
+        const unmapped = type === 0x90 && d2 > 0 && noteToPad[d1] == null;
+        const line = text + (unmapped ? ' · unmapped' : '');
+        if (type !== 0x80 && !(type === 0x90 && d2 === 0)) midi.last = line;   // the chip shows what you played, not the release
+        midi.log.unshift(line);
+        if (midi.log.length > 8) midi.log.pop();
+        if (midi.state !== 'live') setMidi('live');
+        emit('midi', midi);
+      }
+      if (type === 0x90 && d2 > 0) {
+        if (src === 'midi') midi.lastNoteT = now;
+        if (learning) { assignNote(learning, d1); learning = null; notifyState(); }
+        const padId = noteToPad[d1];
+        const soft = SOFT_NOTES[d1] || 1;
+        hit(padId || 'snare', clamp((d2 / 127) * (padId ? soft : 0.5), 0, 1), src, { note: d1 });
+      } else if (type === 0xa0) {
+        const pad = PAD[noteToPad[d1]];
+        if (d2 >= 32 && pad && (pad.voice === 'crash' || pad.voice === 'ride')) choke(pad.voice);
+      } else if (type === 0xb0) {
+        if (d1 === 4) pedal(d2, src);
+        else emit('cc', { cc: d1, value: d2 });
+      }
+    }
+
+    function assignNote(padId, note) {
+      Object.keys(map).forEach((k) => { map[k] = map[k].filter((n) => n !== note); });
+      (map[padId] = map[padId] || []).push(note);
+      presetId = 'custom';
+      store.set('map', map); store.set('preset', presetId);
+      buildNoteMap();
+    }
+    kit.learn = (padId) => { learning = learning === padId ? null : padId; notifyState(); };
+    kit.usePreset = (id) => {
+      if (!PRESETS[id]) return;
+      map = JSON.parse(JSON.stringify(PRESETS[id].notes)); presetId = id; learning = null;
+      store.set('map', map); store.set('preset', id);
+      buildNoteMap(); notifyState();
+    };
+    kit.setFlipPedal = (b) => { midi.flipPedal = !!b; store.set('flipPedal', midi.flipPedal); };
+    kit.pad = (padId, vel) => { keysT = performance.now(); hit(padId, vel == null ? 0.85 : vel, 'keys'); notifyState(); };
+
+    /* ---------------- audio graph ---------------- */
+    function ensureCtx(rate) {
+      if (ctx && rate && ctx.sampleRate !== rate && !navigator.userAgent.includes('Chrome')) { try { ctx.close(); } catch (e) { /* closing */ } ctx = null; }
+      if (ctx) return ctx;
+      const AC = global.AudioContext || global.webkitAudioContext;
+      if (!AC) throw new Error('Web Audio is not available');
+      try { ctx = new AC({ latencyHint: 'interactive', ...(rate ? { sampleRate: rate } : {}) }); } catch (e) { ctx = new AC({ latencyHint: 'interactive' }); }
+      inputBus = ctx.createGain();
+      inputBus.gain.value = Math.pow(10, audio.trimDb / 20);
+      analyser = ctx.createAnalyser();
+      analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0; analyser.minDecibels = -120; analyser.maxDecibels = 0;
+      inputBus.connect(analyser);
+      sink = ctx.createGain(); sink.gain.value = 0; sink.connect(ctx.destination);   // keeps the graph pulled without playing anything
+      freqData = new Float32Array(analyser.frequencyBinCount);
+      const hzPerBin = ctx.sampleRate / analyser.fftSize, fmax = Math.min(FMAX, ctx.sampleRate * 0.47);
+      binEdges = new Float32Array(BANDS + 1);
+      for (let i = 0; i <= BANDS; i++) binEdges[i] = (FMIN * Math.pow(fmax / FMIN, i / BANDS)) / hzPerBin;
+      worklet = null;
+      return ctx;
+    }
+    async function ensureWorklet() {
+      if (worklet) return;
+      const url = URL.createObjectURL(new Blob([WORKLET_SRC], { type: 'text/javascript' }));
+      await ctx.audioWorklet.addModule(url);
+      URL.revokeObjectURL(url);
+      worklet = new AudioWorkletNode(ctx, 'kit-onset', { numberOfInputs: 1, numberOfOutputs: 1, channelCountMode: 'explicit', channelCount: 2 });
+      worklet.port.onmessage = onWorklet;
+      worklet.port.postMessage({ sens: audio.sens });
+      inputBus.connect(worklet); worklet.connect(sink);
+    }
+    function onWorklet(e) {
+      const m = e.data;
+      if (m.type === 'meter') {
+        const pk = Math.max(m.peakL, m.peakR);
+        const d = 20 * Math.log10(pk + 1e-9);
+        audio.peakDb = audio.peakDb > d ? audio.peakDb - 1.2 : d;
+        audio.peakL = m.peakL; audio.peakR = m.peakR; audio.channels = m.ch || audio.channels;
+        audio.zero = pk === 0;
+        if (d > -0.4) audio.clipAt = performance.now();
+        if (d > NOISE_GATE_DB && !demo && !replay) { lastSignal = performance.now(); if (stream && audio.state !== 'live') setAudio('live'); }
+      } else if (m.type === 'onset') {
+        if (demo || replay) return;
+        kit.onsetCount = (kit.onsetCount || 0) + 1;
+        if (midiOwnsHits()) return;    // MIDI says which drum; audio stays texture
+        const vel = clamp((m.peakDb + 48) / 42, 0.05, 1);
+        const padId = m.voice === 'tom' ? (m.bands[1] > m.bands[0] + 3 ? 'tomH' : m.bands[0] > m.bands[1] + 1 ? 'tomL' : 'tomM') : m.voice;
+        hit(padId, m.wash ? vel * 0.7 : vel, 'audio', { est: true, wash: m.wash });
+      }
+    }
+
+    function micMessage(e) {
+      const ff = /firefox/i.test(navigator.userAgent);
+      if (e.name === 'NotAllowedError' || e.name === 'SecurityError') {
+        if (/system/i.test(e.message)) return ['denied', 'macOS is blocking this browser. Turn it on in System Settings, Privacy & Security, Microphone, then reload.'];
+        return ['denied', ff ? 'Allow the microphone from the icon in the address bar, then press Connect again.' : 'Allow the microphone from the lock icon in the address bar, then press Connect again.'];
+      }
+      if (e.name === 'NotFoundError' || e.name === 'OverconstrainedError') return ['no-device', 'This computer shows no audio input. Plug in or power on your interface, then press Connect.'];
+      if (e.name === 'NotReadableError' || e.name === 'AbortError') return ['busy', 'The input could not be opened. Another app may hold it, or the interface may have stopped responding.'];
+      return ['busy', `The input failed: ${e.name || 'error'}.`];
+    }
+
+    async function listAudioDevices() {
+      const all = await navigator.mediaDevices.enumerateDevices();
+      const inputs = all.filter((d) => d.kind === 'audioinput');
+      const real = inputs.filter((d) => d.deviceId !== 'default' && d.deviceId !== 'communications');
+      audio.devices = (real.length ? real : inputs).map((d, i) => ({ id: d.deviceId, label: d.label || `Audio input ${i + 1}` }));
+      notifyState();
+      return audio.devices;
+    }
+
+    kit.connectAudio = async (deviceId) => {
+      const seq = ++connectSeq;
+      if (!global.isSecureContext) return setAudio('insecure', 'Audio capture needs HTTPS or localhost.');
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return setAudio('unsupported', 'This browser cannot capture audio. Use Chrome or Edge.');
+      const want = deviceId !== undefined ? deviceId : audio.deviceId;
+      setAudio('requesting', 'Answer the browser prompt to continue.');
+      const open = (id) => navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false, channelCount: { ideal: 2 }, ...(id ? { deviceId: { exact: id } } : {}) },
+        video: false,
+      });
+      let s;
+      try {
+        try { s = await open(want); } catch (e) {
+          if (want && (e.name === 'OverconstrainedError' || e.name === 'NotFoundError')) s = await open(null);    // the saved device is gone
+          else throw e;
+        }
+      } catch (e) {
+        if (seq !== connectSeq) return;
+        const [state, msg] = micMessage(e);
+        return setAudio(state, msg);
+      }
+      if (seq !== connectSeq) { s.getTracks().forEach((t) => t.stop()); return; }
+      releaseMic();
+      stream = s;
+      const track = s.getAudioTracks()[0];
+      const set = track.getSettings ? track.getSettings() : {};
+      try {
+        ensureCtx(set.sampleRate);
+        await Promise.race([ctx.resume(), new Promise((r) => setTimeout(r, 700))]);
+        await ensureWorklet();
+        micNode = ctx.createMediaStreamSource(s);
+        if (!demo) micNode.connect(inputBus);
+      } catch (e) {
+        releaseMic();
+        return setAudio('busy', `The audio path failed: ${e.message}.`);
+      }
+      audio.deviceId = set.deviceId && set.deviceId !== 'default' ? set.deviceId : (want || null);
+      audio.label = cleanLabel(track.label) || 'Audio input';
+      audio.sampleRate = set.sampleRate || ctx.sampleRate;
+      audio.latencyMs = Math.round(((set.latency || 0) + (ctx.baseLatency || 0)) * 1000) || null;
+      store.set('audioDevice', audio.deviceId);
+      lastSignal = -1e12;
+      track.onended = () => { if (stream === s) { releaseMic(); setAudio('lost', `${audio.label} disconnected. Plug it back in and press Connect.`); } };
+      await listAudioDevices();
+      audio.needsGesture = ctx.state !== 'running';
+      if (audio.needsGesture) {
+        const go = () => { ctx.resume().then(() => { audio.needsGesture = false; notifyState(); }); };
+        addEventListener('pointerdown', go, { once: true });
+        addEventListener('keydown', go, { once: true });
+      }
+      setAudio('no-signal');
+    };
+    function cleanLabel(l) { return (l || '').replace(/^Default - /, '').replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, ''); }
+    function releaseMic() {
+      if (micNode) { try { micNode.disconnect(); } catch (e) { /* gone */ } micNode = null; }
+      if (stream) { stream.getTracks().forEach((t) => { t.onended = null; t.stop(); }); stream = null; }
+    }
+    kit.disconnectAudio = () => { connectSeq++; releaseMic(); audio.peakL = 0; audio.peakR = 0; audio.peakDb = -120; setAudio('idle'); };
+    kit.setTrim = (db) => { audio.trimDb = db; store.set('trim', db); if (inputBus) inputBus.gain.value = Math.pow(10, db / 20); };
+    kit.setSensitivity = (x) => { audio.sens = x; store.set('sens', x); if (worklet) worklet.port.postMessage({ sens: x }); };
+
+    if (navigator.mediaDevices && navigator.mediaDevices.addEventListener) {
+      navigator.mediaDevices.addEventListener('devicechange', () => { if (stream || audio.devices.length) listAudioDevices().catch(() => {}); });
+    }
+
+    /* ---------------- MIDI ---------------- */
+    function midiPorts() {
+      if (!midiAccess) return;
+      midi.inputs = [...midiAccess.inputs.values()].filter((p) => p.state === 'connected').map((p) => ({ id: p.id, name: p.name || 'MIDI input', manufacturer: p.manufacturer || '' }));
+      midiAccess.inputs.forEach((p) => {
+        const use = p.state === 'connected' && (midi.inputId === 'all' || midi.inputId === p.id);
+        p.onmidimessage = use ? (ev) => handleMidi(ev.data, 'midi') : null;
+      });
+      const selected = midi.inputId === 'all' ? null : midi.inputs.find((p) => p.id === midi.inputId);
+      if (!midi.inputs.length) {
+        const wasLive = midi.state === 'live' || midi.state === 'no-signal';
+        midi.label = '';
+        setMidi(wasLive ? 'lost' : 'no-device', wasLive ? 'The MIDI interface went away. Plug it back in; it reconnects by itself.' : 'No MIDI input found. Plug in your USB-MIDI interface; it appears here by itself.');
+      } else {
+        if (midi.inputId !== 'all' && !selected) { midi.inputId = 'all'; }
+        midi.label = selected ? selected.name : midi.inputs.length === 1 ? midi.inputs[0].name : `All ${midi.inputs.length} inputs`;
+        if (midi.state !== 'live') setMidi('no-signal');
+      }
+      notifyState();
+    }
+    kit.connectMidi = async () => {
+      if (!navigator.requestMIDIAccess) return setMidi('unsupported', /safari/i.test(navigator.userAgent) && !/chrome|chromium|edg/i.test(navigator.userAgent) ? 'Safari has no Web MIDI. Use Chrome or Edge for MIDI; audio still works here.' : 'This browser has no Web MIDI. Use Chrome or Edge for MIDI; audio still works here.');
+      if (!global.isSecureContext) return setMidi('insecure', 'Web MIDI needs HTTPS or localhost.');
+      setMidi('requesting', 'Answer the browser prompt to continue.');
+      try {
+        midiAccess = await navigator.requestMIDIAccess({ sysex: false });
+      } catch (e) {
+        const ff = /firefox/i.test(navigator.userAgent);
+        return setMidi('denied', ff ? 'Firefox needs a site permission add-on for MIDI. Chrome and Edge need only a prompt.' : 'MIDI permission was refused. Allow MIDI devices from the lock icon in the address bar, then press Connect again.');
+      }
+      midiAccess.onstatechange = midiPorts;
+      midiPorts();
+    };
+    kit.selectMidi = (id) => { midi.inputId = id; store.set('midiPort', id); midi.state = midi.state === 'live' ? 'no-signal' : midi.state; midiPorts(); };
+    kit.disconnectMidi = () => {
+      if (midiAccess) { midiAccess.onstatechange = null; midiAccess.inputs.forEach((p) => { p.onmidimessage = null; }); }
+      midiAccess = null; midi.inputs = []; midi.label = ''; setMidi('idle');
+    };
+
+    /* ---------------- demo drum machine ---------------- */
+    let noiseBuf = null;
+    function demoVoice(pad, vel, t, D) {
+      const c = ctx, out = D.bus, env1 = (node, a, dur) => { const g = c.createGain(); g.gain.setValueAtTime(a, t); g.gain.exponentialRampToValueAtTime(0.0008, t + dur); node.connect(g); g.connect(out); return g; };
+      const noise = () => { const n = c.createBufferSource(); n.buffer = noiseBuf; n.loop = true; n.start(t, Math.random()); n.stop(t + 2); return n; };
+      const v = PAD[pad].voice;
+      if (v === 'kick') {
+        const o = c.createOscillator(); o.frequency.setValueAtTime(150, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.11); env1(o, 0.95 * vel, 0.3); o.start(t); o.stop(t + 0.32);
+        const n = noise(), hp = c.createBiquadFilter(); hp.type = 'bandpass'; hp.frequency.value = 3200; n.connect(hp); env1(hp, 0.25 * vel, 0.02);
+      } else if (v === 'snare') {
+        const n = noise(), hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 1400; n.connect(hp); env1(hp, 0.6 * vel, 0.17);
+        const o = c.createOscillator(); o.type = 'triangle'; o.frequency.setValueAtTime(205, t); env1(o, 0.55 * vel, 0.11); o.start(t); o.stop(t + 0.14);
+      } else if (v === 'hat') {
+        const n = noise(), hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 7600; n.connect(hp); env1(hp, 0.42 * vel, 0.035 + 0.28 * env.hatOpen);
+      } else if (v === 'tom') {
+        const f = 85 + (PAD[pad].pos || 0.5) * 150, o = c.createOscillator(); o.frequency.setValueAtTime(f * 1.5, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.06); env1(o, 0.8 * vel, 0.3); o.start(t); o.stop(t + 0.33);
+      } else if (v === 'crash') {
+        const n = noise(), hp = c.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 3400; n.connect(hp); env1(hp, 0.5 * vel, 1.5);
+      } else {
+        const n = noise(), bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 7000; bp.Q.value = 1.4; n.connect(bp); env1(bp, 0.34 * vel, 0.45);
+        const o = c.createOscillator(); o.frequency.value = 3100; env1(o, 0.07 * vel, 0.3); o.start(t); o.stop(t + 0.32);
+      }
+    }
+    function demoStep(D, s, t) {
+      const fire = (pad, vel) => { demoVoice(pad, vel, t, D); D.timers.push(setTimeout(() => { if (demo === D) hit(pad, vel, 'demo'); }, Math.max(0, (t - ctx.currentTime) * 1000))); };
+      const sec = Math.floor(D.bar / 8) % 3, fill = D.bar % 8 === 7 && s >= 8;
+      if (s === 0 && D.bar % 8 === 0 && D.bar > 0) { fire('crash', 0.95); fire('kick', 1); }
+      if (fill) {
+        if (s % 2 === 0 || s > 13) fire(s < 11 ? 'tomH' : s < 14 ? 'tomM' : 'tomL', 0.8 + (s % 3) * 0.06);
+        return;
+      }
+      const kicks = [[0, 6, 8], [0, 3, 8, 11], [0, 8, 10]][sec], snares = [4, 12];
+      if (kicks.includes(s)) fire('kick', s === 0 ? 1 : 0.82);
+      if (snares.includes(s)) fire('snare', 0.92);
+      if ((s === 7 || s === 15) && sec !== 1) fire('snare', 0.22);
+      if (sec === 0 && s % 2 === 0) { pedal(127, 'demo'); fire('hat', s % 4 === 0 ? 0.7 : 0.48); }
+      if (sec === 1 && s % 2 === 0) fire('ride', s % 4 === 0 ? 0.74 : 0.5);
+      if (sec === 2 && s % 2 === 0) { pedal(s % 4 === 2 ? 25 : 127, 'demo'); fire('hat', s % 4 === 2 ? 0.8 : 0.5); }
+      if (sec === 0 && s === 4 && D.bar % 16 === 8) choke('crash');
+    }
+    function demoLoop() {
+      const D = demo;
+      if (!D) return;
+      D.timers = D.timers.filter((t) => t !== null).slice(-64);
+      const stepDur = () => 60 / [108, 96, 124][Math.floor(D.bar / 8) % 3] / 4;
+      while (D.next < ctx.currentTime + 0.12) {
+        demoStep(D, D.step, D.next);
+        D.next += stepDur();
+        if (++D.step >= 16) { D.step = 0; D.bar++; }
+      }
+    }
+    kit.startDemo = async () => {
+      if (demo) return;
+      if (replay) kit.stopReplay();
+      ensureCtx();
+      await ctx.resume();
+      try { await ensureWorklet(); } catch (e) { /* the spectrum still works without onsets */ }
+      if (!noiseBuf) {
+        noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
+        const d = noiseBuf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+      }
+      if (micNode) { try { micNode.disconnect(); } catch (e) { /* not connected */ } }
+      const bus = ctx.createGain();
+      bus.connect(inputBus);
+      const monitor = ctx.createGain(); monitor.gain.value = kit.demoAudible ? 0.7 : 0; bus.connect(monitor); monitor.connect(ctx.destination);
+      demo = { bus, monitor, step: 0, bar: 0, next: ctx.currentTime + 0.08, timers: [] };
+      demo.timer = setInterval(demoLoop, 25);
+      demoLoop();
+      notifyState();
+    };
+    kit.stopDemo = () => {
+      if (!demo) return;
+      clearInterval(demo.timer); demo.timers.forEach(clearTimeout);
+      try { demo.bus.disconnect(); demo.monitor.disconnect(); } catch (e) { /* gone */ }
+      demo = null;
+      if (micNode) micNode.connect(inputBus);
+      notifyState();
+    };
+    kit.demoAudible = false;
+    kit.setDemoAudible = (b) => { kit.demoAudible = !!b; if (demo) demo.monitor.gain.value = b ? 0.7 : 0; };
+
+    /* ---------------- recording and replay ---------------- */
+    kit.startRecording = (appName) => {
+      session = { t0: performance.now(), app: appName, created: new Date().toISOString(), hits: [], ctrl: [], lanes: {}, frames: [], acc: 0 };
+      notifyState();
+    };
+    kit.noteLane = (name, value) => { if (session) (session.lanes[name] = session.lanes[name] || []).push([Math.round(performance.now() - session.t0), value]); };
+    kit.stopRecording = () => {
+      if (!session) return null;
+      const s = session; session = null;
+      const durationMs = performance.now() - s.t0;
+      const bytes = new Uint8Array(s.frames.length * BANDS);
+      s.frames.forEach((f, i) => bytes.set(f, i * BANDS));
+      let bin = '';
+      for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+      const out = { schema: 'generative-av-labs/session@1', app: s.app, created: s.created, durationMs: Math.round(durationMs), note: 'Levels and events only. No audio is stored in this file.', bands: BANDS, frameRate: SESSION_RATE, hits: s.hits, ctrl: s.ctrl, lanes: s.lanes, spectrumBase64: btoa(bin) };
+      notifyState();
+      return out;
+    };
+    kit.startReplay = (s) => {
+      if (!s || !/\/session@1$/.test(s.schema || '')) throw new Error('This is not a session file from these pages.');
+      if (demo) kit.stopDemo();
+      const bin = atob(s.spectrumBase64 || ''), frames = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) frames[i] = bin.charCodeAt(i);
+      replay = { s, frames, t0: performance.now(), hi: 0, ci: 0, lanes: Object.entries(s.lanes || {}).map(([k, v]) => ({ k, v, i: 0 })) };
+      if (micNode) { try { micNode.disconnect(); } catch (e) { /* not connected */ } }
+      notifyState();
+      emit('replay', true);
+    };
+    kit.stopReplay = () => {
+      if (!replay) return;
+      replay = null;
+      if (micNode) micNode.connect(inputBus);
+      audioSpec.fill(0);
+      notifyState();
+      emit('replay', false);
+    };
+    function stepReplay(now) {
+      const R = replay, t = now - R.t0, s = R.s;
+      while (R.hi < s.hits.length && s.hits[R.hi].t <= t) { const h = s.hits[R.hi++]; hit(h.pad, h.vel, 'replay', { note: h.note }); }
+      while (R.ci < s.ctrl.length && s.ctrl[R.ci].t <= t) { const c = s.ctrl[R.ci++]; if (c.k === 'pedal') pedal(c.v, 'replay'); else choke(c.v); }
+      R.lanes.forEach((l) => { while (l.i < l.v.length && l.v[l.i][0] <= t) { const p = l.v[l.i++]; emit('lane', { name: l.k, value: p[1] }); } });
+      const fr = Math.floor((t / 1000) * (s.frameRate || SESSION_RATE)) * BANDS;
+      if (fr + BANDS <= R.frames.length) for (let i = 0; i < BANDS; i++) audioSpec[i] = R.frames[fr + i] / 255;
+      if (t >= s.durationMs) kit.stopReplay();
+    }
+
+    kit.recordingStream = () => {
+      if (!ctx || !inputBus) return null;
+      if (!recDest) { recDest = ctx.createMediaStreamDestination(); inputBus.connect(recDest); }
+      return recDest.stream;
+    };
+
+    /* ---------------- the per-frame update ---------------- */
+    function readAnalyser(dt) {
+      if (!analyser || !(stream || demo)) { for (let i = 0; i < BANDS; i++) audioSpec[i] *= Math.exp(-dt / 0.2); return false; }
+      analyser.getFloatFrequencyData(freqData);
+      let top = -120, lsum = 0, asum = 0;
+      for (let i = 0; i < BANDS; i++) {
+        const a = binEdges[i], b = binEdges[i + 1];
+        let v = -160;
+        if (b - a < 1) {
+          const k = Math.floor((a + b) / 2), f = (a + b) / 2 - k;
+          v = (freqData[k] || -160) * (1 - f) + (freqData[k + 1] || -160) * f;
+        } else {
+          for (let k = Math.floor(a); k < Math.ceil(b); k++) if (freqData[k] > v) v = freqData[k];
+        }
+        if (!isFinite(v)) v = -160;
+        v += 3 * Math.log2(bandFreq(i) / 1000);                // gentle tilt so cymbals read beside the kick
+        rawDb[i] = v;
+        if (v > top) top = v;
+        const lin = Math.pow(10, v / 20);
+        lsum += Math.log(lin + 1e-9); asum += lin;
+      }
+      // Rolling reference: the top of the range follows the loudest recent level, so a quiet or loud kit both fill it.
+      ceilDb = Math.max(-55, Math.max(top, ceilDb - 1.2 * dt));
+      const floor = ceilDb - 52;
+      for (let i = 0; i < BANDS; i++) {
+        const n = clamp((rawDb[i] - floor) / (ceilDb - floor), 0, 1);
+        const shaped = n * n * (1.6 - 0.6 * n);
+        audioSpec[i] = shaped > audioSpec[i] ? shaped : audioSpec[i] * Math.exp(-dt / 0.14) + shaped * (1 - Math.exp(-dt / 0.14));
+      }
+      kit.tonal += (clamp(1 - Math.exp(lsum / BANDS) / ((asum / BANDS) || 1), 0, 1) - kit.tonal) * Math.min(1, dt / 0.05);
+      return true;
+    }
+
+    kit.tick = (now) => {
+      now = now == null ? performance.now() : now;
+      const dt = clamp((now - (lastTick || now)) / 1000, 0, 0.1);
+      lastTick = now;
+
+      Object.keys(TAU).forEach((k) => {
+        const tau = k === 'hat' ? TAU.hat + 0.22 * env.hatOpen : TAU[k];
+        env[k] *= Math.exp(-dt / tau);
+      });
+      if (replay) stepReplay(now);
+      const analysed = readAnalyser(dt);
+      const flowing = replay || (analysed && (demo || now - lastSignal < LIVE_HOLD_MS));
+      for (let i = 0; i < BANDS; i++) {
+        let v = flowing ? audioSpec[i] : 0;
+        if (!flowing) {
+          const p = env.tomPos, tomShape = p > 0.65 ? SHAPES.tomH : p > 0.35 ? SHAPES.tomM : SHAPES.tomL;
+          v = Math.max(env.kick * SHAPES.kick[i], env.snare * SHAPES.snare[i], env.hat * SHAPES.hat[i], env.tom * tomShape[i], env.crash * SHAPES.crash[i], env.ride * SHAPES.ride[i]);
+          v *= 0.92;
+        }
+        spectrum[i] = v;
+      }
+      let lo = 0, mi = 0, hi = 0;
+      for (let i = 0; i < BANDS; i++) { const f = i / BANDS; if (f < 0.3) lo += spectrum[i]; else if (f < 0.7) mi += spectrum[i]; else hi += spectrum[i]; }
+      kit.low = lo / (BANDS * 0.3); kit.mid = mi / (BANDS * 0.4); kit.high = hi / (BANDS * 0.3);
+      const inst = (kit.low + kit.mid + kit.high) / 3;
+      kit.loud += (inst - kit.loud) * Math.min(1, dt / (inst > kit.loud ? 0.03 : 0.35));
+
+      // State clocks. These are what a visitor reads, so they keep running whether or not the page has focus.
+      if (stream && !demo && audio.state !== 'requesting') {
+        audio.quietMs = lastSignal > 0 ? now - lastSignal : 0;
+        if (audio.state === 'live' && now - lastSignal > LIVE_HOLD_MS) setAudio('no-signal');
+      }
+      if (midi.state === 'live' && now - midi.lastT > MIDI_HOLD_MS) setMidi('no-signal');
+      if (midi.lastT) midi.quietMs = now - midi.lastT;
+      kit.hitAge = kit.lastHit ? now - kit.lastHit.t : null;
+
+      if (now - lastTempo > 240) {
+        lastTempo = now;
+        const nowS = now / 1000;
+        const fresh = tempoT.length && nowS - tempoT[tempoT.length - 1] < 3.5;
+        kit.tempo = fresh ? estimateTempo(tempoT, tempoW) : { bpm: null, conf: 0 };
+      }
+
+      histAcc += dt;
+      while (histAcc >= 1 / HIST_RATE) {
+        histAcc -= 1 / HIST_RATE;
+        histX = (histX + 1) % HIST_W;
+        const ton = Math.round(kit.tonal * 255);
+        for (let i = 0; i < BANDS; i++) {
+          const v = Math.round(spectrum[i] * 255), o = (histX + i * HIST_W) * 2;
+          hist[o] = v; hist[o + 1] = ton;
+          column[i * 2] = v; column[i * 2 + 1] = ton;
+        }
+        emit('column', histX);
+      }
+
+      if (session) {
+        session.acc += dt;
+        while (session.acc >= 1 / SESSION_RATE) {
+          session.acc -= 1 / SESSION_RATE;
+          const f = new Uint8Array(BANDS);
+          for (let i = 0; i < BANDS; i++) f[i] = Math.round(spectrum[i] * 255);
+          session.frames.push(f);
+        }
+      }
+      emit('frame', kit);
+    };
+
+    kit.feedMidi = (bytes) => handleMidi(bytes, 'midi');     // same path a real port uses; the tests call this too
+    kit.autoconnect = {
+      get on() { return store.get('reconnect', false); },
+      set on(v) { store.set('reconnect', !!v); },
+    };
+    kit.tryReconnect = async () => {
+      if (!store.get('reconnect', false)) return;
+      try {
+        const mic = await navigator.permissions.query({ name: 'microphone' });
+        if (mic.state === 'granted') kit.connectAudio();
+      } catch (e) { /* the query is not available everywhere */ }
+      try {
+        const m = await navigator.permissions.query({ name: 'midi' });
+        if (m.state === 'granted') kit.connectMidi();
+      } catch (e) { /* the query is not available everywhere */ }
+    };
+
+    // Before anyone presses anything: say what this browser cannot do.
+    if (!global.isSecureContext) { audio.state = 'insecure'; audio.detail = 'Audio capture needs HTTPS or localhost.'; midi.state = 'insecure'; midi.detail = 'Web MIDI needs HTTPS or localhost.'; }
+    else {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { audio.state = 'unsupported'; audio.detail = 'This browser cannot capture audio. Use Chrome or Edge.'; }
+      if (!navigator.requestMIDIAccess) { midi.state = 'unsupported'; midi.detail = 'This browser has no Web MIDI. Use Chrome or Edge for MIDI; audio still works here.'; }
+    }
+    return kit;
+  }
+
+  global.createKit = createKit;
+  global.KitMath = { classify, estimateTempo, analyzeSession, bandFreq, BANDS, PADS, PRESETS };
+})(window);
+
+</script>
+<script>
+/* shell.js: the chrome both pages share. Header, dock, sheets, state chips, signal view, sessions.
+   Each page brings a canvas and its own sheet; everything about inputs and states lives here. */
+(function (global) {
+  'use strict';
+
+  const ICON = {
+    connect: '<path d="M8 8v8M16 8v8M5 11v2M19 11v2M12 4v16"/>',
+    session: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>',
+    signal: '<path d="M3 12h3l2-6 4 13 3-9 2 4h4"/>',
+    about: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
+    sliders: '<path d="M4 8h16M4 16h16"/><circle cx="9" cy="8" r="2"/><circle cx="16" cy="16" r="2"/>',
+    route: '<path d="M6 21c0-5 4-5 6-9s2-6 1-9"/><path d="M18 21c0-4-2-5-3-8"/>',
+    full: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
+    close: '<path d="m6 6 12 12M18 6 6 18"/>',
+    wave: '<path d="M3 12h2l2-5 3 10 3-14 3 14 2-5h3"/>',
+    midi: '<circle cx="12" cy="12" r="9"/><circle cx="8" cy="11" r=".8"/><circle cx="16" cy="11" r=".8"/><circle cx="10" cy="8" r=".8"/><circle cx="14" cy="8" r=".8"/><circle cx="12" cy="7.2" r=".8"/>',
+    play: '<path d="M7 5v14l11-7z"/>',
+  };
+  const svg = (name, cls) => `<svg viewBox="0 0 24 24" aria-hidden="true"${cls ? ` class="${cls}"` : ''}>${ICON[name]}</svg>`;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const closeBtn = (label) => `<button class="close" data-close aria-label="${label}">${svg('close')}</button>`;
+  const PAD_KEYS = { j: 'kick', k: 'snare', l: 'hat', u: 'tomH', i: 'tomM', o: 'tomL', p: 'crash', ';': 'ride' };
+
+  const AUDIO_TEXT = {
+    idle: ['idle', 'Not connected', 'Press Connect, then choose the input your kit is plugged into.'],
+    requesting: ['wait', 'Waiting for permission', ''],
+    denied: ['bad', 'Permission denied', ''],
+    'no-device': ['bad', 'No audio device', ''],
+    busy: ['bad', 'Input failed', ''],
+    unsupported: ['bad', 'Not supported in this browser', ''],
+    insecure: ['bad', 'Needs a secure page', ''],
+    lost: ['bad', 'Device disconnected', ''],
+  };
+  const MIDI_TEXT = {
+    idle: ['idle', 'Not connected', 'Press Connect, then choose your USB-MIDI interface.'],
+    requesting: ['wait', 'Waiting for permission', ''],
+    denied: ['bad', 'Permission denied', ''],
+    'no-device': ['bad', 'No MIDI device', ''],
+    unsupported: ['bad', 'Not supported in this browser', ''],
+    insecure: ['bad', 'Needs a secure page', ''],
+    lost: ['bad', 'Device disconnected', ''],
+  };
+
+  function audioView(a) {
+    if (a.state === 'live') {
+      const clip = performance.now() - a.clipAt < 1500;
+      return { tone: clip ? 'warn' : 'good', chip: `Audio · signal ${Math.round(a.peakDb)} dB`, state: clip ? 'Signal is clipping' : `Signal · ${Math.round(a.peakDb)} dB peak`, why: clip ? `${a.label}. Lower the module volume or the input gain in your interface.` : `${a.label}${a.channels ? ` · ${a.channels} channels` : ''} · ${Math.round((a.sampleRate || 0) / 100) / 10} kHz` };
+    }
+    if (a.state === 'no-signal') {
+      if (a.needsGesture) return { tone: 'wait', chip: 'Audio · click to start', state: 'Device open · click anywhere to start listening', why: `${a.label}. The browser holds audio until the first click.` };
+      const q = a.quietMs ? ` for ${Math.round(a.quietMs / 1000)} s` : ' yet';
+      const hint = a.zero ? 'The input reads as exact digital silence. Check the cable, the input routing in your interface, and that the module is on.' : 'Hit a pad. Check the cable, the module volume and the input gain.';
+      return { tone: 'warn', chip: 'Audio · no signal', state: `Device open · no signal${q}`, why: `${a.label}. ${hint}` };
+    }
+    const t = AUDIO_TEXT[a.state] || AUDIO_TEXT.idle;
+    return { tone: t[0], chip: `Audio · ${t[1].toLowerCase()}`, state: t[1], why: a.detail || t[2] };
+  }
+  function midiView(m) {
+    if (m.state === 'live') return { tone: 'good', chip: `MIDI · ${m.last}`, state: `Signal · ${m.last}`, why: m.label };
+    if (m.state === 'no-signal') {
+      const q = m.lastT && m.quietMs ? ` for ${Math.round(m.quietMs / 1000)} s` : ' yet';
+      return { tone: 'warn', chip: 'MIDI · no signal', state: `Device open · no MIDI${q}`, why: `${m.label}. Hit a pad. Check that the cable runs from the module's MIDI OUT to the interface's MIDI IN.` };
+    }
+    const t = MIDI_TEXT[m.state] || MIDI_TEXT.idle;
+    return { tone: t[0], chip: `MIDI · ${t[1].toLowerCase()}`, state: t[1], why: m.detail || t[2] };
+  }
+  function sourceView(k) {
+    if (k.demoOn) return ['demo', 'Demo · synthetic drums, not your kit'];
+    if (k.replayOn) return ['replay', 'Replay · a recorded session, not live'];
+    const hs = k.hitSource, a = k.audio.state === 'live', m = k.midi.state === 'live';
+    if (m && hs === 'midi') return ['live', a ? 'Live · hits from MIDI, texture from audio' : 'Live · hits from MIDI'];
+    if (m) return ['live', 'Live · MIDI with no notes'];
+    if (a) return ['live', hs === 'midi' ? 'Live · audio texture, MIDI resting' : 'Live · hits estimated from audio'];
+    if (hs === 'keys') return ['live', 'Keyboard pads · not your kit'];
+    if (k.audio.state === 'no-signal' || k.midi.state === 'no-signal') return ['open', 'Connected · no signal'];
+    return ['ambient', 'Ambient · no input connected'];
+  }
+
+  function mountShell(cfg) {
+    const kit = cfg.kit;
+    const scene = $('scene');
+    document.body.dataset.app = cfg.id;
+
+    const dockItems = [
+      { id: 'connect', label: 'Connect', icon: 'connect' },
+      ...(cfg.sheets || []).map((s) => ({ id: s.id, label: s.label, icon: s.icon })),
+      { id: 'session', label: 'Session', icon: 'session' },
+      { id: 'signal', label: 'Signal', icon: 'signal' },
+    ];
+
+    scene.insertAdjacentHTML('beforeend', `
+      <div class="vignette"></div>
+      <header class="header chrome">
+        <a class="brand" href="./" aria-label="${esc(cfg.name)}: back to the home page">${cfg.brand}<span>${esc(cfg.name)}</span></a>
+        <div class="top-actions">
+          <button class="top-action" id="demo-button">Try a demo</button>
+          <button class="top-action icon" id="fs-button" aria-label="Full screen">${svg('full')}</button>
+        </div>
+      </header>
+      ${cfg.modes ? `<nav class="mode-switch chrome" aria-label="${esc(cfg.modeLabel)}">${cfg.modes.map((m) => `<button data-mode="${m.id}" aria-pressed="${m.id === cfg.mode}">${esc(m.label)}</button>`).join('')}</nav>` : ''}
+      <div class="intro">
+        <p class="eyebrow">${esc(cfg.intro.eyebrow)}</p>
+        <h1>${esc(cfg.intro.title)}</h1>
+        <p>${esc(cfg.intro.subtitle)}</p>
+      </div>
+      <div id="toast" role="status"></div>
+      <div id="sr-status" role="status" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"></div>
+      <div class="dock-wrap">
+        <div id="hud" class="chrome">${cfg.hud || ''}</div>
+        <div id="hit-strip" class="chrome" aria-hidden="true">
+          ${['kick', 'snare', 'hat', 'tom', 'crash', 'ride'].map((v) => `<div class="hitdot"><i id="dot-${v}"></i>${v[0].toUpperCase()}</div>`).join('')}
+        </div>
+        <div class="badges">
+          <button class="source-badge" id="source-badge" data-source="ambient" title="Open the input settings"><span class="dot" aria-hidden="true"></span><span id="source-label">Ambient · no input connected</span></button>
+          <button class="chip chrome" id="chip-audio" data-tone="idle"><span class="dot" aria-hidden="true"></span><span id="chip-audio-text">Audio · not connected</span></button>
+          <button class="chip chrome" id="chip-midi" data-tone="idle"><span class="dot" aria-hidden="true"></span><span id="chip-midi-text">MIDI · not connected</span></button>
+        </div>
+        <nav class="dock chrome" aria-label="Controls">
+          ${dockItems.map((d) => `<button id="${d.id}-button" aria-haspopup="dialog" aria-expanded="false">${svg(d.icon)}<span>${esc(d.label)}</span></button>`).join('')}
+          <div class="dock-divider"></div>
+          <button id="about-button" aria-haspopup="dialog" aria-expanded="false">${svg('about')}<span>About</span></button>
+        </nav>
+        <p class="truth chrome" id="truth">${esc(cfg.truth)}</p>
+      </div>`);
+
+    document.body.insertAdjacentHTML('beforeend', `
+      <dialog class="sheet" id="connect-sheet" aria-labelledby="connect-title" tabindex="-1">
+        <div class="sheet-head"><h2 id="connect-title">Bring your kit.</h2>${closeBtn('Close input settings')}</div>
+        <p class="sheet-intro">MIDI says exactly which drum you hit. Audio gives the light its texture. Either one works alone.</p>
+        <button class="pill primary wide" id="connect-both">Connect audio and MIDI</button>
+
+        <div class="device-card" id="audio-card">
+          ${svg('wave', 'ic')}
+          <div class="device-info" id="audio-info" data-tone="idle">
+            <strong>Audio input <span class="dot"></span></strong>
+            <p class="state" id="audio-state">Not connected</p>
+            <p class="why" id="audio-why"></p>
+          </div>
+          <button class="pill" id="audio-connect">Connect</button>
+        </div>
+        <div class="controls-grid" id="audio-controls" hidden>
+          <label class="field">Input device<select id="audio-device"></select></label>
+          <div class="field"><div class="row"><span>Level</span><b id="audio-db">-</b></div>
+            <div class="meter" aria-hidden="true"><div><i id="meter-l"></i></div><div><i id="meter-r"></i></div></div></div>
+          <label class="field"><div class="row"><span>Input trim</span><b id="trim-val">0 dB</b></div><input type="range" id="trim" min="-24" max="24" step="1" value="0"></label>
+          <label class="field"><div class="row"><span>Hit sensitivity, audio only</span><b id="sens-val">1.0</b></div><input type="range" id="sens" min="50" max="200" step="5" value="100"></label>
+        </div>
+
+        <div class="device-card" id="midi-card">
+          ${svg('midi', 'ic')}
+          <div class="device-info" id="midi-info" data-tone="idle">
+            <strong>MIDI input <span class="dot"></span></strong>
+            <p class="state" id="midi-state">Not connected</p>
+            <p class="why" id="midi-why"></p>
+          </div>
+          <button class="pill" id="midi-connect">Connect</button>
+        </div>
+        <div class="controls-grid" id="midi-controls" hidden>
+          <label class="field">MIDI input<select id="midi-port"></select></label>
+          <div class="field"><span>Last messages</span><pre class="monitor" id="midi-monitor" aria-live="off">Nothing received yet.</pre></div>
+        </div>
+
+        <div class="device-card">
+          ${svg('play', 'ic')}
+          <div class="device-info">
+            <strong>No kit here</strong>
+            <p class="why">The demo is a synthetic drum machine. It runs through the same analysis and is labeled on screen the whole time.</p>
+          </div>
+          <button class="pill" id="demo-sheet">Run demo</button>
+        </div>
+        <label class="check"><input type="checkbox" id="demo-audible"> Let me hear the demo</label>
+        <label class="check"><input type="checkbox" id="reconnect"> Reconnect when I open this page, if the browser already allows it</label>
+
+        <details id="wiring"><summary>Wiring: Pearl Mimic Pro into an Apollo Solo</summary>
+          <ol>
+            <li><b>Audio.</b> Two 1/4-inch TRS cables from the Mimic Pro's Line Out 1 and 2, which carry the main mix, to the Apollo Solo's rear Mic/Line 1 and 2. Set both inputs to Line, and leave the front Hi-Z jack empty, because a plug there takes over input 1.</li>
+            <li><b>MIDI.</b> The Apollo Solo has no MIDI ports, and the Mimic Pro's USB slot is for installing samples. Run a 5-pin cable from the module's MIDI OUT into a USB-MIDI interface, and plug that into the computer. The browser lists the interface's name, not the module's.</li>
+            <li><b>Browser.</b> Chrome or Edge. Safari has no Web MIDI, and Firefox asks for a site permission add-on. Choose "Universal Audio Thunderbolt" as the audio input.</li>
+            <li><b>Monitoring.</b> These pages never play your input back. Keep listening through your interface as usual.</li>
+          </ol>
+        </details>
+        <details id="map-details"><summary>Pad map and Learn</summary>
+          <p>Each zone's note can be changed on the module, so this is only a starting point. Press Learn, then hit the pad.</p>
+          <label class="field">Starting map<select id="map-preset"></select></label>
+          <div id="pad-rows"></div>
+          <label class="check"><input type="checkbox" id="flip-pedal"> Flip the hi-hat pedal (CC4: 127 means open)</label>
+        </details>
+      </dialog>
+
+      ${(cfg.sheets || []).map((s) => `
+      <dialog class="sheet" id="${s.id}-sheet" aria-labelledby="${s.id}-title" tabindex="-1">
+        <div class="sheet-head"><h2 id="${s.id}-title">${esc(s.title)}</h2>${closeBtn(`Close ${s.label}`)}</div>
+        ${s.intro ? `<p class="sheet-intro">${esc(s.intro)}</p>` : ''}
+        ${s.html}
+      </dialog>`).join('')}
+
+      <dialog class="sheet" id="session-sheet" aria-labelledby="session-title" tabindex="-1">
+        <div class="sheet-head"><h2 id="session-title">Keep what you played.</h2>${closeBtn('Close session')}</div>
+        <p class="sheet-intro">A session file holds hits, pedal moves and levels. No audio goes in it, and nothing leaves this computer unless you share the file.</p>
+        <div class="row-actions">
+          <button class="pill primary" id="rec-toggle">Start recording</button>
+          <button class="pill" id="replay-load">Replay a session file</button>
+          <button class="pill" id="replay-stop" hidden>Stop replay</button>
+          <button class="pill" id="snapshot">Save a picture</button>
+          <input type="file" id="replay-file" accept="application/json,.json" hidden>
+        </div>
+        <label class="check"><input type="checkbox" id="rec-video"> Also save a video of the screen, with the input's sound if there is any</label>
+        <p class="note" id="rec-status" role="status">Not recording.</p>
+        <div id="session-analysis"></div>
+      </dialog>
+
+      <dialog class="sheet wide" id="signal-sheet" aria-labelledby="signal-title" tabindex="-1">
+        <div class="sheet-head"><h2 id="signal-title">What the page hears.</h2>${closeBtn('Close signal view')}</div>
+        <div class="statgrid">
+          <div class="stat"><span class="k">Tempo</span><span class="v" id="sig-tempo">-</span><span class="n">estimated from hits</span></div>
+          <div class="stat"><span class="k">Hits</span><span class="v" id="sig-hits">0</span><span class="n" id="sig-source">no source yet</span></div>
+          <div class="stat"><span class="k">Input peak</span><span class="v" id="sig-peak">-</span><span class="n" id="sig-ch">no audio</span></div>
+          <div class="stat"><span class="k">Hit to frame</span><span class="v" id="sig-lat">-</span><span class="n">page only, excludes the display</span></div>
+          <div class="stat"><span class="k">Frame rate</span><span class="v" id="sig-fps">-</span><span class="n" id="sig-quality">-</span></div>
+        </div>
+        <div class="sig-title"><span>Spectrum over the last 12 seconds</span><span>low to high, newest on the right</span></div>
+        <canvas class="sig-canvas" id="sig-spectro" width="1400" height="300" role="img" aria-label="Scrolling spectrogram of the input"></canvas>
+        <div class="sig-title"><span>Hits over the last 8 seconds</span><span id="sig-legend">dot size is velocity</span></div>
+        <canvas class="sig-canvas" id="sig-lanes" width="1400" height="230" role="img" aria-label="Timeline of hits by drum"></canvas>
+      </dialog>
+
+      <dialog class="sheet" id="about-sheet" aria-labelledby="about-title" tabindex="-1">
+        <div class="sheet-head"><h2 id="about-title">What drives what.</h2>${closeBtn('Close about')}</div>
+        ${cfg.about}
+        <details><summary>From MIDI, from audio</summary>
+          <p>MIDI names the drum you hit, with its velocity, plus the hi-hat pedal and cymbal chokes. With audio alone, kick, snare, hat, tom and crash are estimated from four frequency bands by a stated rule, and a ride is not told apart. With MIDI alone, each hit paints a stated spectrum shape instead of a measured one.</p>
+          <p>Hit to frame is what this page measures. It leaves out the interface, the cable and the screen.</p>
+        </details>
+        <details><summary>Safety and privacy</summary>
+          <p>Full-field flashes are capped at about three a second. If bright or moving light troubles you, turn on your system's reduced-motion setting: these pages then calm the camera and remove the flash.</p>
+          <p>Audio and MIDI are analyzed in this browser and never sent anywhere. The pages make no network requests after they load. Your device choice and pad map stay in this browser's storage.</p>
+        </details>
+        <details><summary>Ideas credited</summary>
+          <p>No outside code is included. Ideas came from <a href="https://github.com/jberg/butterchurn" rel="noopener">Butterchurn</a> (MIT), Milkdrop's feedback warp; <a href="https://github.com/PavelDoGreat/WebGL-Fluid-Simulation" rel="noopener">WebGL Fluid Simulation</a> (MIT), one splat per impact; <a href="https://github.com/loqwai/paper-cranes" rel="noopener">paper-cranes</a> (BSD-3-Clause), reading each audio feature against its own recent range; <a href="https://github.com/audiojs/beat" rel="noopener">@audio/beat</a>, energy flux for percussive onsets; and <a href="https://github.com/dlepaux/realtime-bpm-analyzer" rel="noopener">realtime-bpm-analyzer</a> (Apache-2.0), tempo from live input.</p>
+        </details>
+        <p class="note"><a href="field-guide.html">Read the field guide</a> · <a href="https://github.com/patrickiben/generative-av-labs" rel="noopener">Source</a></p>
+      </dialog>`);
+
+    /* ---------- sheets ---------- */
+    const openSheet = (name) => {
+      const d = $(`${name}-sheet`);
+      if (!d || d.open) return;
+      if (typeof d.showModal === 'function') d.showModal(); else d.setAttribute('open', '');
+      d.focus({ preventScroll: true });
+      const b = $(`${name}-button`); if (b) b.setAttribute('aria-expanded', 'true');
+      if (name === 'signal') drawSignal(true);
+    };
+    document.querySelectorAll('dialog.sheet').forEach((d) => {
+      const name = d.id.replace('-sheet', '');
+      d.addEventListener('close', () => { const b = $(`${name}-button`); if (b) { b.setAttribute('aria-expanded', 'false'); b.focus({ preventScroll: true }); } });
+      d.addEventListener('click', (e) => { if (e.target === d) d.close(); });
+      d.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => d.close()));
+    });
+    [...dockItems.map((d) => d.id), 'about'].forEach((name) => $(`${name}-button`).addEventListener('click', () => openSheet(name)));
+    ['source-badge', 'chip-audio', 'chip-midi'].forEach((id) => $(id).addEventListener('click', () => openSheet('connect')));
+
+    /* ---------- modes ---------- */
+    let mode = cfg.mode;
+    const modeButtons = [...document.querySelectorAll('.mode-switch button')];
+    const setMode = (m) => {
+      mode = m;
+      modeButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+      if (cfg.onMode) cfg.onMode(m);
+    };
+    modeButtons.forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+    /* ---------- demo and input buttons ---------- */
+    const toast = (msg, ms) => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), ms || 3200); };
+    const toggleDemo = async () => { if (kit.demoOn) kit.stopDemo(); else { try { await kit.startDemo(); } catch (e) { toast(`The demo could not start: ${e.message}`); } } };
+    $('demo-button').addEventListener('click', toggleDemo);
+    $('demo-sheet').addEventListener('click', async () => { await toggleDemo(); if (kit.demoOn) $('connect-sheet').close(); });
+    $('demo-audible').addEventListener('change', (e) => kit.setDemoAudible(e.target.checked));
+    $('audio-connect').addEventListener('click', () => { const s = kit.audio.state; if (s === 'live' || s === 'no-signal') kit.disconnectAudio(); else kit.connectAudio(); });
+    $('midi-connect').addEventListener('click', () => { const s = kit.midi.state; if (s === 'live' || s === 'no-signal') kit.disconnectMidi(); else kit.connectMidi(); });
+    $('connect-both').addEventListener('click', async () => { await kit.connectAudio(); await kit.connectMidi(); });
+    $('audio-device').addEventListener('change', (e) => kit.connectAudio(e.target.value));
+    $('midi-port').addEventListener('change', (e) => kit.selectMidi(e.target.value));
+    const syncRange = (r) => r.style.setProperty('--val', ((+r.value - +r.min) / (+r.max - +r.min)) * 100);
+    const bindRange = (id, fn) => { const r = $(id); syncRange(r); r.addEventListener('input', () => { syncRange(r); fn(+r.value); }); };
+    $('trim').value = kit.audio.trimDb; $('sens').value = Math.round(kit.audio.sens * 100);
+    $('trim-val').textContent = `${kit.audio.trimDb > 0 ? '+' : ''}${kit.audio.trimDb} dB`;
+    $('sens-val').textContent = kit.audio.sens.toFixed(2);
+    bindRange('trim', (v) => { kit.setTrim(v); $('trim-val').textContent = `${v > 0 ? '+' : ''}${v} dB`; });
+    bindRange('sens', (v) => { kit.setSensitivity(v / 100); $('sens-val').textContent = (v / 100).toFixed(2); });
+    document.querySelectorAll('.sheet input[type="range"]').forEach(syncRange);
+    $('reconnect').checked = kit.autoconnect.on;
+    $('reconnect').addEventListener('change', (e) => { kit.autoconnect.on = e.target.checked; });
+    $('flip-pedal').checked = kit.midi.flipPedal;
+    $('flip-pedal').addEventListener('change', (e) => kit.setFlipPedal(e.target.checked));
+
+    /* ---------- pad map ---------- */
+    const presetSel = $('map-preset');
+    let mapKey = '';
+    const renderMap = () => {
+      const key = JSON.stringify([kit.map, kit.presetId, kit.learning]);
+      if (key === mapKey) return;
+      mapKey = key;
+      presetSel.innerHTML = Object.entries(kit.PRESETS).map(([id, p]) => `<option value="${id}">${esc(p.name)}</option>`).join('') + (kit.presetId === 'custom' ? '<option value="custom">Your learned map</option>' : '');
+      presetSel.value = kit.presetId;
+      $('pad-rows').innerHTML = kit.PADS.map((p) => `<div class="padrow"><span>${esc(p.label)}</span><code>${(kit.map[p.id] || []).join(', ') || 'none'}</code><button class="pill${kit.learning === p.id ? ' on' : ''}" data-learn="${p.id}">${kit.learning === p.id ? 'Hit the pad' : 'Learn'}</button></div>`).join('');
+    };
+    presetSel.addEventListener('change', () => kit.usePreset(presetSel.value));
+    $('pad-rows').addEventListener('click', (e) => { const b = e.target.closest('[data-learn]'); if (b) kit.learn(b.dataset.learn); });
+
+    /* ---------- state rendering ---------- */
+    const setSelect = (sel, opts, value) => {
+      const key = JSON.stringify(opts);
+      if (sel.dataset.key !== key) { sel.innerHTML = opts.map((o) => `<option value="${esc(o.id)}">${esc(o.label)}</option>`).join(''); sel.dataset.key = key; }
+      if (value != null && [...sel.options].some((o) => o.value === value)) sel.value = value;
+    };
+    const renderStates = () => {
+      const a = audioView(kit.audio), m = midiView(kit.midi), [src, label] = sourceView(kit);
+      const badge = $('source-badge');
+      if (badge.dataset.source !== src) badge.dataset.source = src;
+      if ($('source-label').textContent !== label) $('source-label').textContent = label;
+      $('chip-audio').dataset.tone = a.tone; $('chip-midi').dataset.tone = m.tone;
+      $('chip-audio-text').textContent = a.chip; $('chip-midi-text').textContent = m.chip;
+      $('audio-info').dataset.tone = a.tone; $('midi-info').dataset.tone = m.tone;
+      $('audio-state').textContent = a.state; $('audio-why').textContent = a.why;
+      $('midi-state').textContent = m.state; $('midi-why').textContent = m.why;
+      const aOpen = kit.audio.state === 'live' || kit.audio.state === 'no-signal';
+      const mOpen = kit.midi.state === 'live' || kit.midi.state === 'no-signal';
+      $('audio-connect').textContent = aOpen ? 'Disconnect' : kit.audio.state === 'requesting' ? 'Waiting' : kit.audio.state === 'idle' ? 'Connect' : 'Try again';
+      $('midi-connect').textContent = mOpen ? 'Disconnect' : kit.midi.state === 'requesting' ? 'Waiting' : kit.midi.state === 'idle' ? 'Connect' : 'Try again';
+      $('audio-connect').disabled = kit.audio.state === 'unsupported' || kit.audio.state === 'insecure' || kit.audio.state === 'requesting';
+      $('midi-connect').disabled = kit.midi.state === 'unsupported' || kit.midi.state === 'insecure' || kit.midi.state === 'requesting';
+      $('connect-both').hidden = aOpen && mOpen;
+      $('audio-controls').hidden = !aOpen; $('midi-controls').hidden = !(mOpen || kit.midi.inputs.length);
+      if (aOpen) setSelect($('audio-device'), kit.audio.devices, kit.audio.deviceId);
+      if (kit.midi.inputs.length) {
+        setSelect($('midi-port'), [{ id: 'all', label: `All inputs (${kit.midi.inputs.length})` }, ...kit.midi.inputs.map((p) => ({ id: p.id, label: p.manufacturer && !p.name.includes(p.manufacturer) ? `${p.name} · ${p.manufacturer}` : p.name }))], kit.midi.inputId);
+      }
+      const spoken = `Audio: ${kit.audio.state.replace('-', ' ')}. MIDI: ${kit.midi.state.replace('-', ' ')}. ${src === 'demo' ? 'Demo running.' : ''}`;
+      if ($('sr-status').textContent !== spoken) $('sr-status').textContent = spoken;
+      $('connect-button').classList.toggle('connected', aOpen || mOpen);
+      const demoB = $('demo-button');
+      demoB.textContent = kit.demoOn ? 'End demo' : 'Try a demo';
+      $('demo-sheet').textContent = kit.demoOn ? 'End demo' : 'Run demo';
+      $('replay-stop').hidden = !kit.replayOn;
+      renderMap();
+    };
+    kit.on('state', renderStates);
+    renderStates();
+
+    /* ---------- recording ---------- */
+    let recorder = null, recChunks = [];
+    const download = (blob, name) => { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); };
+    const stamp = () => new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    $('rec-toggle').addEventListener('click', () => {
+      if (!kit.recording) {
+        kit.startRecording(cfg.id);
+        if ($('rec-video').checked && cfg.canvas().captureStream && global.MediaRecorder) {
+          const st = cfg.canvas().captureStream(60);
+          const sound = kit.recordingStream();
+          if (sound) sound.getAudioTracks().forEach((t) => st.addTrack(t));
+          const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m));
+          recChunks = [];
+          recorder = new MediaRecorder(st, mime ? { mimeType: mime, videoBitsPerSecond: 14e6 } : {});
+          recorder.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
+          recorder.onstop = () => download(new Blob(recChunks, { type: recorder.mimeType }), `${cfg.id}-${stamp()}.${(recorder.mimeType || '').includes('mp4') ? 'mp4' : 'webm'}`);
+          recorder.start(1000);
+        }
+        $('rec-toggle').textContent = 'Stop and save';
+        $('session-button').classList.add('rec');
+        $('rec-status').textContent = 'Recording. Play, then press Stop and save.';
+      } else {
+        const s = kit.stopRecording();
+        if (recorder) { recorder.stop(); recorder = null; }
+        download(new Blob([JSON.stringify(s)], { type: 'application/json' }), `${cfg.id}-session-${stamp()}.json`);
+        $('rec-toggle').textContent = 'Start recording';
+        $('session-button').classList.remove('rec');
+        $('rec-status').textContent = `Saved ${s.hits.length} hits over ${Math.round(s.durationMs / 1000)} s.`;
+        renderAnalysis(s);
+      }
+    });
+    $('replay-load').addEventListener('click', () => $('replay-file').click());
+    $('replay-stop').addEventListener('click', () => kit.stopReplay());
+    $('replay-file').addEventListener('change', async (e) => {
+      const f = e.target.files[0]; e.target.value = '';
+      if (!f) return;
+      try {
+        const s = JSON.parse(await f.text());
+        kit.startReplay(s);
+        renderAnalysis(s);
+        $('rec-status').textContent = `Replaying a session from ${new Date(s.created).toLocaleString()}.`;
+        $('session-sheet').close();
+      } catch (err) { $('rec-status').textContent = `That file could not be replayed: ${err.message}`; }
+    });
+    $('snapshot').addEventListener('click', () => { if (cfg.snapshot) cfg.snapshot((blob) => download(blob, `${cfg.id}-${stamp()}.png`)); });
+    function renderAnalysis(s) {
+      const A = KitMath.analyzeSession(s), rows = Object.entries(A.perVoice).filter(([, p]) => p.n);
+      $('session-analysis').innerHTML = `
+        <div class="statgrid">
+          <div class="stat"><span class="k">Length</span><span class="v">${Math.floor(A.durationS / 60)}:${String(Math.round(A.durationS % 60)).padStart(2, '0')}</span></div>
+          <div class="stat"><span class="k">Hits</span><span class="v">${A.hits}</span><span class="n">${Math.round(A.hitsPerMin)} a minute</span></div>
+          <div class="stat"><span class="k">Tempo</span><span class="v">${A.bpm ? `~${Math.round(A.bpm)}` : 'none'}</span><span class="n">whole session</span></div>
+          <div class="stat"><span class="k">Timing spread</span><span class="v">${A.ioiDevMs != null ? `${A.ioiDevMs.toFixed(1)} ms` : 'none'}</span><span class="n">median gap from a 16th-note grid</span></div>
+        </div>
+        ${rows.length ? `<table class="maptable"><thead><tr><th>Drum</th><th>Hits</th><th>Velocity</th><th>Spread</th></tr></thead><tbody>${rows.map(([v, p]) => `<tr><th>${v}</th><td>${p.n}</td><td>${Math.round(p.velMean * 127)}</td><td>±${Math.round(p.velSD * 127)}</td></tr>`).join('')}</tbody></table>` : ''}`;
+    }
+
+    /* ---------- full screen, keys, quiet chrome ---------- */
+    const fullscreen = () => { if (document.fullscreenElement) document.exitFullscreen(); else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => toast('Full screen is not available here.')); };
+    $('fs-button').addEventListener('click', fullscreen);
+    let hideChrome = false, lastMove = performance.now();
+    const wake = () => { lastMove = performance.now(); if (!hideChrome) document.body.classList.remove('quiet'); };
+    ['pointermove', 'pointerdown', 'keydown', 'touchstart'].forEach((ev) => addEventListener(ev, wake, { passive: true }));
+    addEventListener('keydown', (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
+      if (e.target.closest && e.target.closest('input, select, textarea, dialog[open]')) return;
+      const key = e.key.toLowerCase();
+      if (PAD_KEYS[key]) { kit.pad(PAD_KEYS[key]); return; }
+      if (key === 'c') openSheet('connect');
+      else if (key === 'd') toggleDemo();
+      else if (key === 'f') fullscreen();
+      else if (key === 'h') { hideChrome = !hideChrome; document.body.classList.toggle('quiet', hideChrome); }
+      else if (cfg.onKey) cfg.onKey(e, key);
+    });
+
+    /* ---------- per-frame ---------- */
+    let lastText = 0, frames = 0, fps = 0, fpsT = performance.now();
+    const VOICE_ENV = ['kick', 'snare', 'hat', 'tom', 'crash', 'ride'];
+    const dots = Object.fromEntries(VOICE_ENV.map((v) => [v, $(`dot-${v}`)]));
+    const metrics = { hitToFrame: null, seenHit: null };
+    function frame(now) {
+      frames++;
+      if (now - fpsT > 500) { fps = (frames * 1000) / (now - fpsT); frames = 0; fpsT = now; }
+      VOICE_ENV.forEach((v) => { const l = Math.min(1, kit.env[v]); dots[v].style.opacity = 0.16 + l * 0.84; dots[v].style.setProperty('--l', l.toFixed(2)); });
+      if (kit.lastHit && kit.lastHit !== metrics.seenHit) { metrics.seenHit = kit.lastHit; metrics.hitToFrame = now - kit.lastHit.t; }
+
+      const playing = kit.demoOn || kit.replayOn || (kit.hitAge != null && kit.hitAge < 20000) || kit.audio.state === 'live';
+      document.body.classList.toggle('playing', playing);
+      if (!hideChrome && (kit.demoOn || kit.audio.state === 'live' || kit.midi.state === 'live') && now - lastMove > 9000 && !document.querySelector('dialog[open]')) document.body.classList.add('quiet');
+
+      if (now - lastText > 120) {
+        lastText = now;
+        renderStates();
+        const pk = (p) => (Math.max(0, Math.min(1, (20 * Math.log10(p + 1e-9) + 60) / 60)) * 100).toFixed(1) + '%';
+        if (!$('audio-controls').hidden && $('connect-sheet').open) {
+          $('meter-l').style.width = pk(kit.audio.peakL); $('meter-r').style.width = pk(kit.audio.peakR);
+          $('audio-db').textContent = kit.audio.peakDb > -119 ? `${Math.round(kit.audio.peakDb)} dB` : 'silence';
+        }
+        if ($('connect-sheet').open && kit.midi.log.length) $('midi-monitor').textContent = kit.midi.log.slice(0, 5).join('\n');
+        if ($('signal-sheet').open) {
+          $('sig-tempo').textContent = kit.tempo.bpm ? `~${Math.round(kit.tempo.bpm)} BPM` : 'none yet';
+          $('sig-hits').textContent = kit.hits;
+          const srcName = { midi: 'from MIDI', audio: 'estimated from audio', demo: 'from the demo', replay: 'from a replay', keys: 'from keyboard pads', none: 'no source yet' };
+          $('sig-source').textContent = srcName[kit.hitSource];
+          $('sig-peak').textContent = kit.audio.peakDb > -119 ? `${Math.round(kit.audio.peakDb)} dB` : 'none';
+          $('sig-ch').textContent = kit.demoOn ? 'synthetic demo signal' : kit.replayOn ? 'recorded levels' : kit.audio.sampleRate ? `${kit.audio.channels || 2} ch · ${(kit.audio.sampleRate / 1000).toFixed(1)} kHz${kit.audio.latencyMs ? ` · about ${kit.audio.latencyMs} ms in` : ''}` : 'no audio';
+          $('sig-lat').textContent = metrics.hitToFrame != null ? `${metrics.hitToFrame.toFixed(1)} ms` : 'none yet';
+          $('sig-fps').textContent = `${Math.round(fps)} fps`;
+          $('sig-quality').textContent = cfg.quality ? cfg.quality() : '';
+        }
+      }
+      if ($('signal-sheet').open) drawSignal();
+    }
+
+    /* ---------- signal view ---------- */
+    const COLORS = { kick: '#ffb37a', snare: '#f7d774', hat: '#9fe3e0', tom: '#d3a6ff', crash: '#ffd6e8', ride: '#a8c6f4' };
+    let specImg = null;
+    function drawSignal() {
+      const cv = $('sig-spectro'), c = cv.getContext('2d'), W = kit.HIST_W, H = kit.BANDS;
+      if (!specImg) specImg = c.createImageData(W, H);
+      const px = specImg.data, xNow = kit.histX;
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const col = (xNow + 1 + x) % W, v = kit.hist[(col + y * W) * 2] / 255, o = (x + (H - 1 - y) * W) * 4;
+          const hue = 0.66 * (y / H);                 // the same law the pictures use: low is warm, high is cool
+          const a = 6 * hue, i = Math.floor(a), f = a - i, s = 0.75, l = Math.pow(v, 0.8);
+          const q = 1 - s * f, t = 1 - s * (1 - f), z = 1 - s;
+          const rgb = [[1, t, z], [q, 1, z], [z, 1, t], [z, q, 1], [t, z, 1], [1, z, q]][i % 6];
+          px[o] = 11 + rgb[0] * l * 244; px[o + 1] = 15 + rgb[1] * l * 240; px[o + 2] = 28 + rgb[2] * l * 227; px[o + 3] = 255;
+        }
+      }
+      if (!drawSignal.off) { drawSignal.off = document.createElement('canvas'); drawSignal.off.width = W; drawSignal.off.height = H; }
+      drawSignal.off.getContext('2d').putImageData(specImg, 0, 0);
+      c.imageSmoothingEnabled = true;
+      c.drawImage(drawSignal.off, 0, 0, cv.width, cv.height);
+      c.fillStyle = 'rgba(238,237,251,.7)'; c.font = '20px ui-sans-serif, -apple-system, sans-serif';
+      [[100, '100 Hz'], [1000, '1 kHz'], [10000, '10 kHz']].forEach(([f, t]) => {
+        const y = cv.height * (1 - Math.log(f / 30) / Math.log(16000 / 30));
+        c.fillRect(0, y, 14, 1.5); c.fillText(t, 20, y + 7);
+      });
+
+      const lv = $('sig-lanes'), g = lv.getContext('2d'), now = performance.now(), span = 8000, rows = ['kick', 'snare', 'hat', 'tom', 'crash', 'ride'], rh = lv.height / rows.length;
+      g.fillStyle = '#0b0f1c'; g.fillRect(0, 0, lv.width, lv.height);
+      g.font = '19px ui-sans-serif, -apple-system, sans-serif';
+      rows.forEach((r, i) => {
+        g.fillStyle = 'rgba(191,194,236,.14)'; g.fillRect(0, (i + 1) * rh - 1, lv.width, 1);
+        g.fillStyle = 'rgba(238,237,251,.75)'; g.fillText(r, 12, i * rh + rh * 0.65);
+      });
+      kit.hitLog.forEach((h) => {
+        const age = now - h.t; if (age > span) return;
+        const i = rows.indexOf(h.voice); if (i < 0) return;
+        const x = lv.width - (age / span) * (lv.width - 90), y = i * rh + rh / 2;
+        g.beginPath(); g.arc(x, y, 3 + h.vel * 12, 0, 6.3);
+        g.fillStyle = COLORS[h.voice]; g.globalAlpha = 0.35 + h.vel * 0.65; g.fill();
+        if (h.est) { g.globalAlpha = 1; g.strokeStyle = '#0b0f1c'; g.lineWidth = 3; g.stroke(); }
+        g.globalAlpha = 1;
+      });
+    }
+
+    kit.on('midi', () => { if ($('connect-sheet').open) $('midi-monitor').textContent = kit.midi.log.slice(0, 5).join('\n'); });
+    kit.tryReconnect();
+
+    const glFail = (msg) => { const d = document.createElement('div'); d.id = 'gl-error'; d.setAttribute('role', 'alert'); d.textContent = msg; scene.appendChild(d); };
+    return { frame, toast, openSheet, glFail, setMode, get mode() { return mode; }, bindRange, syncRange, get fps() { return fps; } };
+  }
+
+  global.mountShell = mountShell;
+})(window);
+
+</script>
+<script>
+/* gl.js: a small WebGL2 toolkit. Programs, HDR targets, bloom and the final grade. No dependencies. */
+(function (global) {
+  'use strict';
+
+  const FS_VERT = `#version 300 es
+out vec2 vUv;
+void main(){ vec2 p=vec2((gl_VertexID<<1)&2,gl_VertexID&2); vUv=p; gl_Position=vec4(p*2.-1.,0.,1.); }`;
+
+  function createGL(canvas) {
+    const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+    if (!gl) return null;
+    const floatRT = gl.getExtension('EXT_color_buffer_float');
+    const halfRT = gl.getExtension('EXT_color_buffer_half_float');
+    gl.getExtension('EXT_float_blend');
+    const hdr = floatRT || halfRT ? { internal: gl.RGBA16F, format: gl.RGBA, type: gl.HALF_FLOAT } : { internal: gl.RGBA8, format: gl.RGBA, type: gl.UNSIGNED_BYTE };
+    const vao = gl.createVertexArray();
+    gl.bindVertexArray(vao);
+    gl.disable(gl.DEPTH_TEST);
+
+    function shader(type, src) {
+      const s = gl.createShader(type);
+      gl.shaderSource(s, src);
+      gl.compileShader(s);
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS) && !gl.isContextLost()) {
+        const log = gl.getShaderInfoLog(s);
+        throw new Error(`shader failed: ${log}`);
+      }
+      return s;
+    }
+    function program(fs, vs) {
+      const p = gl.createProgram();
+      gl.attachShader(p, shader(gl.VERTEX_SHADER, vs || FS_VERT));
+      gl.attachShader(p, shader(gl.FRAGMENT_SHADER, fs));
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS) && !gl.isContextLost()) throw new Error(`link failed: ${gl.getProgramInfoLog(p)}`);
+      const u = {};
+      const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+      for (let i = 0; i < n; i++) {
+        const a = gl.getActiveUniform(p, i), name = a.name.replace(/\[0\]$/, '');
+        u[name] = { loc: gl.getUniformLocation(p, a.name), type: a.type };
+      }
+      return { p, u };
+    }
+    function use(P, vals) {
+      gl.useProgram(P.p);
+      if (vals) setU(P, vals);
+      return P;
+    }
+    function setU(P, vals) {
+      for (const k in vals) {
+        const u = P.u[k];
+        if (!u) continue;
+        const v = vals[k];
+        switch (u.type) {
+          case gl.FLOAT: if (typeof v === 'number') gl.uniform1f(u.loc, v); else gl.uniform1fv(u.loc, v); break;
+          case gl.FLOAT_VEC2: gl.uniform2fv(u.loc, v); break;
+          case gl.FLOAT_VEC3: gl.uniform3fv(u.loc, v); break;
+          case gl.FLOAT_VEC4: gl.uniform4fv(u.loc, v); break;
+          case gl.FLOAT_MAT3: gl.uniformMatrix3fv(u.loc, false, v); break;
+          case gl.FLOAT_MAT4: gl.uniformMatrix4fv(u.loc, false, v); break;
+          default: gl.uniform1i(u.loc, v);    // samplers and ints
+        }
+      }
+    }
+    function tex(w, h, fmt, opt) {
+      opt = opt || {};
+      const t = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      const f = fmt || hdr;
+      gl.texImage2D(gl.TEXTURE_2D, 0, f.internal, w, h, 0, f.format, f.type, opt.data || null);
+      const fl = opt.nearest ? gl.NEAREST : gl.LINEAR, wr = opt.repeat ? gl.REPEAT : gl.CLAMP_TO_EDGE;
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, fl);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, fl);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wr);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wr);
+      return t;
+    }
+    function target(w, h, fmt, opt) {
+      const t = tex(w, h, fmt, opt), fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+      gl.clearColor(0, 0, 0, 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return { fbo, tex: t, w, h };
+    }
+    function freeTarget(T) { if (T) { gl.deleteFramebuffer(T.fbo); gl.deleteTexture(T.tex); } }
+    function bindTex(unit, t) { gl.activeTexture(gl.TEXTURE0 + unit); gl.bindTexture(gl.TEXTURE_2D, t); }
+    function into(T) { gl.bindFramebuffer(gl.FRAMEBUFFER, T ? T.fbo : null); gl.viewport(0, 0, T ? T.w : canvas.width, T ? T.h : canvas.height); }
+    function draw() { gl.drawArrays(gl.TRIANGLES, 0, 3); }
+    // A shared 256 x 256 noise texture. Half float so low-frequency hills do not stair-step.
+    function noiseTexture(seed) {
+      const N = 256, d = new Float32Array(N * N);
+      let s = (seed || 12345) >>> 0;
+      for (let i = 0; i < d.length; i++) { s = (s + 0x6d2b79f5) >>> 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; d[i] = ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
+      return tex(N, N, { internal: gl.R16F, format: gl.RED, type: gl.FLOAT }, { repeat: true, data: d });
+    }
+    return { gl, program, use, setU, tex, target, freeTarget, bindTex, into, draw, hdr, noiseTexture, FS_VERT, floatRT: !!floatRT };
+  }
+
+  const FS_HEAD = `#version 300 es
+precision highp float;
+precision highp sampler2D;
+in vec2 vUv;
+out vec4 o;
+`;
+
+  const DOWN_FS = FS_HEAD + `
+uniform sampler2D uTex; uniform vec2 uPx; uniform float uThresh;
+void main(){
+  vec3 c=texture(uTex,vUv).rgb*4.;
+  c+=texture(uTex,vUv+uPx*vec2(-1.,-1.)).rgb+texture(uTex,vUv+uPx*vec2(1.,-1.)).rgb+texture(uTex,vUv+uPx*vec2(-1.,1.)).rgb+texture(uTex,vUv+uPx*vec2(1.,1.)).rgb;
+  c/=8.;
+  if(uThresh>0.){ float l=max(c.r,max(c.g,c.b)); c*=smoothstep(uThresh*.55,uThresh*1.35,l); }
+  o=vec4(min(c,vec3(24.)),1.);
+}`;
+  const UP_FS = FS_HEAD + `
+uniform sampler2D uTex; uniform vec2 uPx; uniform float uK;
+void main(){
+  vec3 c=texture(uTex,vUv+uPx*vec2(-2.,0.)).rgb+texture(uTex,vUv+uPx*vec2(2.,0.)).rgb+texture(uTex,vUv+uPx*vec2(0.,-2.)).rgb+texture(uTex,vUv+uPx*vec2(0.,2.)).rgb;
+  c+=2.*(texture(uTex,vUv+uPx*vec2(-1.,-1.)).rgb+texture(uTex,vUv+uPx*vec2(1.,-1.)).rgb+texture(uTex,vUv+uPx*vec2(-1.,1.)).rgb+texture(uTex,vUv+uPx*vec2(1.,1.)).rgb);
+  o=vec4(c/12.*uK,1.);
+}`;
+  const GRADE_FS = FS_HEAD + `
+uniform sampler2D uScene,uBloom;
+uniform float uBloomK,uExposure,uFlash,uGrain,uT,uVig,uSat;
+uniform vec3 uFlashC,uLift;
+float h12(vec2 p){ vec3 q=fract(vec3(p.xyx)*.1031); q+=dot(q,q.yzx+33.33); return fract((q.x+q.y)*q.z); }
+vec3 aces(vec3 x){ return clamp((x*(2.51*x+.03))/(x*(2.43*x+.59)+.14),0.,1.); }
+void main(){
+  vec3 c=texture(uScene,vUv).rgb+texture(uBloom,vUv).rgb*uBloomK;
+  c+=uFlashC*uFlash;
+  c*=uExposure;
+  c=aces(c);
+  float g=dot(c,vec3(.2126,.7152,.0722));
+  c=mix(vec3(g),c,uSat);
+  vec2 q=vUv-.5;
+  c*=1.-uVig*smoothstep(.25,.95,dot(q,q)*2.1);
+  c=pow(c,vec3(1./2.2))+uLift;
+  c+=(h12(gl_FragCoord.xy+fract(uT)*97.)-.5)*uGrain;
+  o=vec4(c,1.);
+}`;
+
+  // Bloom chain and final grade, shared by both pages.
+  function createPost(G) {
+    const { gl } = G;
+    const down = G.program(DOWN_FS), up = G.program(UP_FS), grade = G.program(GRADE_FS);
+    let mips = [];
+    function resize(w, h, levels) {
+      mips.forEach(G.freeTarget);
+      mips = [];
+      let a = Math.max(2, w >> 1), b = Math.max(2, h >> 1);
+      for (let i = 0; i < (levels || 5); i++) { mips.push(G.target(a, b)); a = Math.max(2, a >> 1); b = Math.max(2, b >> 1); }
+    }
+    function bloom(srcTex, thresh) {
+      gl.disable(gl.BLEND);
+      G.use(down, { uTex: 0 });
+      let src = srcTex;
+      mips.forEach((m, i) => {
+        G.into(m);
+        G.bindTex(0, src);
+        G.setU(down, { uPx: [1 / m.w, 1 / m.h], uThresh: i === 0 ? thresh : 0 });
+        G.draw();
+        src = m.tex;
+      });
+      G.use(up, { uTex: 0 });
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      for (let i = mips.length - 1; i > 0; i--) {
+        const to = mips[i - 1];
+        G.into(to);
+        G.bindTex(0, mips[i].tex);
+        G.setU(up, { uPx: [1 / to.w, 1 / to.h], uK: 0.9 });
+        G.draw();
+      }
+      gl.disable(gl.BLEND);
+      return mips[0].tex;
+    }
+    function finish(sceneTex, bloomTex, vals) {
+      G.into(null);
+      G.bindTex(0, sceneTex);
+      G.bindTex(1, bloomTex);
+      G.use(grade, Object.assign({ uScene: 0, uBloom: 1, uBloomK: 0.6, uExposure: 1, uFlash: 0, uFlashC: [1, 0.94, 0.84], uGrain: 0.02, uT: 0, uVig: 0.5, uSat: 1, uLift: [0, 0, 0] }, vals));
+      G.draw();
+    }
+    return { resize, bloom, finish };
+  }
+
+  const srgb = (hex) => {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => Math.pow(v / 255, 2.2));
+  };
+
+  global.GLKit = { createGL, createPost, FS_HEAD, FS_VERT, srgb };
+})(window);
+
+</script>
+<script>
+/* nebula.js: the last twelve seconds of playing, hanging in the air.
+   Field mode winds recent sound outward from the core. Hits stir a small fluid field and push the particles.
+   Form mode carries over the earlier instrument: a picture and a sound become clouds, matched by sliced
+   optimal transport, and a slider moves the mass between them. Parametric synesthesia: stated mappings,
+   not a learned embedding, and no model. */
+(function () {
+  'use strict';
+  const { createGL, createPost, FS_HEAD, FS_VERT } = GLKit;
+  const $ = (id) => document.getElementById(id);
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  const RM = matchMedia('(prefers-reduced-motion: reduce)');
+
+  const S = {
+    mode: 'field', shape: 0, shapeT: 0, formT: 0, morph: 0, perform: false, performT: 0,
+    yaw: 0.5, pitch: 1.02, dist: 3.25, autoRot: true, reaction: 1, glow: 1, trails: 0.8,
+    tier: 256, fps: 60,
+  };
+
+  /* ---- shaders ---- */
+  const NOISE = `
+float vn(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return textureLod(uN,(i+f+.5)/256.,0.).r;}`;
+
+  const SIM_FS = `#version 300 es
+precision highp float;
+precision highp sampler2D;
+in vec2 vUv;
+layout(location=0) out vec4 oPos;
+layout(location=1) out vec4 oVel;
+uniform sampler2D uPos,uVel,uSeed,uHist,uFluid,uN,uHomeA,uHomeB;
+uniform float uDt,uT,uHistX,uRiver,uForm,uMorph,uLoud;
+uniform float uKick,uSnare,uHat,uHatOpen,uTom,uTomPos,uCrash,uBlow;
+const float TAU=6.2831853;
+${NOISE}
+vec2 curl(vec2 p){float e=.4;return vec2(vn(p+vec2(0.,e))-vn(p-vec2(0.,e)),-(vn(p+vec2(e,0.))-vn(p-vec2(e,0.))))/(2.*e);}
+void main(){
+  vec4 P=texture(uPos,vUv),V=texture(uVel,vUv),s=texture(uSeed,vUv);
+  vec3 p=P.xyz,v=V.xyz;
+  float a=s.x,b=s.y;
+  bool ring=s.w>.988, dust=s.w>.84&&!ring;
+  float amp=0.,k;
+  vec3 home;
+  if(ring){
+    float th=s.z*TAU+uT*.02;
+    home=vec3(cos(th)*1.5,(s.x-.5)*.03,sin(th)*1.5);
+    home=mix(home,vec3(cos(th)*1.72,sin(th)*1.02,(s.x-.5)*.06),uRiver);
+    k=7.;
+  }else if(dust){
+    float th=s.z*TAU*3.+a*5.;
+    float r=.15+1.6*sqrt(a);
+    vec3 g=vec3(cos(th)*r,(b-.5)*(.1+.46*a),sin(th)*r);
+    vec3 riv=vec3((a-.5)*3.6,(b-.5)*1.9,(s.z-.5)*1.1);
+    home=mix(g,riv,uRiver);
+    k=.9;
+  }else{
+    vec2 hs=texture(uHist,vec2(uHistX-a*.985,b)).rg;
+    amp=hs.r;
+    // Galaxy: age winds outward along two arms. The inner side of an arm is low, the outer side is high.
+    float th=a*2.3*TAU+(s.w<.42?0.:3.14159);
+    float r=.07+1.28*pow(a,.74);
+    float width=.045+.2*a;
+    float off=(b-.5)*2.*width+(s.z-.5)*.05*(1.+a*3.);
+    vec3 g=vec3(cos(th)*(r+off),(s.z-.5)*(.025+.12*a),sin(th)*(r+off));
+    g.y+=amp*.3*(1.-a*.4)*(s.z>.5?1.:-1.);
+    // River: newest on the right, low at the bottom, salience toward you.
+    vec3 riv=vec3(mix(1.72,-1.72,a),(b-.5)*1.72,(s.z-.5)*(.05+.42*a)+amp*.42);
+    home=mix(g,riv,uRiver);
+    k=mix(11.,1.9,a);
+  }
+  if(uForm>.001){
+    vec3 form=mix(texture(uHomeA,vUv).xyz,texture(uHomeB,vUv).xyz,uMorph);
+    home=mix(home,form,uForm);
+    k=mix(k,7.,uForm);
+    amp=mix(amp,.42,uForm);
+  }
+  vec3 f=(home-p)*k;
+  vec2 c=curl(p.xz*1.25+vec2(uT*.035,5.))*(.24+a*.85)*(dust?1.8:1.)*(1.-uForm*.6);
+  f.xz+=c;
+  f.y+=(vn(p.xz*1.6+uT*.06)-.5)*(.25+a*.45)*(1.-uForm*.6);
+  vec2 fp=mix(p.xz,p.xy,uRiver);
+  vec2 fv=texture(uFluid,fp*.25+.5).xy;
+  if(uRiver>.5)f.xy+=fv*5.; else f.xz+=fv*5.;
+  // Each drum pushes the field in its stated way.
+  vec3 nrm=normalize(p+vec3(1e-4,2e-4,1e-4));
+  f+=nrm*uKick*(1.-b)*(1.-b)*6.5*uBlow;
+  f+=(vec3(s.w,s.z,fract(s.w*7.31))-.5)*uSnare*13.*smoothstep(.08,.5,b)*uBlow;
+  f.y+=(s.z-.5)*uHat*(2.+uHatOpen*3.)*smoothstep(.58,.8,b)*uBlow;
+  float tomB=exp(-pow((b-(.1+uTomPos*.42))*8.,2.));
+  f.y+=tomB*uTom*5.*(s.z>.5?1.:-1.)*uBlow;
+  f+=nrm*uCrash*1.5*uBlow;
+  v=(v+f*uDt)*exp(-uDt*mix(3.3,1.9,a));
+  p+=v*uDt;
+  oPos=vec4(p,mix(P.w,amp,.6));
+  oVel=vec4(v,V.w);
+}`;
+
+  const POINT_VS = `#version 300 es
+precision highp float;
+precision highp sampler2D;
+uniform sampler2D uPos,uSeed,uHist,uColA,uColB;
+uniform mat4 uVP;
+uniform int uSize;
+uniform float uPxK,uI,uHistX,uForm,uMorph,uT,uLoud,uKick,uHat,uHatOpen,uRide,uCrash;
+out vec3 vC;
+vec3 hsl(float h,float s,float l){vec3 k=mod(vec3(0.,8.,4.)+h*12.,12.);float a=s*min(l,1.-l);return vec3(l)-a*max(vec3(-1.),min(min(k-3.,9.-k),vec3(1.)));}
+void main(){
+  ivec2 ij=ivec2(gl_VertexID%uSize,gl_VertexID/uSize);
+  vec4 P=texelFetch(uPos,ij,0),s=texelFetch(uSeed,ij,0);
+  float a=s.x,b=s.y,amp=P.w;
+  bool ring=s.w>.988,dust=s.w>.84&&!ring;
+  vec4 clip=uVP*vec4(P.xyz,1.);
+  gl_Position=clip;
+  float ton=texture(uHist,vec2(uHistX-a*.985,b)).g;
+  // Law: hue follows log-frequency (low warm, high cool), saturation follows tonalness, value follows salience.
+  float hue=.66*b;
+  vec3 law=hsl(hue,.42+.5*ton,.42+.34*amp);
+  float val=dust?(.085+uLoud*.12):(.06+pow(amp,1.45)*2.3);
+  val*=1.-a*.42;
+  if(ring){law=vec3(.82,.84,1.);val=.34+.5*uLoud;}
+  if(dust)law=mix(vec3(.55,.5,.95),hsl(fract(hue+.62),.58,.6),.55);
+  if(b>.62&&!dust)val*=1.+uHat*(.7+.7*uHatOpen)*(.4+1.1*abs(sin(s.w*6283.+uT*34.)));
+  val*=1.+.42*uRide*(.5+.5*sin(uT*16.+s.w*900.));
+  val*=1.+.55*uKick*(1.-b);
+  val*=1.+.3*uCrash;
+  float sz=(.75+amp*1.7+(ring?.3:0.))*(.65+s.z*.55);
+  if(uForm>.001){
+    vec3 fc=mix(texelFetch(uColA,ij,0).rgb,texelFetch(uColB,ij,0).rgb,uMorph);
+    law=mix(law,pow(fc,vec3(2.2))*1.9,uForm);
+    val=mix(val,.85*(1.+.5*uKick+.3*uCrash),uForm);
+    sz=mix(sz,1.05,uForm);
+  }
+  float fog=clamp(1.15-clip.w*.16,.2,1.);
+  vC=law*val*fog*uI;
+  gl_PointSize=clamp(uPxK*sz/clip.w,1.,70.);
+}`;
+  const POINT_FS = FS_HEAD.replace('in vec2 vUv;\n', '') + `
+in vec3 vC;
+void main(){vec2 q=gl_PointCoord-.5;float g=exp(-dot(q,q)*13.);o=vec4(vC*g,1.);}`;
+
+  const TRAIL_FS = FS_HEAD + `
+uniform sampler2D uPts,uPrev;uniform float uFade,uT;uniform vec2 uC;
+void main(){
+  vec2 c=vUv-uC;float a=.0018;float ca=cos(a),sa=sin(a);
+  vec2 uv=uC+mat2(ca,-sa,sa,ca)*c*.9985;
+  o=vec4(min(texture(uPrev,uv).rgb*uFade+texture(uPts,vUv).rgb,vec3(30.)),1.);
+}`;
+
+  // Painterly gas and far stars under the particles. Band energy feeds it; it is never empty, so the page breathes at rest.
+  const GAS_FS = FS_HEAD + `
+uniform sampler2D uN,uTrail;uniform vec2 uRes,uC;uniform float uRiverGas,uT,uTilt,uScale,uLow,uMid,uHigh,uLoud,uKick,uSnare,uHat,uHatOpen,uRide,uCrash,uForm,uYaw;
+${NOISE}
+const mat2 R=mat2(.8,.6,-.6,.8);
+float fbm(vec2 p){float a=.5,s=0.;for(int i=0;i<5;i++){s+=a*vn(p);p=R*p*2.03+1.7;a*=.5;}return s;}
+float h13(vec3 p){p=fract(p*.1031);p+=dot(p,p.zyx+31.32);return fract((p.x+p.y)*p.z);}
+void main(){
+  vec2 asp=vec2(uRes.x/uRes.y,1.);
+  vec2 p=(vUv-uC)*asp/uScale;
+  float cy=cos(uYaw*.25),sy=sin(uYaw*.25);
+  vec2 d=mat2(cy,-sy,sy,cy)*vec2(p.x,p.y/max(.4,uTilt));
+  float r=length(d);
+  vec2 q=d*1.55;
+  vec2 w=vec2(fbm(q+vec2(uT*.018,3.1)),fbm(q+vec2(7.3,-uT*.015)));
+  float n1=fbm(q*1.05+w*2.2+vec2(0.,uT*.012));
+  float n2=fbm(q*2.2-w*1.6+vec2(uT*.02,4.));
+  float fall=exp(-r*r*1.3);
+  float dens=smoothstep(.34,.84,n1)*fall*(1.-uRiverGas*.45);
+  float dens2=smoothstep(.4,.9,n2)*fall;
+  vec3 warm=vec3(.60,.18,.27),violet=vec3(.27,.20,.72),teal=vec3(.10,.46,.44);
+  vec3 g=violet*dens*(.5+1.5*uMid+.7*uLoud);
+  g+=warm*dens2*(.26+2.1*uLow+1.3*uKick);
+  g+=teal*smoothstep(.42,.95,fbm(q*1.5+w*3.+9.))*fall*(.3+2.4*uHigh+.8*uHat);
+  g*=(1.+uCrash*.55+uSnare*.3)*(1.-uForm*.93)*(1.-uRiverGas*.62);
+  vec3 sky=vec3(.0065,.0085,.021)+vec3(.012,.012,.03)*exp(-r*r*.5);
+  // far stars
+  vec2 sp=vUv*asp*170.;vec2 id=floor(sp);vec2 f=fract(sp)-.5;
+  float h=h13(vec3(id,1.));
+  float st=0.;
+  if(h>.982){float b=(h-.982)/.018;st=b*b*exp(-dot(f,f)*34.)*(.45+.35*sin(uT*(1.5+h*5.)+h*700.)+uRide*1.1*sin(uT*18.+h*333.)+uHat*(1.3+uHatOpen));}
+  o=vec4(sky+g+vec3(.82,.86,1.)*max(st,0.)*.75+texture(uTrail,vUv).rgb,1.);
+}`;
+
+  /* small stable fluid. The velocity field lives on the plane of the disk. */
+  const ADVECT_FS = FS_HEAD + `uniform sampler2D uV;uniform float uDt,uDiss;void main(){vec2 v=texture(uV,vUv).xy;o=vec4(texture(uV,vUv-v*uDt*.25).xy*uDiss,0.,1.);}`;
+  const SPLAT_FS = FS_HEAD + `uniform sampler2D uV;uniform vec4 uA[8];uniform vec4 uB[8];uniform int uN;
+void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){vec2 d=p-uA[i].xy;float g=exp(-dot(d,d)/uA[i].w)*uA[i].z;vec2 dir=uB[i].z>.5?normalize(d+vec2(1e-3)):uB[i].xy;v+=dir*g;}o=vec4(v,0.,1.);}`;
+  const DIV_FS = FS_HEAD + `uniform sampler2D uV;uniform vec2 uPx;void main(){float l=texture(uV,vUv-vec2(uPx.x,0.)).x,r=texture(uV,vUv+vec2(uPx.x,0.)).x,b=texture(uV,vUv-vec2(0.,uPx.y)).y,t=texture(uV,vUv+vec2(0.,uPx.y)).y;o=vec4(.5*(r-l+t-b),0.,0.,1.);}`;
+  const JAC_FS = FS_HEAD + `uniform sampler2D uP,uD;uniform vec2 uPx;void main(){float l=texture(uP,vUv-vec2(uPx.x,0.)).x,r=texture(uP,vUv+vec2(uPx.x,0.)).x,b=texture(uP,vUv-vec2(0.,uPx.y)).x,t=texture(uP,vUv+vec2(0.,uPx.y)).x;o=vec4((l+r+b+t-texture(uD,vUv).x)*.25,0.,0.,1.);}`;
+  const GRAD_FS = FS_HEAD + `uniform sampler2D uP,uV;uniform vec2 uPx;void main(){float l=texture(uP,vUv-vec2(uPx.x,0.)).x,r=texture(uP,vUv+vec2(uPx.x,0.)).x,b=texture(uP,vUv-vec2(0.,uPx.y)).x,t=texture(uP,vUv+vec2(0.,uPx.y)).x;o=vec4(texture(uV,vUv).xy-.5*vec2(r-l,t-b),0.,1.);}`;
+
+  /* ---- sheet ---- */
+  const hud = `
+    <div class="gauge"><span class="k">Hits</span><span class="v" id="g-hits">0</span></div>
+    <div class="gauge hero"><span class="k">Tempo</span><span class="v" id="g-hero">--</span></div>
+    <div class="gauge"><span class="k">Level</span><span class="v" id="g-level">--</span></div>`;
+
+  const spaceSheet = `
+    <div id="field-opts">
+      <div class="field"><span>Shape of time</span><div class="row-actions" id="shape-row">
+        <button class="pill on" data-shape="0">Galaxy</button><button class="pill" data-shape="1">River</button></div></div>
+      <p class="note">Galaxy: now is at the core and the last twelve seconds wind outward. River: now is on the right.</p>
+    </div>
+    <div id="form-opts" hidden>
+      <div class="row-actions">
+        <button class="pill" id="form-image">Choose a picture</button>
+        <button class="pill" id="form-sound">Choose a sound</button>
+        <button class="pill" id="form-capture">Use my last 12 seconds</button>
+        <input type="file" id="form-image-file" accept="image/*" hidden>
+        <input type="file" id="form-sound-file" accept="audio/*" hidden>
+      </div>
+      <p class="note" id="form-status" role="status">Picture: built in. Sound: built in.</p>
+      <label class="field"><div class="row"><span>Picture to sound</span><b id="morph-v">0%</b></div><input type="range" id="morph" min="0" max="100" value="0"></label>
+      <div class="row-actions">
+        <button class="pill" id="form-perform">Slow sweep: off</button>
+        <button class="pill" id="form-hear">Hear this cloud</button>
+        <button class="pill" id="form-ply">Save cloud (.ply)</button>
+      </div>
+      <p class="note">The picture lifts by a stated rule: brightness sets depth. It is not a reconstructed scene. A controller's mod wheel (CC1) also moves the slider.</p>
+    </div>
+    <details open><summary>Look</summary><div class="controls-grid" style="padding:10px 0 0">
+      <label class="field"><div class="row"><span>Reaction to hits</span><b id="react-v"></b></div><input type="range" id="react" min="0" max="200"></label>
+      <label class="field"><div class="row"><span>Trails</span><b id="trail-v"></b></div><input type="range" id="trail" min="0" max="100"></label>
+      <label class="field"><div class="row"><span>Glow</span><b id="glow-v"></b></div><input type="range" id="glow" min="0" max="200"></label>
+      <label class="field">Particles<select id="tier"><option value="auto">Automatic</option><option value="128">16,384</option><option value="256">65,536</option><option value="512">262,144</option></select></label>
+      <label class="check" style="margin:0"><input type="checkbox" id="auto-rot" checked> Turn slowly</label>
+    </div></details>`;
+
+  const about = `
+    <p class="sheet-intro">Parametric synesthesia: every link below is a stated rule, not a learned embedding, and there is no model.</p>
+    <table class="maptable"><tbody>
+      <tr><th>Time</th><td>Now at the core, winding out over about twelve seconds. In River, now is on the right.</td></tr>
+      <tr><th>Frequency</th><td>Hue: low is warm, high is cool. Low sits on the inner side of each arm, or at the bottom of the river.</td></tr>
+      <tr><th>Loudness</th><td>Brightness, and lift out of the plane.</td></tr>
+      <tr><th>Tonalness</th><td>Saturation. A pitched drum is more colored than a noisy one.</td></tr>
+      <tr><th>Kick</th><td>A pulse outward from the core, strongest in the low part of the field.</td></tr>
+      <tr><th>Snare</th><td>Scatters the mid and high particles and stirs the fluid.</td></tr>
+      <tr><th>Hi-hat</th><td>Sparkle in the top third. Opening the pedal widens it.</td></tr>
+      <tr><th>Toms</th><td>A swell at the height of that tom.</td></tr>
+      <tr><th>Crash</th><td>Long trails and a brief bright wash. A choke cuts it short.</td></tr>
+      <tr><th>Ride</th><td>A fine shimmer across the field.</td></tr>
+      <tr><th>Outer ring</th><td>A fixed reference that marks the twelve-second edge.</td></tr>
+    </tbody></table>
+    <p class="note">Keys: <b>J K L</b> kick, snare, hat · <b>U I O</b> toms · <b>P</b> crash · <b>;</b> ride · <b>D</b> demo · <b>C</b> connect · <b>F</b> full screen · <b>H</b> hide controls. Drag to turn, scroll to zoom.</p>`;
+
+  const kit = createKit();
+  const brand = '<svg viewBox="0 0 24 28" aria-hidden="true"><circle cx="12" cy="14" r="2.2"/><path d="M12 14c5-1 7 2 6 5s-7 5-11 1-3-12 3-14 12 2 12 9"/></svg>';
+  const shell = mountShell({
+    id: 'nebula', name: 'Nebula', brand, kit,
+    modes: [{ id: 'field', label: 'Field' }, { id: 'form', label: 'Form' }], mode: 'field', modeLabel: 'What the particles follow',
+    onMode: (m) => setMode(m),
+    intro: { eyebrow: 'Nebula · the last twelve seconds of your playing', title: 'Every hit stays a while.', subtitle: 'Plug in your kit, or run the demo. No helper app, no server.' },
+    hud,
+    truth: 'Parametric synesthesia: stated mappings, not a learned embedding, and no model. Audio and MIDI stay in this browser.',
+    sheets: [{ id: 'space', label: 'Space', icon: 'sliders', title: 'Shape the space.', intro: 'These change how it looks. They never change what the page measures.', html: spaceSheet }],
+    about, canvas: () => cv, snapshot: (done) => { wantSnap = done; }, quality: () => `${N.toLocaleString()} particles`,
+  });
+
+  const cv = $('stage');
+  const G = createGL(cv);
+  let gl, Post, pSim, pPoint, pTrail, pGas, pAdvect, pSplat, pDiv, pJac, pGrad;
+  let tN, tHist, tSeed = null, tHomeA = null, tHomeB = null, tColA = null, tColB = null;
+  let simA, simB, N = 0, size = 0;
+  let points, trailA, trailB, scene, rw = 0, rh = 0, lastScale = 1;
+  let vel, velB, pres, presB, div;
+  let wantSnap = null;
+  const FV = 160;
+  const splats = [];
+
+  /* ---- particles ---- */
+  function rng(seed) { let s = seed >>> 0; return () => { s = (s + 0x6d2b79f5) >>> 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function buildParticles(sz) {
+    const fmt = G.floatRT ? { internal: gl.RGBA32F, format: gl.RGBA, type: gl.FLOAT } : { internal: gl.RGBA16F, format: gl.RGBA, type: gl.FLOAT };
+    size = sz; N = sz * sz;
+    const seed = new Float32Array(N * 4), pos = new Float32Array(N * 4), v0 = new Float32Array(N * 4), r = rng(97531);
+    for (let i = 0; i < N; i++) {
+      const a = Math.pow(r(), 0.72), b = r(), c = r(), d = r();
+      seed.set([a, b, c, d], i * 4);
+      const th = r() * 6.283, rad = 0.1 + 1.7 * r();
+      pos.set([Math.cos(th) * rad, (r() - 0.5) * 0.5, Math.sin(th) * rad, 0], i * 4);
+    }
+    [simA, simB].forEach((x) => { if (x) { gl.deleteFramebuffer(x.fbo); gl.deleteTexture(x.pos); gl.deleteTexture(x.vel); } });
+    if (tSeed) gl.deleteTexture(tSeed);
+    tSeed = G.tex(sz, sz, fmt, { nearest: true, data: seed });
+    const mk = () => {
+      const p = G.tex(sz, sz, fmt, { nearest: true, data: pos }), v = G.tex(sz, sz, fmt, { nearest: true, data: v0 }), fbo = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, p, 0);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, v, 0);
+      gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1]);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return { fbo, pos: p, vel: v, w: sz, h: sz };
+    };
+    simA = mk(); simB = mk();
+    S.tier = sz;
+    writeTargets();
+  }
+
+  /* ---- render targets ---- */
+  function resize() {
+    const dpr = Math.min(devicePixelRatio || 1, 2), W = Math.max(320, Math.min(3840, Math.round(cv.clientWidth * dpr))), H = Math.max(240, Math.min(2160, Math.round(cv.clientHeight * dpr)));
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const budget = 2.0e6 * lastScale, asp = W / H;
+    let h = Math.round(Math.sqrt(budget / asp)), w = Math.round(h * asp);
+    if (w > W) { w = W; h = H; }
+    if (w === rw && h === rh) return;
+    rw = w; rh = h;
+    [points, trailA, trailB, scene].forEach((T) => T && G.freeTarget(T));
+    points = G.target(rw, rh); trailA = G.target(rw, rh); trailB = G.target(rw, rh); scene = G.target(rw, rh);
+    Post.resize(rw, rh, 5);
+  }
+
+  /* ---- matrices ---- */
+  function perspective(fov, asp, n, f) { const t = 1 / Math.tan(fov / 2); return [t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, (2 * f * n) / (n - f), 0]; }
+  function lookAt(e, c, u) {
+    let z = [e[0] - c[0], e[1] - c[1], e[2] - c[2]]; let l = Math.hypot(...z); z = z.map((v) => v / l);
+    let x = [u[1] * z[2] - u[2] * z[1], u[2] * z[0] - u[0] * z[2], u[0] * z[1] - u[1] * z[0]]; l = Math.hypot(...x); x = x.map((v) => v / l);
+    const y = [z[1] * x[2] - z[2] * x[1], z[2] * x[0] - z[0] * x[2], z[0] * x[1] - z[1] * x[0]];
+    return [x[0], y[0], z[0], 0, x[1], y[1], z[1], 0, x[2], y[2], z[2], 0, -(x[0] * e[0] + x[1] * e[1] + x[2] * e[2]), -(y[0] * e[0] + y[1] * e[1] + y[2] * e[2]), -(z[0] * e[0] + z[1] * e[1] + z[2] * e[2]), 1];
+  }
+  function mul(a, b) { const o = new Array(16).fill(0); for (let c = 0; c < 4; c++) for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) o[c * 4 + r] += a[k * 4 + r] * b[c * 4 + k]; return o; }
+
+  /* ---- hits become splats in the fluid ---- */
+  function addSplat(x, y, fx, fy, strength, radius, radial) { splats.push({ x, y, fx, fy, strength, radius, radial: radial ? 1 : 0 }); if (splats.length > 8) splats.shift(); }
+  kit.on('hit', (h) => {
+    const v = h.vel * S.reaction * (RM.matches ? 0.35 : 1), th = Math.random() * 6.283;
+    if (h.voice === 'kick') addSplat(0, 0, 0, 0, 1.9 * v, 0.34, true);
+    else if (h.voice === 'snare') { const r = 0.4 + Math.random() * 0.5; addSplat(Math.cos(th) * r, Math.sin(th) * r, -Math.sin(th), Math.cos(th), 2.0 * v, 0.14); addSplat(-Math.cos(th) * r, -Math.sin(th) * r, Math.sin(th), -Math.cos(th), 1.4 * v, 0.1); }
+    else if (h.voice === 'tom') { const r = 0.25 + kit.env.tomPos * 0.8; addSplat(Math.cos(th) * r, Math.sin(th) * r, 0, 0, 1.6 * v, 0.18, true); }
+    else if (h.voice === 'crash') { for (let i = 0; i < 3; i++) { const t = th + i * 2.1; addSplat(Math.cos(t) * 0.8, Math.sin(t) * 0.8, -Math.sin(t), Math.cos(t), 1.9 * v, 0.3); } }
+    else if (h.voice === 'hat') { const r = 1.1 + Math.random() * 0.5; addSplat(Math.cos(th) * r, Math.sin(th) * r, -Math.sin(th), Math.cos(th), 0.6 * v, 0.03); }
+  });
+  kit.on('cc', ({ cc, value }) => { if (cc === 1) { setMorph(value / 127); } });
+  kit.on('column', (x) => {
+    if (!G || !tHist) return;
+    G.bindTex(0, tHist);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, x, 0, 1, kit.BANDS, gl.RG, gl.UNSIGNED_BYTE, kit.column);
+  });
+
+  /* ---- Form: clouds and transport, ported from the desktop instrument ---- */
+  const CW = 0.0035;
+  function hsl2rgb(h, s, l) { const a = s * Math.min(l, 1 - l), f = (n) => { const k = (n + h * 12) % 12; return l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); }; return [f(0) * 255, f(8) * 255, f(4) * 255]; }
+  function atomColor(v, ton, amp) { return hsl2rgb(0.66 * ((v + 1) / 2), 0.25 + 0.75 * clamp(ton, 0, 1), 0.28 + 0.5 * amp); }
+  function mulberry(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function resampleCloud(pts, M) {
+    if (!pts.length) return pts;
+    const wgt = pts.map((q) => 0.05 + (q.p[2] + 0.5)); let tot = 0; for (const w of wgt) tot += w;
+    const cum = new Float64Array(wgt.length); let c = 0; wgt.forEach((w, i) => { c += w; cum[i] = c; });
+    const out = [], r = mulberry(97531);
+    for (let m = 0; m < M; m++) {
+      const x = r() * tot; let lo = 0, hi = cum.length - 1;
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (cum[mid] < x) lo = mid + 1; else hi = mid; }
+      const q = pts[lo], j = (r() - 0.5) * 0.012;
+      out.push({ p: [q.p[0] + j, q.p[1] + j, q.p[2]], c: q.c.slice() });
+    }
+    return out;
+  }
+  function imageCloud(img, M) {
+    const W = 512, H = Math.max(2, Math.round((W * (img.naturalHeight || img.height)) / (img.naturalWidth || img.width)));
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(img, 0, 0, W, H);
+    const d = g.getImageData(0, 0, W, H).data, step = Math.max(1, Math.round(Math.sqrt((W * H) / (M * 1.4)))), pts = [], ar = W / H;
+    for (let y = step >> 1; y < H; y += step) {
+      for (let x = step >> 1; x < W; x += step) {
+        const i = (y * W + x) * 4, r = d[i], gg = d[i + 1], b = d[i + 2], lum = (0.299 * r + 0.587 * gg + 0.114 * b) / 255;
+        pts.push({ p: [((x / W) * 2 - 1) * Math.min(1, ar), ((1 - y / H) * 2 - 1) * Math.min(1, 1 / ar), lum - 0.5], c: [r, gg, b] });
+      }
+    }
+    return resampleCloud(pts, M);
+  }
+  function builtInPicture() {
+    const c = document.createElement('canvas'); c.width = 440; c.height = 300; const g = c.getContext('2d');
+    const bg = g.createLinearGradient(0, 0, 0, 300); bg.addColorStop(0, '#1b1440'); bg.addColorStop(0.55, '#a8456e'); bg.addColorStop(0.72, '#ffb066'); bg.addColorStop(0.73, '#2a1a2e'); bg.addColorStop(1, '#100b1c');
+    g.fillStyle = bg; g.fillRect(0, 0, 440, 300);
+    g.fillStyle = '#ffe0a6'; g.beginPath(); g.arc(220, 200, 42, 0, 7); g.fill();
+    g.fillStyle = '#1a1226'; g.beginPath(); g.moveTo(0, 240); g.lineTo(90, 170); g.lineTo(170, 230); g.lineTo(290, 150); g.lineTo(440, 240); g.lineTo(440, 300); g.lineTo(0, 300); g.fill();
+    return c;
+  }
+  function atomsToCloud(atoms, dur, rate, M) {
+    const lf0 = Math.log(40), lf1 = Math.log(rate / 2);
+    const pts = atoms.map((a) => { const v = ((Math.log(Math.max(40, a.f)) - lf0) / (lf1 - lf0)) * 2 - 1; return { p: [(a.time / dur) * 2 - 1, v, a.amp - 0.5], c: atomColor(v, a.ton == null ? 0.6 : a.ton, a.amp) }; });
+    return resampleCloud(pts, M);
+  }
+  function historyAtoms() {
+    const W = kit.HIST_W, B = kit.BANDS, atoms = [], x0 = kit.histX, dur = W / kit.HIST_RATE;
+    for (let dx = 0; dx < W; dx += 2) {
+      const col = (x0 + 1 + dx) % W;
+      for (let b = 0; b < B; b++) { const o = (col + b * W) * 2, v = kit.hist[o] / 255; if (v > 0.16) atoms.push({ time: (dx / W) * dur, f: KitMath.bandFreq(b), amp: v, ton: kit.hist[o + 1] / 255 }); }
+    }
+    return { atoms, dur };
+  }
+  function builtInSound() {
+    const r = mulberry(4242), atoms = [];
+    for (let i = 0; i < 520; i++) { const t = r() * 6, h = 1 + Math.floor(r() * r() * 14); atoms.push({ time: t, f: 110 * h, amp: Math.max(0.1, 1 - h / 15) * (0.55 + 0.45 * r()), ton: 0.8 }); }
+    return { atoms, dur: 6 };
+  }
+
+  // Sliced optimal transport off the main thread, so a match never stalls the visuals.
+  const WORKER_SRC = `
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function fft(re,im){const n=re.length;for(let i=1,j=0;i<n;i++){let b=n>>1;for(;j&b;b>>=1)j^=b;j^=b;if(i<j){let t=re[i];re[i]=re[j];re[j]=t;t=im[i];im[i]=im[j];im[j]=t}}
+for(let len=2;len<=n;len<<=1){const a=-2*Math.PI/len,wr=Math.cos(a),wi=Math.sin(a);for(let i=0;i<n;i+=len){let cr=1,ci=0;for(let j=0;j<len/2;j++){const u=i+j,v=i+j+len/2,tr=re[v]*cr-im[v]*ci,ti=re[v]*ci+im[v]*cr;re[v]=re[u]-tr;im[v]=im[u]-ti;re[u]+=tr;im[u]+=ti;const nc=cr*wr-ci*wi;ci=cr*wi+ci*wr;cr=nc}}}}
+function extractAtoms(data,rate,KA){const N=1024,K2=N/2,hop=256,win=new Float32Array(N);for(let i=0;i<N;i++)win[i]=.5-.5*Math.cos(2*Math.PI*i/N);
+const frames=Math.max(1,Math.floor((data.length-N)/hop)),mag=new Float32Array(frames*K2),re=new Float32Array(N),im=new Float32Array(N),flat=new Float32Array(frames);
+for(let fr=0;fr<frames;fr++){const st=fr*hop;for(let i=0;i<N;i++){re[i]=(data[st+i]||0)*win[i];im[i]=0}fft(re,im);let lsum=0,asum=0,cnt=0;for(let k=1;k<K2;k++){const m=Math.hypot(re[k],im[k]);mag[fr*K2+k]=m;if(m>1e-9){lsum+=Math.log(m);asum+=m;cnt++}}flat[fr]=cnt?Math.exp(lsum/cnt)/((asum/cnt)||1):1}
+const atoms=[];for(let a=0;a<KA;a++){let bi=0,bv=0;for(let i=0;i<mag.length;i++)if(mag[i]>bv){bv=mag[i];bi=i}if(bv<=0)break;const fr=(bi/K2)|0,k=bi%K2;atoms.push({time:fr*hop/rate,f:k*rate/N,amp:bv,ton:1-Math.min(1,flat[fr])});
+for(let df=-3;df<=3;df++)for(let dk=-5;dk<=5;dk++){const f2=fr+df,k2=k+dk;if(f2<0||k2<1||f2>=frames||k2>=K2)continue;mag[f2*K2+k2]*=1-Math.exp(-(df*df/4+dk*dk/8))}}
+let mx=0;for(const at of atoms)mx=Math.max(mx,at.amp);for(const at of atoms)at.amp/=mx||1;return{atoms,dur:data.length/rate}}
+function slicedOT(X,Y,n){const r=mulberry32(777),idxA=new Uint32Array(n),idxB=new Uint32Array(n),pa=new Float64Array(n),pb=new Float64Array(n),ITER=32;
+for(let it=0;it<ITER;it++){const v=[0,0,0,0,0,0];let norm=0;for(let k=0;k<6;k++){v[k]=r()*2-1;norm+=v[k]*v[k]}norm=Math.sqrt(norm)||1;for(let k=0;k<6;k++)v[k]/=norm;
+for(let i=0;i<n;i++){let a=0,b=0;for(let k=0;k<6;k++){a+=X[i*6+k]*v[k];b+=Y[i*6+k]*v[k]}pa[i]=a;pb[i]=b;idxA[i]=i;idxB[i]=i}
+idxA.sort((i,j)=>pa[i]-pa[j]);idxB.sort((i,j)=>pb[i]-pb[j]);const s=.55*(1-it/ITER)+.12;for(let q=0;q<n;q++){const ia=idxA[q],ib=idxB[q],d=pb[ib]-pa[ia];for(let k=0;k<6;k++)X[ia*6+k]+=s*d*v[k]}}return X}
+onmessage=(e)=>{const m=e.data;if(m.type==='atoms'){postMessage({id:m.id,result:extractAtoms(m.data,m.rate,m.k)})}
+else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.id,X,ms:performance.now()-t0},[X.buffer])}}`;
+  let worker = null, workSeq = 0;
+  const pending = {};
+  function workerCall(msg, transfer) {
+    if (!worker) { worker = new Worker(URL.createObjectURL(new Blob([WORKER_SRC], { type: 'text/javascript' }))); worker.onmessage = (e) => { const p = pending[e.data.id]; delete pending[e.data.id]; if (p) p(e.data); }; }
+    const id = ++workSeq;
+    return new Promise((res) => { pending[id] = res; worker.postMessage({ ...msg, id }, transfer || []); });
+  }
+
+  const F = { picture: null, pictureName: 'built in', sound: null, soundName: 'built in', A: null, X: null, n: 0, busy: false };
+  const CLOUD_M = 32768;
+  async function liftMatch() {
+    if (F.busy) { F.again = true; return; }
+    F.busy = true;
+    $('form-status').textContent = 'Matching picture and sound.';
+    const A = imageCloud(F.picture || builtInPicture(), CLOUD_M);
+    const snd = F.sound || builtInSound();
+    const B = atomsToCloud(snd.atoms, snd.dur, snd.rate || 44100, CLOUD_M);
+    const n = Math.min(A.length, B.length);
+    if (!n) { $('form-status').textContent = 'That sound was silent, so there is nothing to match.'; F.busy = false; return; }
+    const X = new Float64Array(n * 6), Y = new Float64Array(n * 6);
+    for (let i = 0; i < n; i++) { for (let k = 0; k < 3; k++) { X[i * 6 + k] = A[i].p[k]; Y[i * 6 + k] = B[i].p[k]; X[i * 6 + 3 + k] = A[i].c[k] * CW; Y[i * 6 + 3 + k] = B[i].c[k] * CW; } }
+    const res = await workerCall({ type: 'ot', X, Y, n }, [Y.buffer]);
+    F.A = A; F.X = res.X; F.n = n;
+    F.busy = false;
+    writeTargets();
+    $('form-status').textContent = `Picture: ${F.pictureName}. Sound: ${F.soundName}. ${n.toLocaleString()} points matched in ${Math.round(res.ms)} ms.`;
+    if (F.again) { F.again = false; liftMatch(); }
+  }
+  function writeTargets() {
+    if (!G || !F.A || !size) return;
+    const A = new Float32Array(N * 4), B = new Float32Array(N * 4), CA = new Uint8Array(N * 4), CB = new Uint8Array(N * 4), r = rng(1234), n = F.n, X = F.X;
+    for (let i = 0; i < N; i++) {
+      const j = i % n, a = F.A[j], jx = (r() - 0.5) * 0.016, jy = (r() - 0.5) * 0.016;
+      A[i * 4] = a.p[0] * 1.55 + jx; A[i * 4 + 1] = a.p[1] * 1.55 + jy; A[i * 4 + 2] = a.p[2] * 0.5;
+      B[i * 4] = X[j * 6] * 1.55 + jx; B[i * 4 + 1] = X[j * 6 + 1] * 1.55 + jy; B[i * 4 + 2] = X[j * 6 + 2] * 0.5;
+      for (let k = 0; k < 3; k++) { CA[i * 4 + k] = a.c[k]; CB[i * 4 + k] = clamp(X[j * 6 + 3 + k] / CW, 0, 255); }
+      CA[i * 4 + 3] = 255; CB[i * 4 + 3] = 255;
+    }
+    const fmt = G.floatRT ? { internal: gl.RGBA32F, format: gl.RGBA, type: gl.FLOAT } : { internal: gl.RGBA16F, format: gl.RGBA, type: gl.FLOAT };
+    const rgba8 = { internal: gl.RGBA8, format: gl.RGBA, type: gl.UNSIGNED_BYTE };
+    [tHomeA, tHomeB, tColA, tColB].forEach((t) => t && gl.deleteTexture(t));
+    tHomeA = G.tex(size, size, fmt, { nearest: true, data: A }); tHomeB = G.tex(size, size, fmt, { nearest: true, data: B });
+    tColA = G.tex(size, size, rgba8, { nearest: true, data: CA }); tColB = G.tex(size, size, rgba8, { nearest: true, data: CB });
+  }
+  function setMode(m) {
+    S.mode = m;
+    $('field-opts').hidden = m !== 'field'; $('form-opts').hidden = m !== 'form';
+    if (m === 'form') {
+      if (!F.A) liftMatch();
+      shell.toast('Form: choose your own picture and sound under Space.');
+    }
+    kit.noteLane('mode', m);
+  }
+  function setMorph(t) { S.morph = clamp(t, 0, 1); const r = $('morph'); r.value = Math.round(S.morph * 100); shell.syncRange(r); $('morph-v').textContent = `${Math.round(S.morph * 100)}%`; }
+  $('morph').addEventListener('input', (e) => { S.perform = false; syncPerform(); setMorph(+e.target.value / 100); });
+  function syncPerform() { $('form-perform').textContent = `Slow sweep: ${S.perform ? 'on' : 'off'}`; $('form-perform').classList.toggle('on', S.perform); }
+  $('form-perform').addEventListener('click', () => { S.perform = !S.perform; S.performT = 0; syncPerform(); });
+  $('form-image').addEventListener('click', () => $('form-image-file').click());
+  $('form-sound').addEventListener('click', () => $('form-sound-file').click());
+  $('form-image-file').addEventListener('change', (e) => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    const img = new Image();
+    img.onload = () => { F.picture = img; F.pictureName = f.name; liftMatch(); URL.revokeObjectURL(img.src); };
+    img.onerror = () => { $('form-status').textContent = 'That file could not be read as a picture.'; };
+    img.src = URL.createObjectURL(f);
+  });
+  $('form-sound-file').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    $('form-status').textContent = `Reading ${f.name}.`;
+    try {
+      const ac = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 2, 44100);
+      const buf = await ac.decodeAudioData(await f.arrayBuffer());
+      const mono = new Float32Array(Math.min(buf.length, buf.sampleRate * 20));
+      for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < mono.length; i++) mono[i] += d[i] / buf.numberOfChannels; }
+      const r = await workerCall({ type: 'atoms', data: mono, rate: buf.sampleRate, k: 600 });
+      F.sound = { atoms: r.result.atoms, dur: r.result.dur, rate: buf.sampleRate };
+      F.soundName = f.name;
+      liftMatch();
+    } catch (err) { $('form-status').textContent = `That file could not be decoded: ${err.message}`; }
+  });
+  $('form-capture').addEventListener('click', () => {
+    const h = historyAtoms();
+    if (h.atoms.length < 24) { $('form-status').textContent = 'There is not enough recent sound yet. Play for a few seconds, or run the demo, and try again.'; return; }
+    F.sound = { atoms: h.atoms, dur: h.dur, rate: 44100 };
+    F.soundName = 'your last 12 seconds';
+    liftMatch();
+  });
+  function synthAtoms(atoms, dur, rate, seed) {
+    const L = Math.floor(dur * rate), out = new Float32Array(L), r = mulberry(seed || 4242);
+    for (const a of atoms) {
+      const sg = 0.02 * rate, GL = Math.floor(sg * 6), t0 = Math.floor(a.time * rate - GL / 2), w = (2 * Math.PI * a.f) / rate, ph = r() * 6.2832, tn = a.tone || 0;
+      for (let j = 0; j < GL; j++) {
+        const idx = t0 + j; if (idx < 0 || idx >= L) continue;
+        const e = Math.exp(-0.5 * Math.pow((j - GL / 2) / sg, 2));
+        let s = Math.sin(w * j + ph);
+        if (tn > 0.02) s += tn * (0.45 * Math.sin(2 * w * j + ph) + 0.22 * Math.sin(3 * w * j + ph));
+        out[idx] += a.amp * e * s * 0.28;
+      }
+    }
+    return out;
+  }
+  let hearCtx = null, hearSrc = null;
+  $('form-hear').addEventListener('click', () => {
+    if (!F.A) return;
+    if (hearSrc) { try { hearSrc.stop(); } catch (e) { /* ended */ } hearSrc = null; $('form-hear').textContent = 'Hear this cloud'; return; }
+    hearCtx = hearCtx || new (window.AudioContext || window.webkitAudioContext)();
+    hearCtx.resume();
+    const rate = hearCtx.sampleRate, dur = 6, t = S.morph, lf0 = Math.log(40), lf1 = Math.log(rate / 2), atoms = [], stride = Math.max(1, Math.floor(F.n / 1800));
+    for (let i = 0; i < F.n; i += stride) {
+      const a = F.A[i], X = F.X, p = [0, 1, 2].map((k) => a.p[k] + t * (X[i * 6 + k] - a.p[k])), c = [0, 1, 2].map((k) => a.c[k] + t * (X[i * 6 + 3 + k] / CW - a.c[k]));
+      const mx = Math.max(...c) / 255, mn = Math.min(...c) / 255;
+      atoms.push({ time: clamp((p[0] + 1) / 2, 0, 1) * dur, f: Math.exp(lf0 + clamp((p[1] + 1) / 2, 0, 1) * (lf1 - lf0)), amp: clamp(p[2] + 0.5, 0, 1), tone: mx > 0 ? (mx - mn) / mx : 0 });
+    }
+    const wav = synthAtoms(atoms, dur, rate, 777);
+    let pk = 0; for (let i = 0; i < wav.length; i++) pk = Math.max(pk, Math.abs(wav[i]));
+    if (pk > 0) for (let i = 0; i < wav.length; i++) wav[i] *= 0.7 / pk;
+    const buf = hearCtx.createBuffer(1, wav.length, rate); buf.getChannelData(0).set(wav);
+    hearSrc = hearCtx.createBufferSource(); hearSrc.buffer = buf; hearSrc.loop = true; hearSrc.connect(hearCtx.destination); hearSrc.start();
+    $('form-hear').textContent = 'Stop listening';
+  });
+  $('form-ply').addEventListener('click', () => {
+    if (!F.A) return;
+    const n = F.n, t = S.morph, header = `ply\nformat binary_little_endian 1.0\ncomment Nebula point cloud - parametric synesthesia, t=${t.toFixed(2)} - stated mappings, not a learned model\nelement vertex ${n}\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nend_header\n`;
+    const hb = new TextEncoder().encode(header), buf = new ArrayBuffer(hb.length + n * 15), dv = new DataView(buf);
+    new Uint8Array(buf).set(hb);
+    let o = hb.length;
+    for (let i = 0; i < n; i++) {
+      const a = F.A[i], X = F.X;
+      for (let k = 0; k < 3; k++) { dv.setFloat32(o, a.p[k] + t * (X[i * 6 + k] - a.p[k]), true); o += 4; }
+      for (let k = 0; k < 3; k++) dv.setUint8(o++, clamp(Math.round(a.c[k] + t * (X[i * 6 + 3 + k] / CW - a.c[k])), 0, 255));
+    }
+    const u = URL.createObjectURL(new Blob([buf], { type: 'application/octet-stream' })), l = document.createElement('a');
+    l.href = u; l.download = `nebula-cloud-t${Math.round(t * 100)}.ply`; l.click(); setTimeout(() => URL.revokeObjectURL(u), 4000);
+  });
+
+  /* ---- sheet controls ---- */
+  $('shape-row').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-shape]'); if (!b) return;
+    S.shape = +b.dataset.shape;
+    document.querySelectorAll('#shape-row button').forEach((x) => x.classList.toggle('on', x === b));
+    kit.noteLane('shape', S.shape);
+  });
+  kit.on('lane', (l) => { if (l.name === 'shape') S.shape = l.value; else if (l.name === 'mode') shell.setMode(l.value); });
+  const bind = (id, get, set, fmt, lab) => { const r = $(id); r.value = get(); shell.syncRange(r); $(lab).textContent = fmt(+r.value); r.addEventListener('input', () => { shell.syncRange(r); set(+r.value); $(lab).textContent = fmt(+r.value); }); };
+  bind('react', () => S.reaction * 100, (v) => { S.reaction = v / 100; }, (v) => `${Math.round(v)}%`, 'react-v');
+  bind('trail', () => S.trails * 100, (v) => { S.trails = v / 100; }, (v) => `${Math.round(v)}%`, 'trail-v');
+  bind('glow', () => S.glow * 100, (v) => { S.glow = v / 100; }, (v) => `${Math.round(v)}%`, 'glow-v');
+  let tierAuto = true;
+  $('tier').addEventListener('change', (e) => { tierAuto = e.target.value === 'auto'; if (!tierAuto) buildParticles(+e.target.value); });
+  $('auto-rot').addEventListener('change', (e) => { S.autoRot = e.target.checked; });
+
+  /* drag to turn, wheel to zoom */
+  let dragging = null;
+  cv.addEventListener('pointerdown', (e) => { dragging = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove', (e) => { if (!dragging) return; S.yaw += (e.clientX - dragging.x) * 0.005; S.pitchUser = clamp((S.pitchUser || 0) + (e.clientY - dragging.y) * 0.004, -0.7, 0.5); dragging = { x: e.clientX, y: e.clientY }; });
+  cv.addEventListener('pointerup', () => { dragging = null; });
+  cv.addEventListener('wheel', (e) => { e.preventDefault(); S.dist = clamp(S.dist * Math.exp(e.deltaY * 0.0009), 1.8, 6); }, { passive: false });
+
+  /* ---- frame ---- */
+  let last = performance.now(), frameIdx = 0, slow = 0, fast = 0, fails = 0, tierLocked = false, strongGPU = false;
+  function render(now) {
+    requestAnimationFrame(render);
+    try {
+      const dtMs = Math.min(100, now - last); last = now;
+      kit.tick(now);
+      shell.frame(now);
+      if (!G || gl.isContextLost()) return;
+      const dt = Math.min(1 / 30, dtMs / 1000), env = kit.env;
+      S.shapeT += (S.shape - S.shapeT) * Math.min(1, dt / 0.9);
+      S.formT += ((S.mode === 'form' && F.A ? 1 : 0) - S.formT) * Math.min(1, dt / 0.8);
+      if (S.perform) { S.performT += dt; setMorph(0.5 - 0.5 * Math.cos((S.performT / 24) * Math.PI * 2)); }
+
+      if (dtMs > 26) slow++; else if (dtMs < 11) fast++;
+      if (++frameIdx % 120 === 0) {
+        if (slow > 40) {
+          tierLocked = true;
+          if (tierAuto && S.tier > 128) buildParticles(S.tier >> 1);
+          else if (lastScale > 0.4) { lastScale *= 0.75; resize(); }
+        } else if (!tierLocked && tierAuto && S.tier < 512 && strongGPU && slow < 6 && frameIdx > 240) {
+          buildParticles(S.tier << 1);
+        } else if (fast > 100 && lastScale < 1.6) { lastScale *= 1.2; resize(); }
+        slow = 0; fast = 0;
+      }
+
+      /* camera */
+      if (S.autoRot && !dragging && !RM.matches) S.yaw += dt * 0.035;
+      const base = 1.02 * (1 - S.shapeT) + 0.2 * S.shapeT, pitch = clamp(base * (1 - S.formT) + 0.12 * S.formT + (S.pitchUser || 0), 0.05, 1.45);
+      const yaw = S.shapeT * 0 + S.yaw * (1 - Math.max(S.shapeT, S.formT)) + Math.sin(S.yaw * 0.7) * 0.12 * Math.max(S.shapeT, S.formT);
+      const dist = S.dist * (1 - (RM.matches ? 0 : env.kick * 0.022));
+      const eye = [Math.sin(yaw) * Math.cos(pitch) * dist, Math.sin(pitch) * dist, Math.cos(yaw) * Math.cos(pitch) * dist];
+      const asp = rw / rh;
+      const fit = asp < 1 ? 1 / Math.pow(asp, 0.75) : 1;                 // keep the whole field in view on a phone
+      const eyeF = eye.map((v) => v * fit);
+      const VP = mul(perspective(0.9, asp, 0.05, 40), lookAt(eyeF, [0, 0, 0], [0, 1, 0]));
+
+      /* fluid */
+      gl.disable(gl.BLEND);
+      G.into(velB); G.bindTex(0, vel.tex);
+      G.use(pAdvect, { uV: 0, uDt: dt, uDiss: Math.exp(-dt / 0.8) }); G.draw();
+      [vel, velB] = [velB, vel];
+      if (splats.length) {
+        const a = new Float32Array(32), b = new Float32Array(32);
+        splats.forEach((s, i) => { a.set([s.x, s.y, s.strength, s.radius], i * 4); b.set([s.fx, s.fy, s.radial, 0], i * 4); });
+        G.into(velB); G.bindTex(0, vel.tex);
+        G.use(pSplat, { uV: 0, uA: a, uB: b, uN: splats.length }); G.draw();
+        [vel, velB] = [velB, vel];
+        splats.length = 0;
+      }
+      const px = [1 / FV, 1 / FV];
+      G.into(div); G.bindTex(0, vel.tex); G.use(pDiv, { uV: 0, uPx: px }); G.draw();
+      G.use(pJac, { uP: 0, uD: 1, uPx: px });
+      G.bindTex(1, div.tex);
+      for (let i = 0; i < 10; i++) { G.into(presB); G.bindTex(0, pres.tex); G.draw(); [pres, presB] = [presB, pres]; }
+      G.into(velB); G.bindTex(0, pres.tex); G.bindTex(1, vel.tex); G.use(pGrad, { uP: 0, uV: 1, uPx: px }); G.draw();
+      [vel, velB] = [velB, vel];
+
+      /* simulate */
+      const histX = (kit.histX + 0.5) / kit.HIST_W, blow = S.reaction * (RM.matches ? 0.35 : 1);
+      G.into(simB);
+      G.bindTex(0, simA.pos); G.bindTex(1, simA.vel); G.bindTex(2, tSeed); G.bindTex(3, tHist); G.bindTex(4, vel.tex); G.bindTex(5, tN);
+      G.bindTex(6, tHomeA || tSeed); G.bindTex(7, tHomeB || tSeed);
+      G.use(pSim, {
+        uPos: 0, uVel: 1, uSeed: 2, uHist: 3, uFluid: 4, uN: 5, uHomeA: 6, uHomeB: 7,
+        uDt: dt, uT: now / 1000, uHistX: histX, uRiver: S.shapeT, uForm: S.formT, uMorph: S.morph, uLoud: kit.loud,
+        uKick: env.kick, uSnare: env.snare, uHat: env.hat, uHatOpen: env.hatOpen, uTom: env.tom, uTomPos: env.tomPos, uCrash: env.crash, uBlow: blow,
+      });
+      G.draw();
+      [simA, simB] = [simB, simA];
+
+      /* points */
+      G.into(points); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+      G.bindTex(0, simA.pos); G.bindTex(1, tSeed); G.bindTex(2, tHist); G.bindTex(3, tColA || tSeed); G.bindTex(4, tColB || tSeed);
+      const dens = Math.sqrt(65536 / N);
+      G.use(pPoint, {
+        uPos: 0, uSeed: 1, uHist: 2, uColA: 3, uColB: 4, uVP: VP, uSize: size, uPxK: rh * 0.0058 * Math.pow(dens, 0.5), uI: (0.92 * dens * dens * 0.8 + 0.12) * (1 - 0.5 * S.shapeT * (1 - S.formT)), uHistX: histX,
+        uForm: S.formT, uMorph: S.morph, uT: now / 1000, uLoud: kit.loud, uKick: env.kick, uHat: env.hat, uHatOpen: env.hatOpen, uRide: env.ride, uCrash: env.crash,
+      });
+      gl.drawArrays(gl.POINTS, 0, N);
+      gl.disable(gl.BLEND);
+
+      /* trails */
+      const clip = [VP[12], VP[13], VP[15]];
+      const c = [0.5 + (clip[0] / clip[2]) * 0.5, 0.5 + (clip[1] / clip[2]) * 0.5];
+      G.into(trailB); G.bindTex(0, points.tex); G.bindTex(1, trailA.tex);
+      const fade = Math.pow((0.3 + 0.62 * S.trails) * (1 - 0.5 * S.formT) + 0.08 * env.crash, dtMs / 16.67);
+      G.use(pTrail, { uPts: 0, uPrev: 1, uFade: clamp(fade, 0, 0.985), uT: now / 1000, uC: c }); G.draw();
+      [trailA, trailB] = [trailB, trailA];
+
+      /* gas and composite */
+      G.into(scene); G.bindTex(0, tN); G.bindTex(1, trailA.tex);
+      const scale = (3.25 / (dist * fit)) * (1 / 1.25);
+      G.use(pGas, {
+        uN: 0, uTrail: 1, uRiverGas: S.shapeT, uRes: [rw, rh], uC: c, uT: now / 1000, uTilt: Math.sin(pitch) * (1 - S.shapeT) + S.shapeT, uScale: scale, uYaw: yaw,
+        uLow: kit.low, uMid: kit.mid, uHigh: kit.high, uLoud: kit.loud, uKick: env.kick, uSnare: env.snare, uHat: env.hat, uHatOpen: env.hatOpen, uRide: env.ride, uCrash: env.crash, uForm: S.formT,
+      });
+      G.draw();
+
+      const bloom = Post.bloom(scene.tex, 0.7);
+      Post.finish(scene.tex, bloom, {
+        uBloomK: (0.62 + env.kick * 0.25 + env.crash * 0.35) * S.glow, uExposure: 1.02,
+        uFlash: RM.matches ? 0 : Math.min(0.14, env.flash * 0.14), uFlashC: [1, 0.94, 0.86], uGrain: 0.016, uT: now / 1000, uVig: 0.42, uSat: 1.08,
+      });
+      if (wantSnap) { const done = wantSnap; wantSnap = null; cv.toBlob((blob) => done(blob), 'image/png'); }
+
+      if (frameIdx % 6 === 0) {
+        $('g-hits').textContent = kit.hits;
+        $('g-hero').textContent = kit.tempo.bpm ? Math.round(kit.tempo.bpm) : '--';
+        $('g-level').innerHTML = kit.audio.state === 'live' ? `${Math.round(kit.audio.peakDb)}<small>dB</small>` : kit.demoOn ? 'demo' : '--';
+      }
+    } catch (e) {
+      if (fails++ < 3) console.error(e);
+    }
+  }
+
+  /* ---- boot ---- */
+  if (!G || !(G.floatRT || G.gl.getExtension('EXT_color_buffer_half_float'))) {
+    shell.glFail('This page needs WebGL2 with floating-point render targets, which this browser did not provide. The inputs below still report their state.');
+    const idle = (now) => { requestAnimationFrame(idle); kit.tick(now); shell.frame(now); };
+    requestAnimationFrame(idle);
+  } else {
+    gl = G.gl;
+    try {
+      Post = createPost(G);
+      pSim = G.program(SIM_FS); pPoint = G.program(POINT_FS, POINT_VS); pTrail = G.program(TRAIL_FS); pGas = G.program(GAS_FS);
+      pAdvect = G.program(ADVECT_FS); pSplat = G.program(SPLAT_FS); pDiv = G.program(DIV_FS); pJac = G.program(JAC_FS); pGrad = G.program(GRAD_FS);
+      tN = G.noiseTexture(20261103);
+      tHist = G.tex(kit.HIST_W, kit.BANDS, { internal: gl.RG8, format: gl.RG, type: gl.UNSIGNED_BYTE }, { data: kit.hist });
+      G.bindTex(0, tHist); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      const rg = { internal: gl.RG16F, format: gl.RG, type: gl.HALF_FLOAT };
+      vel = G.target(FV, FV, rg); velB = G.target(FV, FV, rg); pres = G.target(FV, FV, rg); presB = G.target(FV, FV, rg); div = G.target(FV, FV, rg);
+      const info = gl.getExtension('WEBGL_debug_renderer_info');
+      strongGPU = /apple m\d+ (pro|max|ultra)|apple m[3-9]|rtx|radeon rx/i.test(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : '');
+      buildParticles(navigator.maxTouchPoints > 1 ? 128 : 256);
+      resize();
+      addEventListener('resize', resize);
+      cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); shell.glFail('The graphics context was lost. Reload the page to get the picture back.'); });
+      requestAnimationFrame(render);
+    } catch (e) {
+      console.error(e);
+      shell.glFail(`The picture could not start on this graphics card: ${String(e.message).slice(0, 140)}`);
+    }
+  }
+
+  window.__app = {
+    S, kit, F,
+    get N() { return N; },
+    pixel() {
+      const c = document.createElement('canvas'); c.width = 32; c.height = 18;
+      const g = c.getContext('2d');
+      return new Promise((res) => { wantSnap = (blob) => { const im = new Image(); im.onload = () => { g.drawImage(im, 0, 0, 32, 18); const d = g.getImageData(0, 0, 32, 18).data; let sum = 0, min = 1e9, max = 0; const grid = []; for (let i = 0; i < d.length; i += 4) { const l = d[i] * 0.2126 + d[i + 1] * 0.7152 + d[i + 2] * 0.0722; sum += l; min = Math.min(min, l); max = Math.max(max, l); grid.push(l); } res({ mean: sum / (d.length / 4), min, max, grid }); }; im.src = URL.createObjectURL(blob); }; });
+    },
+  };
+})();
+
+</script>
+</body>
+</html>
