@@ -309,7 +309,7 @@ def run(page, tag):
         b.close()
 
 drum_fixture()
-pages = [('endless-cockpit.html', 'endless'), ('nebula.html', 'nebula')]
+pages = [('nebula.html', 'nebula')]
 want = sys.argv[2] if len(sys.argv) > 2 else None
 for page, tag in pages:
     if want and want != tag: continue

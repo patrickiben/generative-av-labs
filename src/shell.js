@@ -81,12 +81,16 @@
     const kit = cfg.kit;
     const scene = $('scene');
     document.body.dataset.app = cfg.id;
+    const inputs = cfg.inputs || ['audio', 'midi'];
+    const kitInputs = inputs.includes('audio') || inputs.includes('midi');
+    const useSignal = cfg.signal !== false, usePads = cfg.pads !== false, useStrip = cfg.hitStrip !== false;
+    const chips = cfg.chips || [{ id: 'audio' }, { id: 'midi' }];
 
     const dockItems = [
       { id: 'connect', label: 'Connect', icon: 'connect' },
       ...(cfg.sheets || []).map((s) => ({ id: s.id, label: s.label, icon: s.icon })),
       { id: 'session', label: 'Session', icon: 'session' },
-      { id: 'signal', label: 'Signal', icon: 'signal' },
+      ...(useSignal ? [{ id: 'signal', label: 'Signal', icon: 'signal' }] : []),
     ];
 
     scene.insertAdjacentHTML('beforeend', `
@@ -108,13 +112,12 @@
       <div id="sr-status" role="status" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"></div>
       <div class="dock-wrap">
         <div id="hud" class="chrome">${cfg.hud || ''}</div>
-        <div id="hit-strip" class="chrome" aria-hidden="true">
+        ${useStrip ? `<div id="hit-strip" class="chrome" aria-hidden="true">
           ${['kick', 'snare', 'hat', 'tom', 'crash', 'ride'].map((v) => `<div class="hitdot"><i id="dot-${v}"></i>${v[0].toUpperCase()}</div>`).join('')}
-        </div>
+        </div>` : ''}
         <div class="badges">
-          <button class="source-badge" id="source-badge" data-source="ambient" title="Open the input settings"><span class="dot" aria-hidden="true"></span><span id="source-label">Ambient · no input connected</span></button>
-          <button class="chip chrome" id="chip-audio" data-tone="idle"><span class="dot" aria-hidden="true"></span><span id="chip-audio-text">Audio · not connected</span></button>
-          <button class="chip chrome" id="chip-midi" data-tone="idle"><span class="dot" aria-hidden="true"></span><span id="chip-midi-text">MIDI · not connected</span></button>
+          <button class="source-badge" id="source-badge" data-source="ambient" title="Open the input settings"><span class="dot" aria-hidden="true"></span><span id="source-label">${esc(cfg.idleLabel || 'Ambient · no input connected')}</span></button>
+          ${chips.map((c) => `<button class="chip chrome" id="chip-${c.id}" data-tone="idle"><span class="dot" aria-hidden="true"></span><span id="chip-${c.id}-text">${esc(c.label || (c.id === 'audio' ? 'Audio · not connected' : c.id === 'midi' ? 'MIDI · not connected' : ''))}</span></button>`).join('')}
         </div>
         <nav class="dock chrome" aria-label="Controls">
           ${dockItems.map((d) => `<button id="${d.id}-button" aria-haspopup="dialog" aria-expanded="false">${svg(d.icon)}<span>${esc(d.label)}</span></button>`).join('')}
@@ -125,7 +128,12 @@
       </div>`);
 
     document.body.insertAdjacentHTML('beforeend', `
+      ${cfg.connect ? `
       <dialog class="sheet" id="connect-sheet" aria-labelledby="connect-title" tabindex="-1">
+        <div class="sheet-head"><h2 id="connect-title">${esc(cfg.connect.title)}</h2>${closeBtn('Close connection settings')}</div>
+        <p class="sheet-intro">${esc(cfg.connect.intro)}</p>
+        ${cfg.connect.html}
+      </dialog>` : `      <dialog class="sheet" id="connect-sheet" aria-labelledby="connect-title" tabindex="-1">
         <div class="sheet-head"><h2 id="connect-title">Bring your kit.</h2>${closeBtn('Close input settings')}</div>
         <p class="sheet-intro">MIDI says exactly which drum you hit. Audio gives the light its texture. Either one works alone.</p>
         <button class="pill primary wide" id="connect-both">Connect audio and MIDI</button>
@@ -172,22 +180,21 @@
         <label class="check"><input type="checkbox" id="demo-audible"> Let me hear the demo</label>
         <label class="check"><input type="checkbox" id="reconnect"> Reconnect when I open this page, if the browser already allows it</label>
 
-        <details id="wiring"><summary>Wiring: Pearl Mimic Pro into an Apollo Solo</summary>
+        <details id="wiring"><summary>Wiring an electronic drum kit</summary>
           <ol>
-            <li><b>Audio.</b> Two 1/4-inch TRS cables from the Mimic Pro's Line Out 1 and 2, which carry the main mix, to the Apollo Solo's rear Mic/Line 1 and 2. Set both inputs to Line, and leave the front Hi-Z jack empty, because a plug there takes over input 1.</li>
-            <li><b>MIDI.</b> The Apollo Solo has no MIDI ports, and the Mimic Pro's USB slot is for installing samples. Run a 5-pin cable from the module's MIDI OUT into a USB-MIDI interface, and plug that into the computer. The browser lists the interface's name, not the module's.</li>
-            <li><b>Browser.</b> Chrome or Edge. Safari has no Web MIDI, and Firefox asks for a site permission add-on. Choose "Universal Audio Thunderbolt" as the audio input.</li>
-            <li><b>Monitoring.</b> These pages never play your input back. Keep listening through your interface as usual.</li>
+            <li><b>Audio.</b> Two 1/4-inch TRS cables from the module's main outputs to two line inputs on your audio interface. If that input shares a front instrument jack, leave the jack empty, because a plug there can take over the input.</li>
+            <li><b>MIDI.</b> Many audio interfaces have no MIDI ports, and a module's USB port is not always MIDI. If so, run a 5-pin cable from the module's MIDI OUT into a USB-MIDI interface. The browser lists the interface's name, not the module's.</li>
+            <li><b>Browser.</b> Chrome or Edge. Safari has no Web MIDI, and Firefox asks for a site permission add-on. Choose your audio interface as the audio input.</li>
+            <li><b>Monitoring.</b> This page never plays your input back. Keep listening through your interface as usual.</li>
           </ol>
         </details>
         <details id="map-details"><summary>Pad map and Learn</summary>
-          <p>Each zone's note can be changed on the module, so this is only a starting point. Press Learn, then hit the pad.</p>
+          <p>Modules let you change each pad's note, so this is only a starting point. Press Learn, then hit the pad.</p>
           <label class="field">Starting map<select id="map-preset"></select></label>
           <div id="pad-rows"></div>
           <label class="check"><input type="checkbox" id="flip-pedal"> Flip the hi-hat pedal (CC4: 127 means open)</label>
         </details>
-      </dialog>
-
+      </dialog>`}
       ${(cfg.sheets || []).map((s) => `
       <dialog class="sheet" id="${s.id}-sheet" aria-labelledby="${s.id}-title" tabindex="-1">
         <div class="sheet-head"><h2 id="${s.id}-title">${esc(s.title)}</h2>${closeBtn(`Close ${s.label}`)}</div>
@@ -197,7 +204,7 @@
 
       <dialog class="sheet" id="session-sheet" aria-labelledby="session-title" tabindex="-1">
         <div class="sheet-head"><h2 id="session-title">Keep what you played.</h2>${closeBtn('Close session')}</div>
-        <p class="sheet-intro">A session file holds hits, pedal moves and levels. No audio goes in it, and nothing leaves this computer unless you share the file.</p>
+        <p class="sheet-intro">${esc((cfg.session && cfg.session.intro) || 'A session file holds hits, pedal moves and levels. No audio goes in it, and nothing leaves this computer unless you share the file.')}</p>
         <div class="row-actions">
           <button class="pill primary" id="rec-toggle">Start recording</button>
           <button class="pill" id="replay-load">Replay a session file</button>
@@ -210,7 +217,7 @@
         <div id="session-analysis"></div>
       </dialog>
 
-      <dialog class="sheet wide" id="signal-sheet" aria-labelledby="signal-title" tabindex="-1">
+${useSignal ? `      <dialog class="sheet wide" id="signal-sheet" aria-labelledby="signal-title" tabindex="-1">
         <div class="sheet-head"><h2 id="signal-title">What the page hears.</h2>${closeBtn('Close signal view')}</div>
         <div class="statgrid">
           <div class="stat"><span class="k">Tempo</span><span class="v" id="sig-tempo">-</span><span class="n">estimated from hits</span></div>
@@ -223,21 +230,21 @@
         <canvas class="sig-canvas" id="sig-spectro" width="1400" height="300" role="img" aria-label="Scrolling spectrogram of the input"></canvas>
         <div class="sig-title"><span>Hits over the last 8 seconds</span><span id="sig-legend">dot size is velocity</span></div>
         <canvas class="sig-canvas" id="sig-lanes" width="1400" height="230" role="img" aria-label="Timeline of hits by drum"></canvas>
-      </dialog>
+      </dialog>` : ''}
 
       <dialog class="sheet" id="about-sheet" aria-labelledby="about-title" tabindex="-1">
         <div class="sheet-head"><h2 id="about-title">What drives what.</h2>${closeBtn('Close about')}</div>
         ${cfg.about}
-        <details><summary>From MIDI, from audio</summary>
+        ${kitInputs ? `<details><summary>From MIDI, from audio</summary>
           <p>MIDI names the drum you hit, with its velocity, plus the hi-hat pedal and cymbal chokes. With audio alone, kick, snare, hat, tom and crash are estimated from four frequency bands by a stated rule, and a ride is not told apart. With MIDI alone, each hit paints a stated spectrum shape instead of a measured one.</p>
           <p>Hit to frame is what this page measures. It leaves out the interface, the cable and the screen.</p>
-        </details>
+        </details>` : ''}
         <details><summary>Safety and privacy</summary>
           <p>A limiter slows any large change in brightness, and these pages measure under the WCAG limit of three flashes a second, even with hard playing. That is a measured screen, not a medical guarantee. If flashing or moving light affects you, take care, and turn on your system's reduced-motion setting, which tightens the limiter, calms the camera and removes the flash.</p>
-          <p>Audio and MIDI are analyzed in this browser and never sent anywhere. The pages make no network requests after they load. Your device choice and pad map stay in this browser's storage.</p>
+          <p>${esc(cfg.privacy || 'Audio and MIDI are analyzed in this browser and never sent anywhere. The pages make no network requests after they load. Your device choice and pad map stay in this browser\'s storage.')}</p>
         </details>
         <details><summary>Ideas credited</summary>
-          <p>No outside code is included. Ideas came from <a href="https://github.com/jberg/butterchurn" rel="noopener">Butterchurn</a> (MIT), Milkdrop's feedback warp; <a href="https://github.com/PavelDoGreat/WebGL-Fluid-Simulation" rel="noopener">WebGL Fluid Simulation</a> (MIT), one splat per impact; <a href="https://github.com/loqwai/paper-cranes" rel="noopener">paper-cranes</a> (BSD-3-Clause), reading each audio feature against its own recent range; <a href="https://github.com/audiojs/beat" rel="noopener">@audio/beat</a>, energy flux for percussive onsets; and <a href="https://github.com/dlepaux/realtime-bpm-analyzer" rel="noopener">realtime-bpm-analyzer</a> (Apache-2.0), tempo from live input.</p>
+          ${cfg.credits || `<p>No outside code is included. Ideas came from <a href="https://github.com/jberg/butterchurn" rel="noopener">Butterchurn</a> (MIT), Milkdrop's feedback warp; <a href="https://github.com/PavelDoGreat/WebGL-Fluid-Simulation" rel="noopener">WebGL Fluid Simulation</a> (MIT), one splat per impact; <a href="https://github.com/loqwai/paper-cranes" rel="noopener">paper-cranes</a> (BSD-3-Clause), reading each audio feature against its own recent range; <a href="https://github.com/audiojs/beat" rel="noopener">@audio/beat</a>, energy flux for percussive onsets; and <a href="https://github.com/dlepaux/realtime-bpm-analyzer" rel="noopener">realtime-bpm-analyzer</a> (Apache-2.0), tempo from live input.</p>`}
         </details>
         <p class="note"><a href="field-guide.html">Read the field guide</a> · <a href="__REPO_URL__" rel="noopener">Source</a></p>
       </dialog>`);
@@ -258,7 +265,7 @@
       d.querySelectorAll('[data-close]').forEach((b) => b.addEventListener('click', () => d.close()));
     });
     [...dockItems.map((d) => d.id), 'about'].forEach((name) => $(`${name}-button`).addEventListener('click', () => openSheet(name)));
-    ['source-badge', 'chip-audio', 'chip-midi'].forEach((id) => $(id).addEventListener('click', () => openSheet('connect')));
+    ['source-badge', ...chips.map((c) => `chip-${c.id}`)].forEach((id) => $(id).addEventListener('click', () => openSheet('connect')));
 
     /* ---------- modes ---------- */
     let mode = cfg.mode;
@@ -272,32 +279,19 @@
 
     /* ---------- demo and input buttons ---------- */
     const toast = (msg, ms) => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), ms || 3200); };
-    const toggleDemo = async () => { if (kit.demoOn) kit.stopDemo(); else { try { await kit.startDemo(); } catch (e) { toast(`The demo could not start: ${e.message}`); } } };
+    const demoOn = () => (cfg.demo ? cfg.demo.isOn() : kit.demoOn);
+    const toggleDemo = async () => {
+      if (cfg.demo) { cfg.demo.toggle(); renderStates(); return; }
+      if (kit.demoOn) kit.stopDemo(); else { try { await kit.startDemo(); } catch (e) { toast(`The demo could not start: ${e.message}`); } }
+    };
     $('demo-button').addEventListener('click', toggleDemo);
-    $('demo-sheet').addEventListener('click', async () => { await toggleDemo(); if (kit.demoOn) $('connect-sheet').close(); });
-    $('demo-audible').addEventListener('change', (e) => kit.setDemoAudible(e.target.checked));
-    $('audio-connect').addEventListener('click', () => { const s = kit.audio.state; if (s === 'live' || s === 'no-signal') kit.disconnectAudio(); else kit.connectAudio(); });
-    $('midi-connect').addEventListener('click', () => { const s = kit.midi.state; if (s === 'live' || s === 'no-signal') kit.disconnectMidi(); else kit.connectMidi(); });
-    $('connect-both').addEventListener('click', async () => { await kit.connectAudio(); await kit.connectMidi(); });
-    $('audio-device').addEventListener('change', (e) => kit.connectAudio(e.target.value));
-    $('midi-port').addEventListener('change', (e) => kit.selectMidi(e.target.value));
     const syncRange = (r) => r.style.setProperty('--val', ((+r.value - +r.min) / (+r.max - +r.min)) * 100);
     const bindRange = (id, fn) => { const r = $(id); syncRange(r); r.addEventListener('input', () => { syncRange(r); fn(+r.value); }); };
-    $('trim').value = kit.audio.trimDb; $('sens').value = Math.round(kit.audio.sens * 100);
-    $('trim-val').textContent = `${kit.audio.trimDb > 0 ? '+' : ''}${kit.audio.trimDb} dB`;
-    $('sens-val').textContent = kit.audio.sens.toFixed(2);
-    bindRange('trim', (v) => { kit.setTrim(v); $('trim-val').textContent = `${v > 0 ? '+' : ''}${v} dB`; });
-    bindRange('sens', (v) => { kit.setSensitivity(v / 100); $('sens-val').textContent = (v / 100).toFixed(2); });
-    document.querySelectorAll('.sheet input[type="range"]').forEach(syncRange);
-    $('reconnect').checked = kit.autoconnect.on;
-    $('reconnect').addEventListener('change', (e) => { kit.autoconnect.on = e.target.checked; });
-    $('flip-pedal').checked = kit.midi.flipPedal;
-    $('flip-pedal').addEventListener('change', (e) => kit.setFlipPedal(e.target.checked));
 
     /* ---------- pad map ---------- */
-    const presetSel = $('map-preset');
-    let mapKey = '';
+    let presetSel = null, mapKey = '';
     const renderMap = () => {
+      if (!presetSel || !$('pad-rows')) return;
       const key = JSON.stringify([kit.map, kit.presetId, kit.learning]);
       if (key === mapKey) return;
       mapKey = key;
@@ -305,8 +299,30 @@
       presetSel.value = kit.presetId;
       $('pad-rows').innerHTML = kit.PADS.map((p) => `<div class="padrow"><span>${esc(p.label)}</span><code>${(kit.map[p.id] || []).join(', ') || 'none'}</code><button class="pill${kit.learning === p.id ? ' on' : ''}" data-learn="${p.id}">${kit.learning === p.id ? 'Hit the pad' : 'Learn'}</button></div>`).join('');
     };
-    presetSel.addEventListener('change', () => kit.usePreset(presetSel.value));
-    $('pad-rows').addEventListener('click', (e) => { const b = e.target.closest('[data-learn]'); if (b) kit.learn(b.dataset.learn); });
+
+    function wireKitSheet() {
+      $('demo-sheet').addEventListener('click', async () => { await toggleDemo(); if (kit.demoOn) $('connect-sheet').close(); });
+      $('demo-audible').addEventListener('change', (e) => kit.setDemoAudible(e.target.checked));
+      $('audio-connect').addEventListener('click', () => { const s = kit.audio.state; if (s === 'live' || s === 'no-signal') kit.disconnectAudio(); else kit.connectAudio(); });
+      $('midi-connect').addEventListener('click', () => { const s = kit.midi.state; if (s === 'live' || s === 'no-signal') kit.disconnectMidi(); else kit.connectMidi(); });
+      $('connect-both').addEventListener('click', async () => { await kit.connectAudio(); await kit.connectMidi(); });
+      $('audio-device').addEventListener('change', (e) => kit.connectAudio(e.target.value));
+      $('midi-port').addEventListener('change', (e) => kit.selectMidi(e.target.value));
+      $('trim').value = kit.audio.trimDb; $('sens').value = Math.round(kit.audio.sens * 100);
+      $('trim-val').textContent = `${kit.audio.trimDb > 0 ? '+' : ''}${kit.audio.trimDb} dB`;
+      $('sens-val').textContent = kit.audio.sens.toFixed(2);
+      bindRange('trim', (v) => { kit.setTrim(v); $('trim-val').textContent = `${v > 0 ? '+' : ''}${v} dB`; });
+      bindRange('sens', (v) => { kit.setSensitivity(v / 100); $('sens-val').textContent = (v / 100).toFixed(2); });
+      $('reconnect').checked = kit.autoconnect.on;
+      $('reconnect').addEventListener('change', (e) => { kit.autoconnect.on = e.target.checked; });
+      $('flip-pedal').checked = kit.midi.flipPedal;
+      $('flip-pedal').addEventListener('change', (e) => kit.setFlipPedal(e.target.checked));
+      presetSel = $('map-preset');
+      presetSel.addEventListener('change', () => kit.usePreset(presetSel.value));
+      $('pad-rows').addEventListener('click', (e) => { const b = e.target.closest('[data-learn]'); if (b) kit.learn(b.dataset.learn); });
+    }
+    if (kitInputs && !cfg.connect) wireKitSheet();
+    document.querySelectorAll('.sheet input[type="range"]').forEach(syncRange);
 
     /* ---------- state rendering ---------- */
     const setSelect = (sel, opts, value) => {
@@ -315,10 +331,19 @@
       if (value != null && [...sel.options].some((o) => o.value === value)) sel.value = value;
     };
     const renderStates = () => {
-      const a = audioView(kit.audio), m = midiView(kit.midi), [src, label] = sourceView(kit);
+      const [src, label] = cfg.source ? cfg.source() : sourceView(kit);
       const badge = $('source-badge');
       if (badge.dataset.source !== src) badge.dataset.source = src;
       if ($('source-label').textContent !== label) $('source-label').textContent = label;
+      $('demo-button').textContent = demoOn() ? 'End demo' : 'Try a demo';
+      if (!kitInputs || cfg.connect) {
+        chips.forEach((c) => { if (!c.read) return; const [tone, text] = c.read(); const el = $(`chip-${c.id}`); if (el.dataset.tone !== tone) el.dataset.tone = tone; if ($(`chip-${c.id}-text`).textContent !== text) $(`chip-${c.id}-text`).textContent = text; });
+        const spoken = `${label}.`;
+        if ($('sr-status').textContent !== spoken) $('sr-status').textContent = spoken;
+        if (cfg.onStates) cfg.onStates();
+        return;
+      }
+      const a = audioView(kit.audio), m = midiView(kit.midi);
       $('chip-audio').dataset.tone = a.tone; $('chip-midi').dataset.tone = m.tone;
       $('chip-audio-text').textContent = a.chip; $('chip-midi-text').textContent = m.chip;
       $('audio-info').dataset.tone = a.tone; $('midi-info').dataset.tone = m.tone;
@@ -339,8 +364,6 @@
       const spoken = `Audio: ${kit.audio.state.replace('-', ' ')}. MIDI: ${kit.midi.state.replace('-', ' ')}. ${src === 'demo' ? 'Demo running.' : ''}`;
       if ($('sr-status').textContent !== spoken) $('sr-status').textContent = spoken;
       $('connect-button').classList.toggle('connected', aOpen || mOpen);
-      const demoB = $('demo-button');
-      demoB.textContent = kit.demoOn ? 'End demo' : 'Try a demo';
       $('demo-sheet').textContent = kit.demoOn ? 'End demo' : 'Run demo';
       $('replay-stop').hidden = !kit.replayOn;
       renderMap();
@@ -375,8 +398,8 @@
         download(new Blob([JSON.stringify(s)], { type: 'application/json' }), `${cfg.id}-session-${stamp()}.json`);
         $('rec-toggle').textContent = 'Start recording';
         $('session-button').classList.remove('rec');
-        $('rec-status').textContent = `Saved ${s.hits.length} hits over ${Math.round(s.durationMs / 1000)} s.`;
-        renderAnalysis(s);
+        $('rec-status').textContent = cfg.session && cfg.session.summary ? cfg.session.summary(s) : `Saved ${s.hits.length} hits over ${Math.round(s.durationMs / 1000)} s.`;
+        if (!(cfg.session && cfg.session.summary)) renderAnalysis(s);
       }
     });
     $('replay-load').addEventListener('click', () => $('replay-file').click());
@@ -387,7 +410,7 @@
       try {
         const s = JSON.parse(await f.text());
         kit.startReplay(s);
-        renderAnalysis(s);
+        if (!(cfg.session && cfg.session.summary)) renderAnalysis(s);
         $('rec-status').textContent = `Replaying a session from ${new Date(s.created).toLocaleString()}.`;
         $('session-sheet').close();
       } catch (err) { $('rec-status').textContent = `That file could not be replayed: ${err.message}`; }
@@ -408,6 +431,9 @@
     /* ---------- full screen, keys, quiet chrome ---------- */
     const fullscreen = () => { if (document.fullscreenElement) document.exitFullscreen(); else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => toast('Full screen is not available here.')); };
     $('fs-button').addEventListener('click', fullscreen);
+    // A mouse click should not leave a button holding the keyboard, or Space would press it again.
+    // Keyboard presses report detail 0, so keyboard users keep their focus.
+    addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('button'); if (b && e.detail > 0 && !b.closest('dialog')) b.blur(); });
     let hideChrome = false, lastMove = performance.now();
     const wake = () => { lastMove = performance.now(); if (!hideChrome) document.body.classList.remove('quiet'); };
     ['pointermove', 'pointerdown', 'keydown', 'touchstart'].forEach((ev) => addEventListener(ev, wake, { passive: true }));
@@ -415,7 +441,7 @@
       if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
       if (e.target.closest && e.target.closest('input, select, textarea, dialog[open]')) return;
       const key = e.key.toLowerCase();
-      if (PAD_KEYS[key]) { kit.pad(PAD_KEYS[key]); return; }
+      if (usePads && PAD_KEYS[key]) { kit.pad(PAD_KEYS[key]); return; }
       if (key === 'c') openSheet('connect');
       else if (key === 'd') toggleDemo();
       else if (key === 'f') fullscreen();
@@ -426,28 +452,29 @@
     /* ---------- per-frame ---------- */
     let lastText = 0, frames = 0, fps = 0, fpsT = performance.now();
     const VOICE_ENV = ['kick', 'snare', 'hat', 'tom', 'crash', 'ride'];
-    const dots = Object.fromEntries(VOICE_ENV.map((v) => [v, $(`dot-${v}`)]));
+    const dots = useStrip ? Object.fromEntries(VOICE_ENV.map((v) => [v, $(`dot-${v}`)])) : {};
     const metrics = { hitToFrame: null, seenHit: null };
     function frame(now) {
       frames++;
       if (now - fpsT > 500) { fps = (frames * 1000) / (now - fpsT); frames = 0; fpsT = now; }
-      VOICE_ENV.forEach((v) => { const l = Math.min(1, kit.env[v]); dots[v].style.opacity = 0.16 + l * 0.84; dots[v].style.setProperty('--l', l.toFixed(2)); });
+      if (useStrip) VOICE_ENV.forEach((v) => { const l = Math.min(1, kit.env[v]); dots[v].style.opacity = 0.16 + l * 0.84; dots[v].style.setProperty('--l', l.toFixed(2)); });
       if (kit.lastHit && kit.lastHit !== metrics.seenHit) { metrics.seenHit = kit.lastHit; metrics.hitToFrame = now - kit.lastHit.t; }
 
-      const playing = kit.demoOn || kit.replayOn || (kit.hitAge != null && kit.hitAge < 20000) || kit.audio.state === 'live';
+      const playing = cfg.playing ? cfg.playing() : kit.demoOn || kit.replayOn || (kit.hitAge != null && kit.hitAge < 20000) || kit.audio.state === 'live';
       document.body.classList.toggle('playing', playing);
-      if (!hideChrome && (kit.demoOn || kit.audio.state === 'live' || kit.midi.state === 'live') && now - lastMove > 9000 && !document.querySelector('dialog[open]')) document.body.classList.add('quiet');
+      const active = cfg.playing ? playing : kit.demoOn || kit.audio.state === 'live' || kit.midi.state === 'live';
+      if (!hideChrome && active && now - lastMove > 9000 && !document.querySelector('dialog[open]')) document.body.classList.add('quiet');
 
       if (now - lastText > 120) {
         lastText = now;
         renderStates();
         const pk = (p) => (Math.max(0, Math.min(1, (20 * Math.log10(p + 1e-9) + 60) / 60)) * 100).toFixed(1) + '%';
-        if (!$('audio-controls').hidden && $('connect-sheet').open) {
+        if (kitInputs && !cfg.connect && !$('audio-controls').hidden && $('connect-sheet').open) {
           $('meter-l').style.width = pk(kit.audio.peakL); $('meter-r').style.width = pk(kit.audio.peakR);
           $('audio-db').textContent = kit.audio.peakDb > -119 ? `${Math.round(kit.audio.peakDb)} dB` : 'silence';
         }
-        if ($('connect-sheet').open && kit.midi.log.length) $('midi-monitor').textContent = kit.midi.log.slice(0, 5).join('\n');
-        if ($('signal-sheet').open) {
+        if (kitInputs && !cfg.connect && $('connect-sheet').open && kit.midi.log.length) $('midi-monitor').textContent = kit.midi.log.slice(0, 5).join('\n');
+        if (useSignal && $('signal-sheet').open) {
           $('sig-tempo').textContent = kit.tempo.bpm ? `~${Math.round(kit.tempo.bpm)} BPM` : 'none yet';
           $('sig-hits').textContent = kit.hits;
           const srcName = { midi: 'from MIDI', audio: 'estimated from audio', demo: 'from the demo', replay: 'from a replay', keys: 'from keyboard pads', none: 'no source yet' };
@@ -459,7 +486,7 @@
           $('sig-quality').textContent = cfg.quality ? cfg.quality() : '';
         }
       }
-      if ($('signal-sheet').open) drawSignal();
+      if (useSignal && $('signal-sheet').open) drawSignal();
     }
 
     /* ---------- signal view ---------- */
@@ -507,8 +534,10 @@
       });
     }
 
-    kit.on('midi', () => { if ($('connect-sheet').open) $('midi-monitor').textContent = kit.midi.log.slice(0, 5).join('\n'); });
-    kit.tryReconnect();
+    if (kitInputs && !cfg.connect) {
+      kit.on('midi', () => { if ($('connect-sheet').open) $('midi-monitor').textContent = kit.midi.log.slice(0, 5).join('\n'); });
+      kit.tryReconnect();
+    }
 
     const glFail = (msg) => { const d = document.createElement('div'); d.id = 'gl-error'; d.setAttribute('role', 'alert'); d.textContent = msg; scene.appendChild(d); };
     return { frame, toast, openSheet, glFail, setMode, get mode() { return mode; }, bindRange, syncRange, get fps() { return fps; } };

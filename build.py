@@ -53,14 +53,14 @@ def static(out, src, title, description):
 
 
 if __name__ == "__main__":
-    page("endless-cockpit.html", "Endless Cockpit", "A procedural road at dusk that follows live drums: tempo sets the speed and the horizon is the live spectrum.", ["endless.js"])
+    page("endless-cockpit.html", "Endless Cockpit", "A procedural road at dusk that keeps your pace: your cadence sets the speed, from a Bluetooth sensor, the keyboard or a steady setting.", ["endless.js"])
     if (SRC / "nebula.js").exists():
         page("nebula.html", "Nebula", "A particle nebula made from the last twelve seconds of live drums: time winds outward from the core and frequency sets the color.", ["nebula.js"])
     if (SRC / "enter.js").exists():
-        page("enter.html", "Enter", "Walk into a picture and fly through a sound, moved by live drums: a first-person depth relief, a synesthetic sound field and a printable sculpture of the sound.", ["enter-workers.js", "enter.js"], extra_css=(SRC / "enter.css").read_text())
+        page("enter.html", "Enter", "Walk into a picture and fly through a sound: a first-person depth relief, a synesthetic sound field and a printable sculpture of the sound.", ["enter-workers.js", "enter-chrome.js", "enter.js"], extra_css=(SRC / "enter.css").read_text(), base=("gl.js",))
     if (SRC / "chimera.js").exists():
         page("chimera.html", "Chimera Synth", "A synth you breed by ear: animal voices, a playable genome and a phase-checked sub, synthesized live in your browser.", ["chimera-ui.js", "chimera-engine.js", "chimera.js"], base=("gl.js",), extra_css=(SRC / "chimera.css").read_text())
     if (SRC / "index.src.html").exists():
-        static("index.html", "index.src.html", "Generative AV Labs", "Nebula, Endless Cockpit, Enter and Chimera Synth: browser instruments that turn a drum kit into light and sound.")
+        static("index.html", "index.src.html", "Generative AV Labs", "Nebula, Endless Cockpit, Enter and Chimera Synth: browser instruments for light and sound, each with its own input.")
     if (SRC / "field-guide.src.html").exists():
-        static("field-guide.html", "field-guide.src.html", "Field Guide", "How to wire a drum kit to these pages, what each hit does, and what each status means.")
+        static("field-guide.html", "field-guide.src.html", "Field Guide", "How to connect each page, what each status means, and what each input does.")

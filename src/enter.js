@@ -1,10 +1,11 @@
 /* enter.js: walk into a picture, fly through a sound, print the sound.
    Three worlds with one rig. The sound world is a synesthetic map with stated axis laws. The picture world is a
    depth relief, and its depth is a learned estimate unless the page says otherwise. The print world casts sound
-   into a watertight solid. Drums move all three, and every link is a stated rule. */
+   into a watertight solid. It takes a picture or a sound, as the desktop app does, and no live input. */
 (function () {
   'use strict';
   const { createGL, createPost, FS_HEAD } = GLKit;
+  const ENV0 = { kick: 0, snare: 0, hat: 0, hatOpen: 0, tom: 0, tomPos: 0.5, crash: 0, ride: 0, flash: 0 };   // no live input: every hit uniform reads zero
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const RM = matchMedia('(prefers-reduced-motion: reduce)');
@@ -18,7 +19,7 @@
     print: 'Sculpture of the sound · stated Gabor-atom mapping · deterministic · no model',
   };
   const TRUTH = {
-    sound: 'Synesthetic map: stated mappings, not physical space. A sparse decomposition of the sound, not the waveform. Audio and MIDI stay in this browser.',
+    sound: 'Synesthetic map: stated mappings, not physical space. A sparse decomposition of the sound, not the waveform. Your sound stays in this browser.',
     picture: 'A relief, not a reconstructed scene. Your picture stays on this computer. Using your own picture downloads a model from Hugging Face and its runtime from jsDelivr, once.',
     print: 'A stated mapping with no model: time along the base, pitch up, loudness as size. Grow World and Make 3D Object stay in the desktop app.',
   };
@@ -91,7 +92,7 @@ void main(){
   float hx=uHistX-(1.-g.x)*.985,px=1./512.;
   vec2 hs=vec2(0.);for(int k=0;k<7;k++)hs+=texture(uHist,vec2(hx+float(k-3)*2.*px,g.y)).rg;hs/=7.;
   float h=hs.r*hs.r;
-  vec3 p=vec3((g.x*2.-1.)*uFS*1.25,-uFS*.62-2.+h*4.5,(g.y*2.-1.)*uFS*.8);
+  vec3 p=vec3((g.x*2.-1.)*uFS,-uFS*.62-2.+h*4.5,(g.y*2.-1.)*uFS*.8);
   vec4 clip=uVP*vec4(p,1.);gl_Position=clip;
   vG=g*vec2(12.8,16.);vW=clip.w;
   float edge=smoothstep(0.,.06,g.x)*smoothstep(1.,.94,g.x)*smoothstep(0.,.1,g.y)*smoothstep(1.,.9,g.y);
@@ -249,10 +250,8 @@ void main(){
   /* ---------- the sheets ---------- */
   const hud = `
     <div class="gauge"><span class="k" id="g-a-k">Time</span><span class="v" id="g-a">--</span></div>
-    <div class="gauge"><span class="k" id="g-b-k">Pitch</span><span class="v" id="g-b">--</span></div>
-    <div class="gauge hero"><span class="k">Tempo</span><span class="v" id="g-hero">--</span></div>
-    <div class="gauge"><span class="k">Hits</span><span class="v" id="g-hits">0</span></div>
-    <div class="gauge"><span class="k">Level</span><span class="v" id="g-level">--</span></div>`;
+    <div class="gauge hero"><span class="k" id="g-h-k">Pitch</span><span class="v" id="g-hero">--</span></div>
+    <div class="gauge"><span class="k" id="g-b-k">Atoms</span><span class="v" id="g-b">--</span></div>`;
 
   const worldSheet = `
     <div id="w-sound">
@@ -263,7 +262,7 @@ void main(){
       </div>
       <p class="world-readout" id="snd-status" role="status"></p>
       <label class="check" style="margin:0"><input type="checkbox" id="snd-hear"> Hear the field. An artistic mix of this sound, placed in space. It is not where the sound came from.</label>
-      <p class="note">Live hits arrive at the far end and flow toward you, so flying forward is flying into the present. A file holds still, and walking along X walks through it.</p>
+      <p class="note">Walking along X walks through the sound, from its start to its end. The floor is the same sound laid out as terrain.</p>
     </div>
     <div id="w-picture" hidden>
       <div class="row-actions">
@@ -292,7 +291,7 @@ void main(){
       <p class="note" id="bake-note">Saves this view, an exact mask of what the original camera never saw, and the pose. The desktop app's Detail Forge can fill those holes.</p>
     </div>
     <div id="w-print" hidden>
-      <label class="field">Sound to cast<select id="cast-source"><option value="builtin">The built-in sound</option><option value="live">My last 12 seconds</option><option value="file" disabled>The sound I chose</option></select></label>
+      <label class="field">Sound to cast<select id="cast-source"><option value="builtin">The built-in sound</option><option value="file" disabled>The sound I chose</option></select></label>
       <label class="field" style="margin-top:9px">Detail<select id="cast-detail"><option value="64">Coarse, grid of 64</option><option value="96" selected>Medium, grid of 96</option><option value="128">Fine, grid of 128</option></select></label>
       <div class="row-actions">
         <button class="pill primary" id="cast-go">Cast this sound</button>
@@ -306,61 +305,46 @@ void main(){
     <details open><summary>View</summary><div class="controls-grid" style="padding:10px 0 0">
       <label class="field"><div class="row"><span>Look speed</span><b id="k-look-v"></b></div><input type="range" id="k-look" min="4" max="180"></label>
       <label class="field"><div class="row"><span>Field of view</span><b id="k-fov-v"></b></div><input type="range" id="k-fov" min="45" max="100"></label>
-      <label class="field"><div class="row"><span>Reaction to hits</span><b id="k-react-v"></b></div><input type="range" id="k-react" min="0" max="200"></label>
       <label class="field"><div class="row"><span>Glow</span><b id="k-glow-v"></b></div><input type="range" id="k-glow" min="0" max="200"></label>
       <label class="check" style="margin:0"><input type="checkbox" id="k-inv"> Invert vertical look</label>
       <label class="check" style="margin:0"><input type="checkbox" id="k-free"> Free look: push the cursor from the center to turn</label>
       <label class="check" style="margin:0"><input type="checkbox" id="k-drift" checked> Drift when nobody is steering</label>
+      <div class="row-actions" style="margin:0"><button class="pill" id="snap">Save a picture</button></div>
     </div></details>
     <details><summary>What stays in the desktop app</summary>
       <p>Grow World needs SDXL inpainting and Make 3D Object needs rembg and TripoSR. No browser path was found for them, so they stay in the desktop Enter app. So do the Sculpture Garden, which keeps works on disk, and Send to Detail Forge.</p>
     </details>`;
 
   const about = `
-    <p class="sheet-intro">Three worlds. Sound and drums move them by stated rules. Depth in your own picture is the one learned part, and it is labeled.</p>
+    <p class="sheet-intro">Three worlds from a picture or a sound. Every link is a stated rule except one, depth in your own picture, which is a learned estimate and labeled as one.</p>
     <table class="maptable"><tbody>
       <tr><th>Sound world</th><td>A synesthetic map, not physical space. X is time, Y is log-pitch, depth and glow are salience, and color is timbre: low is warm, high is cool, and tonal sounds are more saturated. It is a sparse, heuristic decomposition of the sound, not the full waveform.</td></tr>
-      <tr><th>Floor</th><td>The last twelve seconds as terrain: time along X, frequency across, loudness as height.</td></tr>
-      <tr><th>Picture world</th><td>Estimated depth from a learned model, or a depth drawn by rule, and the badge says which. A relief, not a reconstructed scene.</td></tr>
+      <tr><th>Floor</th><td>The same sound as terrain: time along X, frequency across, loudness as height.</td></tr>
+      <tr><th>Hearing it</th><td>Each cluster of atoms plays as a looping voice placed where the cluster sits. An artistic mix, not where the sound came from.</td></tr>
+      <tr><th>Picture world</th><td>Estimated depth from a learned model, or a depth drawn by rule, and the badge says which. A relief, not a reconstructed scene. Where it tears open, that ground was never in the picture.</td></tr>
       <tr><th>Print world</th><td>Atoms deposit into a density field, a surface is extracted, and a plinth is fused on. The check that it closes runs on the mesh itself. The desktop app uses marching cubes on the same field. This page uses marching tetrahedra.</td></tr>
-      <tr><th>Spectrum</th><td>In the picture, depth carries the live spectrum: near is low, far is high.</td></tr>
-      <tr><th>Kick</th><td>A wavefront from the nearest ground to the farthest, and the relief swells. In the field, a pulse back through time.</td></tr>
-      <tr><th>Snare</th><td>A faster, paler wavefront, and a scatter of the field's mid and high atoms.</td></tr>
-      <tr><th>Hi-hat</th><td>Glints on depth cliffs, or sparkle in the top third of the field. Opening the pedal widens it.</td></tr>
-      <tr><th>Toms</th><td>A band at one depth or height, set by which tom.</td></tr>
-      <tr><th>Crash</th><td>A wash of light. A choke cuts it short.</td></tr>
-      <tr><th>Ride</th><td>A fine shimmer over the far ground.</td></tr>
     </tbody></table>
-    <p class="note">Keys: <b>W A S D</b> move · <b>Q E</b> fall and rise · <b>Shift</b> run · <b>arrows</b> look · <b>R</b> reset · <b>1 2 3</b> worlds · <b>J K L</b> kick, snare, hat · <b>U I O</b> toms · <b>P</b> crash · <b>;</b> ride · <b>N</b> demo · <b>C</b> connect · <b>F</b> full screen · <b>H</b> hide controls. Drag to look, scroll to dolly.</p>`;
+    <p class="note">Keys: <b>W A S D</b> move · <b>Q E</b> fall and rise · <b>Shift</b> run · <b>arrows</b> look · <b>R</b> reset · <b>1 2 3</b> worlds · <b>V</b> free look · <b>B</b> bake an angle · <b>G</b> hear the sculpture · <b>F</b> full screen · <b>H</b> hide controls. Drag to look, scroll to dolly.</p>
+    <details><summary>Safety and privacy</summary>
+      <p>Nothing on this page flashes. When nobody is steering, the camera drifts slowly, and your system's reduced-motion setting stops that.</p>
+      <p>Your picture and your sound stay on this computer, and nothing about them is sent anywhere. The page asks the network for nothing until you use the depth model on a picture of your own. Then it downloads the model from Hugging Face and its runtime from jsDelivr, once, and keeps them in this browser.</p>
+    </details>
+    <details><summary>Credits</summary>
+      <p>The depth model is <a href="https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf" rel="noopener">Depth Anything V2 Small</a> by Lihe Yang and colleagues (Apache-2.0), in the <a href="https://huggingface.co/onnx-community/depth-anything-v2-small" rel="noopener">ONNX build</a> from onnx-community. It runs on <a href="https://github.com/microsoft/onnxruntime" rel="noopener">ONNX Runtime Web</a> (MIT). Neither is part of this page: both download when you first need them. Everything else is written here.</p>
+    </details>
+    <p class="note"><a href="__REPO_URL__" rel="noopener">Source</a></p>`;
 
-  const kit = createKit();
   const brand = '<svg viewBox="0 0 24 28" aria-hidden="true"><path d="M5 25V8l7-5 7 5v17"/><path d="M12 25V13"/><circle cx="12" cy="10" r="1.6"/></svg>';
-  const shell = mountShell({
-    id: 'enter', name: 'Enter', brand, kit,
+  const shell = mountEnterChrome({
+    name: 'Enter', brand,
     modes: [{ id: 'sound', label: 'Sound' }, { id: 'picture', label: 'Picture' }, { id: 'print', label: 'Print' }], mode: 'sound', modeLabel: 'Which world',
     onMode: (m) => setWorld(m),
-    intro: { eyebrow: 'Enter · walk into a picture, fly through a sound', title: 'Cross the surface.', subtitle: 'W A S D to move, drag to look. Connect your kit, or run the demo. No helper app.' },
-    hud,
-    truth: TRUTH.sound,
+    intro: { eyebrow: 'Enter · walk into a picture, fly through a sound', title: 'Cross the surface.', subtitle: 'W A S D to move, drag to look. Choose a picture or a sound under World. No helper app.' },
+    hud, truth: TRUTH.sound,
     sheets: [{ id: 'world', label: 'World', icon: 'sliders', title: 'Choose what to enter.', html: worldSheet }],
-    about, canvas: () => cv, snapshot: (done) => { wantSnap = done; }, quality: () => (S.world === 'picture' ? `${S.seg} × ${S.seg} relief` : S.world === 'sound' ? `${(fileN + liveCount).toLocaleString()} atoms` : `${(M ? M.count / 3 : 0).toLocaleString()} faces`),
+    about,
   });
-
-  // The shell's About text is written for pages that make no requests. This page can make some, so it says so.
-  function patchAbout() {
-    const details = [...document.querySelectorAll('#about-sheet details')];
-    const privacy = details.find((d) => /Safety and privacy/.test(d.textContent));
-    const credit = details.find((d) => /Ideas credited/.test(d.textContent));
-    const ps = privacy.querySelectorAll('p');
-    ps[ps.length - 1].textContent = 'Audio and MIDI are analyzed in this browser and never sent anywhere. Your picture stays on this computer too. The page itself asks the network for nothing until you use the depth model on a picture of your own. Then it downloads the model from Hugging Face and its runtime from jsDelivr, once, and keeps them in this browser. Nothing about your picture goes with those requests. Your device choice and pad map stay in this browser\'s storage.';
-    credit.querySelector('summary').textContent = 'Credits';
-    const p = credit.querySelector('p');
-    p.innerHTML = 'The depth model is <a href="https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf" rel="noopener">Depth Anything V2 Small</a> by Lihe Yang and colleagues (Apache-2.0), in the <a href="https://huggingface.co/onnx-community/depth-anything-v2-small" rel="noopener">ONNX build</a> from onnx-community. It runs on <a href="https://github.com/microsoft/onnxruntime" rel="noopener">ONNX Runtime Web</a> (MIT). Neither is part of this page: both download when you first need them. Everything else is written here, with ideas from <a href="https://github.com/jberg/butterchurn" rel="noopener">Butterchurn</a> (MIT), <a href="https://github.com/PavelDoGreat/WebGL-Fluid-Simulation" rel="noopener">WebGL Fluid Simulation</a> (MIT), <a href="https://github.com/loqwai/paper-cranes" rel="noopener">paper-cranes</a> (BSD-3-Clause), <a href="https://github.com/audiojs/beat" rel="noopener">@audio/beat</a> and <a href="https://github.com/dlepaux/realtime-bpm-analyzer" rel="noopener">realtime-bpm-analyzer</a> (Apache-2.0).';
-    const f = [...document.querySelectorAll('#connect-sheet p')].find((x) => /synthetic drum machine/.test(x.textContent));
-    if (f) f.textContent = 'The demo is a synthetic drum machine. It runs through the same analysis and is labeled on screen the whole time.';
-  }
-  patchAbout();
-  if (matchMedia('(pointer: coarse)').matches) { const sub = document.querySelector('.intro p:last-child'); if (sub) sub.textContent = 'Drag to look, hold Fwd to fly, pinch to move. Connect your kit, or run the demo.'; }
+  if (matchMedia('(pointer: coarse)').matches) { const sub = document.querySelector('.intro p:last-child'); if (sub) sub.textContent = 'Drag to look, hold Fwd to fly, pinch to move. Choose a picture or a sound under World.'; }
 
   const scene0 = $('scene');
   scene0.insertAdjacentHTML('beforeend', `
@@ -370,7 +354,7 @@ void main(){
     <div id="world-info" class="chrome"><p id="world-badge" data-kind="sound"></p><p id="world-source"></p></div>
     <div id="touch-pad" class="chrome"><button id="touch-fwd" aria-label="Move forward">Fwd</button><button id="touch-back" aria-label="Move back">Back</button></div>`);
   $('truth').insertAdjacentHTML('afterend', '<p id="credit-line" class="chrome">Picture depth, when you ask for it: Depth Anything V2 Small (Apache-2.0) on ONNX Runtime Web (MIT), both downloaded on first use.</p>');
-  $('chip-midi').insertAdjacentHTML('afterend', '<button class="chip chrome" id="chip-model" data-tone="wait" hidden><span class="dot" aria-hidden="true"></span><span id="chip-model-text"></span></button>');
+  $('badges').insertAdjacentHTML('beforeend', '<button class="chip chrome" id="chip-model" data-tone="wait" hidden><span class="dot" aria-hidden="true"></span><span id="chip-model-text"></span></button>');
   $('chip-model').addEventListener('click', () => { shell.setMode('picture'); shell.openSheet('world'); });
 
   const cv = $('stage');
@@ -379,7 +363,7 @@ void main(){
   const picLim = { graded: null, a: null, b: null, lod: 0, fresh: true };
   let tN, tHist, tSpec, points, trailA, trailB, scene, msaa, maskT, rw = 0, rh = 0;
   let wantSnap = null, strongGPU = false;
-  const specBytes = new Uint8Array(kit.BANDS * 4);
+  const specBytes = new Uint8Array(64 * 4);
 
   /* ---------- math ---------- */
   function perspective(fov, asp, n, f) { const t = 1 / Math.tan(fov / 2); return [t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, (2 * f * n) / (n - f), 0]; }
@@ -482,40 +466,30 @@ void main(){
   }
 
   /* ---------- the sound world's data ---------- */
-  const LIVE_N = 8192, liveData = new Float32Array(LIVE_N * 6).fill(-1), liveR = mulberry(20261102);
-  let liveHead = 0, liveCount = 0, vaoLive = null, vboLive = null, vaoFile = null, vboFile = null, fileN = 0, liveDirty = false;
+  let vaoFile = null, vboFile = null, fileN = 0;
   const Sound = { name: 'built-in', atoms: null, dur: 12, rate: 44100, label: 'Built-in sound: a synthesized pattern, not your audio', fromFile: false };
   const toV = (f, rate) => { const hi = Math.log((rate || 44100) / 2); return ((Math.log(Math.max(40, f)) - LF0) / (hi - LF0)) * 2 - 1; };
-  function pushLive(v, amp, ton, born) {
-    const i = liveHead * 6;
-    liveData.set([0, clamp(v, -1, 1), liveR(), amp, ton, born], i);
-    liveHead = (liveHead + 1) % LIVE_N; liveCount = Math.min(LIVE_N, liveCount + 1); liveDirty = true;
-  }
   const sTime = () => performance.now() / 1000;
-  kit.on('column', (x) => {
-    if (G && tHist) { G.bindTex(0, tHist); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1); gl.texSubImage2D(gl.TEXTURE_2D, 0, x, 0, 1, kit.BANDS, gl.RG, gl.UNSIGNED_BYTE, kit.column); }
-    const c = kit.column, B = kit.BANDS, born = sTime(), ton = kit.tonal;
-    for (let i = 1; i < B - 1; i++) {
-      const v = c[i * 2] / 255;
-      if (v > 0.26 && c[i * 2] >= c[(i - 1) * 2] && c[i * 2] > c[(i + 1) * 2]) pushLive(toV(KitMath.bandFreq(i)) + (liveR() - 0.5) * 0.02, v * v, ton, born);
+  const pulses = [], fronts = [];                    // nothing live starts these, so they stay empty
+  const VOICE_HUE = { kick: 0.03 };
+  // The floor: the field's sound over its length as terrain. Time along X, frequency across, loudness as height.
+  const HIST_W = 512, BANDS = 64, fieldHist = new Uint8Array(HIST_W * BANDS * 2), gasTarget = { l: 0.1, m: 0.1, h: 0.1, v: 0.1 };
+  function fieldToFloor(atoms, dur, rate) {
+    fieldHist.fill(0);
+    const band = [0, 0, 0], cnt = [0, 0, 0];
+    for (const a of atoms) {
+      const x = clamp(Math.floor((a.time / dur) * HIST_W), 0, HIST_W - 1), vb = (toV(a.f, rate) + 1) / 2, b = clamp(Math.floor(vb * BANDS), 0, BANDS - 1), ton = Math.round(255 * clamp(a.ton == null ? 0.6 : a.ton, 0, 1));
+      for (let dx = -3; dx <= 3; dx++) for (let db = -1; db <= 1; db++) {
+        const xx = x + dx, bb = b + db; if (xx < 0 || xx >= HIST_W || bb < 0 || bb >= BANDS) continue;
+        const o = (xx + bb * HIST_W) * 2, v = Math.round(255 * Math.min(1, a.amp * Math.exp(-(dx * dx) / 4 - db * db)));
+        if (v > fieldHist[o]) { fieldHist[o] = v; fieldHist[o + 1] = ton; }
+      }
+      const k = vb < 0.3 ? 0 : vb < 0.7 ? 1 : 2; band[k] += a.amp; cnt[k]++;
     }
-  });
-  // Pulses and wavefronts: each hit starts one, in its stated shape.
-  const pulses = [], fronts = []; let lastPulse = -1e9;
-  const VOICE_HUE = { kick: 0.03, snare: 0.12, hat: 0.5, tom: 0.28, crash: 0.08, ride: 0.58 };
-  kit.on('hit', (h) => {
-    const v = h.vel * S.react * (RM.matches ? 0.35 : 1), now = performance.now();
-    if (h.voice === 'kick' && now - lastPulse > 450) { pulses.push({ t0: now, s: v, speed: 0.45, k: 6 }); lastPulse = now; }
-    if (pulses.length > 4) pulses.shift();
-    if (h.voice === 'kick') fronts.push({ t0: now, from: 1.02, to: -0.1, dur: 900, w: 0.045, s: 1.05 * v, hue: VOICE_HUE.kick });
-    else if (h.voice === 'snare') fronts.push({ t0: now, from: 1.02, to: -0.1, dur: 430, w: 0.03, s: 0.8 * v, hue: VOICE_HUE.snare });
-    else if (h.voice === 'tom') fronts.push({ t0: now, from: 0.8 - kit.env.tomPos * 0.7, to: 0.8 - kit.env.tomPos * 0.7, dur: 500, w: 0.05, s: 1.15 * v, hue: VOICE_HUE.tom, still: true });
-    else if (h.voice === 'crash') fronts.push({ t0: now, from: 0.5, to: 0.5, dur: 1200, w: 0.85, s: 0.42 * v, hue: VOICE_HUE.crash, still: true });
-    if (fronts.length > 8) fronts.shift();
-    // A burst of atoms at this drum's pitch, so the present keeps its sharp events.
-    const ctr = { kick: 70, snare: 240, hat: 9000, tom: 95 + kit.env.tomPos * 200, crash: 7000, ride: 4200 }[h.voice] || 300, wide = { kick: 0.05, snare: 0.5, hat: 0.1, tom: 0.05, crash: 0.5, ride: 0.2 }[h.voice] || 0.1, n = Math.round(4 + h.vel * 12), born = sTime();
-    for (let i = 0; i < n; i++) pushLive(toV(ctr) + (liveR() - 0.5) * wide, Math.pow(h.vel, 1.3) * (0.5 + liveR() * 0.5), h.voice === 'tom' || h.voice === 'kick' ? 0.8 : 0.2, born - liveR() * 0.04);
-  });
+    const n = Math.max(1, atoms.length);
+    gasTarget.l = clamp((band[0] / n) * 1.6, 0.05, 0.6); gasTarget.m = clamp((band[1] / n) * 1.6, 0.05, 0.6); gasTarget.h = clamp((band[2] / n) * 1.6, 0.05, 0.6); gasTarget.v = (gasTarget.l + gasTarget.m + gasTarget.h) / 3;
+    if (G && gl && tHist) { G.bindTex(0, tHist); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, HIST_W, BANDS, gl.RG, gl.UNSIGNED_BYTE, fieldHist); }
+  }
   function builtInSound() {
     const r = mulberry(4242), atoms = [], dur = 12, bpm = 104, st = 60 / bpm / 4;
     for (let s = 0; s * st < dur; s++) {
@@ -536,6 +510,7 @@ void main(){
   function setField(atoms, dur, rate, label, fromFile) {
     Sound.atoms = atoms; Sound.dur = dur; Sound.rate = rate; Sound.label = label; Sound.fromFile = fromFile;
     fileN = atoms.length;
+    fieldToFloor(atoms, dur, rate);
     if (G && gl) { gl.bindBuffer(gl.ARRAY_BUFFER, vboFile); gl.bufferData(gl.ARRAY_BUFFER, atomsToField(atoms, dur, rate), gl.STATIC_DRAW); }
     $('snd-status').innerHTML = `<b>${label}</b> · ${atoms.length.toLocaleString()} atoms over ${dur.toFixed(1)} s`;
     if (S.world === 'sound') renderWorldLabels();
@@ -828,22 +803,12 @@ void main(){
   /* ---------- the print world's data ---------- */
   const Cast = { file: null, busy: false };
   let M = null, vaoMesh = null, vboMesh = null, iboMesh = null;
-  function liveAtoms() {
-    const W = kit.HIST_W, B = kit.BANDS, atoms = [], x0 = kit.histX, dur = W / kit.HIST_RATE;
-    for (let dx = 0; dx < W; dx += 2) {
-      const col = (x0 + 1 + dx) % W;
-      for (let b = 1; b < B - 1; b++) { const o = (col + b * W) * 2, v = kit.hist[o] / 255; if (v > 0.2 && kit.hist[o] >= kit.hist[(col + (b - 1) * W) * 2] && kit.hist[o] > kit.hist[(col + (b + 1) * W) * 2]) atoms.push({ time: (dx / W) * dur, f: KitMath.bandFreq(b), amp: v, ton: kit.hist[o + 1] / 255 }); }
-    }
-    atoms.sort((a, b) => b.amp - a.amp);
-    return { atoms: atoms.slice(0, 420), dur, rate: 44100 };
-  }
   async function castNow() {
     if (Cast.busy) return;
     const which = $('cast-source').value, G3 = +$('cast-detail').value;
-    let src = which === 'file' && Cast.file ? { ...Cast.file, atoms: Cast.file.atoms.slice(0, 420) } : which === 'live' ? liveAtoms() : builtInSound();
-    if (which === 'live' && src.atoms.length < 24) { $('cast-status').textContent = 'There is not enough recent sound yet. Play for a few seconds, or run the demo, and try again.'; return; }
+    let src = which === 'file' && Cast.file ? { ...Cast.file, atoms: Cast.file.atoms.slice(0, 420) } : builtInSound();
     if (which === 'builtin') { const st = Math.max(1, Math.floor(src.atoms.length / 420)); src = { ...src, atoms: src.atoms.filter((_, i) => i % st === 0).slice(0, 420).map((a) => ({ ...a, amp: Math.pow(a.amp, 2.2) })) }; }
-    const label = which === 'file' ? Cast.file.name : which === 'live' ? 'your last 12 seconds' : 'the built-in sound';
+    const label = which === 'file' ? Cast.file.name : 'the built-in sound';
     Cast.busy = true; $('cast-go').disabled = true; $('cast-status').textContent = `Casting ${label}.`;
     try {
       const r = await cast.cast(src.atoms, src.dur, src.rate, G3, (p, msg) => { $('cast-status').textContent = `Casting ${label}: ${msg}, ${p}%.`; });
@@ -869,7 +834,6 @@ void main(){
     $('cast-stl').textContent = `Download STL (${mb(84 + (idx.length / 3) * 50)} MB)`;
     $('cast-status').innerHTML = `<b>${label}</b> · ${r.atoms} atoms · ${(idx.length / 3).toLocaleString()} faces · ${r.bodies} ${r.bodies === 1 ? 'body' : 'bodies'} · <b>${r.watertight ? 'watertight, checked on every edge' : `not watertight: ${r.openEdges} open edges`}</b> · ${Math.round(r.ms)} ms`;
     updateSource();
-    kit.noteLane('cast', label);
   }
   // Binary STL with Z up, which is what slicers expect. One grid cell is one millimeter.
   function stlBlob() {
@@ -951,6 +915,7 @@ void main(){
     return holePct;
   }
   $('pic-bake').addEventListener('click', bakeAngle);
+  $('snap').addEventListener('click', () => { wantSnap = (blob) => save(blob, `enter-${S.world}-${Date.now()}.png`); });
 
   /* ---------- controls ---------- */
   const bind = (id, get, set, fmt) => { const r = $(id), lab = $(`${id}-v`); r.value = get(); shell.syncRange(r); lab.textContent = fmt(+r.value); r.addEventListener('input', () => { shell.syncRange(r); set(+r.value); lab.textContent = fmt(+r.value); }); };
@@ -958,13 +923,11 @@ void main(){
   bind('k-tear', () => S.tear, (v) => { S.tear = v; }, (v) => (v <= 0 ? 'off' : `${Math.round((v / 200) * 100)}%`));
   bind('k-look', () => S.look * 100, (v) => { S.look = v / 100; }, (v) => `${Math.round(v)}%`);
   bind('k-fov', () => S.fov, (v) => { S.fov = v; }, (v) => `${Math.round(v)}°`);
-  bind('k-react', () => S.react * 100, (v) => { S.react = v / 100; }, (v) => `${Math.round(v)}%`);
   bind('k-glow', () => S.glow * 100, (v) => { S.glow = v / 100; }, (v) => `${Math.round(v)}%`);
   $('k-inv').addEventListener('change', (e) => { S.inv = e.target.checked; });
   $('k-free').addEventListener('change', (e) => { S.free = e.target.checked; });
   $('k-drift').addEventListener('change', (e) => { S.drift = e.target.checked; });
   const tearT = () => (S.tear <= 0 ? 0 : 0.3 - 0.28 * (S.tear / 200));
-  kit.on('lane', (l) => { if (l.name === 'world') shell.setMode(l.value); });
 
   /* ---------- world switch and labels ---------- */
   function renderWorldLabels() {
@@ -972,7 +935,7 @@ void main(){
     if (S.world !== 'sound') { labels = []; return; }
     const s = (text, p) => { const e = document.createElement('span'); e.textContent = text; box.appendChild(e); return { e, p }; };
     labels = [];
-    if (Sound.fromFile) { const d = Sound.dur; for (let i = 0; i <= 4; i++) labels.push(s(`${((d * i) / 4).toFixed(1)} s`, [(i / 2 - 1) * FS, -FS * 0.62 - 2.6, FS * 0.86])); } else { [0, 3, 6, 9, 12].forEach((t) => labels.push(s(t === 0 ? 'now' : `−${t} s`, [(1 - (2 * t) / LIVE_SPAN) * FS, -FS * 0.62 - 2.6, FS * 0.86]))); }
+    { const d = Sound.dur; for (let i = 0; i <= 4; i++) labels.push(s(`${((d * i) / 4).toFixed(1)} s`, [(i / 2 - 1) * FS, -FS * 0.62 - 2.6, FS * 0.86])); }
     [100, 1000, 10000].forEach((f) => labels.push(s(f >= 1000 ? `${f / 1000} kHz` : `${f} Hz`, [null, toV(f, Sound.rate) * FS * 0.62, -FS * 0.55])));
   }
   let labels = [];
@@ -997,14 +960,14 @@ void main(){
   function setWorld(w) {
     S.world = w; document.body.dataset.world = w;
     $('w-sound').hidden = w !== 'sound'; $('w-picture').hidden = w !== 'picture'; $('w-print').hidden = w !== 'print';
-    $('g-a-k').textContent = w === 'sound' ? 'Time' : w === 'picture' ? 'Depth here' : 'Atoms';
-    $('g-b-k').textContent = w === 'sound' ? 'Pitch' : w === 'picture' ? 'Unseen' : 'Faces';
+    $('g-a-k').textContent = w === 'sound' ? 'Time' : w === 'picture' ? 'Unseen' : 'Atoms';
+    $('g-h-k').textContent = w === 'sound' ? 'Pitch' : w === 'picture' ? 'Depth here' : 'Faces';
+    $('g-b-k').textContent = w === 'sound' ? 'Atoms' : w === 'picture' ? 'Relief' : 'Closed';
     picLim.fresh = true;
     if (w === 'picture' && !P && G && gl) showPainted();
     if (w === 'print' && !M && !Cast.busy && G && gl) castNow();
     $('truth').textContent = TRUTH[w];
     renderWorldLabels(); updateSource();
-    kit.noteLane('world', w);
     if (Voices.master) Voices.master.gain.value = w === 'sound' ? 0.8 : 0;
     tetherOut = false; $('tether').classList.remove('show');
   }
@@ -1083,7 +1046,7 @@ void main(){
   }
   const gas = { l: 0, m: 0, h: 0, v: 0 };
   function renderSound(now, dt, dtMs, env) {
-    const c = cams.sound, cam = cameraVP(c, rw / rh), t = now / 1000, histX = (kit.histX + 0.5) / kit.HIST_W, blow = S.react * (RM.matches ? 0.35 : 1);
+    const c = cams.sound, cam = cameraVP(c, rw / rh), t = now / 1000, histX = (HIST_W - 0.5) / HIST_W, blow = S.react * (RM.matches ? 0.35 : 1);
     G.into(points); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
     if (S.floor !== false) {
@@ -1093,13 +1056,12 @@ void main(){
     }
     const common = { uVP: cam.VP, uNow: sTime(), uPxK: rh * 0.13, uMaxPx: Math.max(6, rh * 0.02), uT: t, uFS: FS, uKick: env.kick, uSnare: env.snare, uHat: env.hat, uHatOpen: env.hatOpen, uTom: env.tom, uTomPos: env.tomPos, uRide: env.ride, uCrash: env.crash, uBlow: blow, uPulse: pulseU };
     if (fileN) { gl.bindVertexArray(vaoFile); G.use(pSprite, { ...common, uLive: 0, uI: Sound.fromFile ? 0.9 : 0.62 }); gl.drawArrays(gl.POINTS, 0, fileN); }
-    if (liveCount) { gl.bindVertexArray(vaoLive); if (liveDirty) { gl.bindBuffer(gl.ARRAY_BUFFER, vboLive); gl.bufferSubData(gl.ARRAY_BUFFER, 0, liveData); liveDirty = false; } G.use(pSprite, { ...common, uLive: 1, uI: 0.95 }); gl.drawArrays(gl.POINTS, 0, LIVE_N); }
     gl.bindVertexArray(null); gl.disable(gl.BLEND);
     G.into(trailB); G.bindTex(0, points.tex); G.bindTex(1, trailA.tex);
     G.use(pTrail, { uPts: 0, uPrev: 1, uFade: clamp(Math.pow(0.42 + 0.12 * env.crash, dtMs / 16.67), 0, 0.92) }); G.draw();
     [trailA, trailB] = [trailB, trailA];
     G.into(scene); G.bindTex(0, tN); G.bindTex(1, trailA.tex);
-    const gk = 1 - Math.exp(-dt / 0.8); gas.l += (kit.low - gas.l) * gk; gas.m += (kit.mid - gas.m) * gk; gas.h += (kit.high - gas.h) * gk; gas.v += (kit.loud - gas.v) * gk;
+    const gk = 1 - Math.exp(-dt / 0.8); gas.l += (gasTarget.l - gas.l) * gk; gas.m += (gasTarget.m - gas.m) * gk; gas.h += (gasTarget.h - gas.h) * gk; gas.v += (gasTarget.v - gas.v) * gk;
     G.use(pSky, { uN: 0, uTrail: 1, uF: cam.F, uR: cam.R, uU: cam.U, uTan: cam.tan, uT: t, uLow: gas.l, uMid: gas.m, uHigh: gas.h, uLoud: gas.v, uKick: 0, uHat: env.hat, uHatOpen: env.hatOpen, uRide: env.ride, uCrash: 0, uSnare: 0 });
     G.draw();
     const bloom = Post.bloom(scene.tex, 0.9);
@@ -1110,8 +1072,6 @@ void main(){
   }
   function renderPicture(now, dt, env, dtS) {
     const c = cams.picture, cam = cameraVP(c, rw / rh), t = now / 1000;
-    for (let i = 0; i < kit.BANDS; i++) specBytes[i * 4] = Math.round(kit.spectrum[i] * 255);
-    G.bindTex(2, tSpec); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, kit.BANDS, 1, gl.RGBA, gl.UNSIGNED_BYTE, specBytes);
     gl.bindFramebuffer(gl.FRAMEBUFFER, msaa.fbo); gl.viewport(0, 0, rw, rh);
     gl.clearColor(0.0045, 0.006, 0.012, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.enable(gl.DEPTH_TEST);
@@ -1140,7 +1100,7 @@ void main(){
     gl.bindFramebuffer(gl.FRAMEBUFFER, msaa.fbo); gl.viewport(0, 0, rw, rh);
     gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     const fvec = [-V.z[0], -V.z[1], -V.z[2]];
-    const gk = 1 - Math.exp(-dt / 0.8); gas.v += (kit.loud - gas.v) * gk;
+    const gk = 1 - Math.exp(-dt / 0.8); gas.v += (gasTarget.v - gas.v) * gk;
     G.use(pGallery, { uF: fvec, uR: V.x, uU: V.y, uEye: eye, uTan: [tanY * asp, tanY], uLoud: gas.v, uKick: 0, uCrash: 0, uT: t });
     G.draw();
     if (M) {
@@ -1160,32 +1120,29 @@ void main(){
   const printU = new Float32Array(32);
   function printFronts() { printU.fill(0); for (let k = 0; k < 8; k++) { printU[k * 4] = 9; printU[k * 4 + 1] = 1; } for (let k = 0; k < 4; k++) { if (pulseU[k * 4 + 2] <= 0) continue; printU[k * 4] = -pulseU[k * 4]; printU[k * 4 + 1] = 0.085; printU[k * 4 + 2] = pulseU[k * 4 + 2] * 1.6; printU[k * 4 + 3] = VOICE_HUE.kick; } return printU; }
 
-  function updateHud(cam) {
-    $('g-hits').textContent = kit.hits;
-    $('g-hero').textContent = kit.tempo.bpm ? Math.round(kit.tempo.bpm) : '--';
-    $('g-level').innerHTML = kit.audio.state === 'live' ? `${Math.round(kit.audio.peakDb)}<small>dB</small>` : kit.demoOn ? 'demo' : '--';
-    const a = $('g-a'), b = $('g-b');
+  function updateHud() {
+    const a = $('g-a'), h = $('g-hero'), b = $('g-b');
     if (S.world === 'sound') {
-      const p = cams.sound.pos, tx = clamp(p[0] / FS, -1, 1);
-      a.innerHTML = Sound.fromFile ? `${(((tx + 1) / 2) * Sound.dur).toFixed(1)}<small>s</small>` : `−${(((1 - tx) / 2) * LIVE_SPAN).toFixed(1)}<small>s</small>`;
-      const v = p[1] / (FS * 0.62);
-      b.innerHTML = Math.abs(v) > 1 ? 'off map' : fmtHz(Math.exp(LF0 + ((v + 1) / 2) * (Math.log(Sound.rate / 2) - LF0)));
+      const p = cams.sound.pos, tx = clamp(p[0] / FS, -1, 1), v = p[1] / (FS * 0.62);
+      a.innerHTML = `${(((tx + 1) / 2) * Sound.dur).toFixed(1)}<small>s</small>`;
+      const f = Math.exp(LF0 + ((v + 1) / 2) * (Math.log(Sound.rate / 2) - LF0));
+      h.textContent = Math.abs(v) > 1 ? 'off map' : f >= 1000 ? (f / 1000).toFixed(1) : Math.round(f); $('g-h-k').textContent = f >= 1000 ? 'Pitch · kHz' : 'Pitch · Hz';
+      b.textContent = fileN.toLocaleString();
     } else if (S.world === 'picture' && P) {
       const c = cams.picture, f = forward(c), t = -c.pos[2] / (f[2] || -1e-3), hx = c.pos[0] + f[0] * t, hy = c.pos[1] + f[1] * t, u = hx / P.planeW + 0.5, w = 0.5 - hy / P.planeH;
-      if (t > 0 && u >= 0 && u <= 1 && w >= 0 && w <= 1) { const d = P.depth[Math.min(P.w - 1, Math.floor(u * P.w)) + Math.min(P.h - 1, Math.floor(w * P.h)) * P.w]; a.innerHTML = `${d.toFixed(2)}<small>${P.kind === 'estimated' ? 'est' : 'rule'}</small>`; } else a.textContent = 'off';
-      b.innerHTML = P.unseen == null ? '--' : `${P.unseen.toFixed(1)}<small>%</small>`;
+      if (t > 0 && u >= 0 && u <= 1 && w >= 0 && w <= 1) { const d = P.depth[Math.min(P.w - 1, Math.floor(u * P.w)) + Math.min(P.h - 1, Math.floor(w * P.h)) * P.w]; h.textContent = d.toFixed(2); $('g-h-k').textContent = P.kind === 'estimated' ? 'Depth here · estimated' : 'Depth here · by rule'; } else h.textContent = 'off';
+      a.innerHTML = P.unseen == null ? '--' : `${P.unseen.toFixed(1)}<small>%</small>`;
+      b.innerHTML = `${S.seg}<small>²</small>`;
     } else if (S.world === 'print') {
-      a.textContent = M ? M.atoms : '--'; b.textContent = M ? (M.count / 3 > 999 ? `${Math.round(M.count / 3000)}k` : M.count / 3) : '--';
+      a.textContent = M ? M.atoms : '--'; h.textContent = M ? (M.count / 3 > 999 ? `${Math.round(M.count / 3000)}k` : M.count / 3) : '--'; b.textContent = M ? (M.watertight ? 'yes' : 'no') : '--';
     }
   }
   function render(now) {
     requestAnimationFrame(render);
     try {
       const dtMs = Math.min(100, now - last); last = now;
-      kit.tick(now);
-      shell.frame(now);
       if (!G || gl.isContextLost()) return;
-      const dt = Math.min(1 / 30, dtMs / 1000), env = kit.env;
+      const dt = Math.min(1 / 30, dtMs / 1000), env = ENV0;
       if (dtMs > 26) slow++; else if (dtMs < 11) fast++;
       if (++frameIdx % 120 === 0) {
         if (slow > 40) { if (S.world === 'picture' && S.seg > 256) S.seg = S.seg > 768 ? 768 : S.seg > 512 ? 512 : 256; else if (S.scale > 0.4) { S.scale *= 0.75; resize(); } } else if (fast > 100 && S.scale < 1.6) { S.scale *= 1.2; resize(); } else if (S.world === 'picture' && slow < 4 && strongGPU && S.seg < 1400 && frameIdx > 300) S.seg = S.seg < 1024 ? 1024 : 1400;
@@ -1199,17 +1156,15 @@ void main(){
       else if (S.world === 'picture') { if (!P) showPainted(); cam = renderPicture(now, dt, env, dtMs / 1000); } else renderPrint(now, dt, env, dtMs / 1000);
       if (lumaRec) lumaRec(now);
       if (wantSnap) { const done = wantSnap; wantSnap = null; cv.toBlob((blob) => done(blob), 'image/png'); }
-      if (frameIdx % 6 === 0) updateHud(cam);
+      if (frameIdx % 6 === 0) updateHud();
     } catch (e) { if (fails++ < 3) console.error(e); }
   }
 
-  shell.onKeyHook = null;
   addEventListener('keydown', (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return;
     if (e.target.closest && e.target.closest('input, select, textarea, dialog[open]')) return;
     const k = e.key.toLowerCase();
     if (k === 'r') resetRig();
-    else if (k === 'n') $('demo-button').click();
     else if (k === '1') shell.setMode('sound');
     else if (k === '2') shell.setMode('picture');
     else if (k === '3') shell.setMode('print');
@@ -1220,13 +1175,11 @@ void main(){
 
   /* ---------- boot ---------- */
   const b0 = builtInSound();
-  Sound.atoms = b0.atoms; Sound.dur = b0.dur; fileN = b0.atoms.length;
+  Sound.atoms = b0.atoms; Sound.dur = b0.dur; fileN = b0.atoms.length; fieldToFloor(b0.atoms, b0.dur, b0.rate);
   $('snd-status').innerHTML = `<b>${Sound.label}</b> · ${fileN.toLocaleString()} atoms over ${b0.dur.toFixed(1)} s`;
   document.body.dataset.world = 'sound';
   if (!G || !(G.floatRT || G.gl.getExtension('EXT_color_buffer_half_float'))) {
-    shell.glFail('This page needs WebGL2 with floating-point render targets, which this browser did not provide. The inputs below still report their state.');
-    const idle = (now) => { requestAnimationFrame(idle); kit.tick(now); shell.frame(now); };
-    requestAnimationFrame(idle);
+    shell.glFail('This page needs WebGL2 with floating-point render targets, which this browser did not provide.');
   } else {
     gl = G.gl;
     try {
@@ -1234,13 +1187,12 @@ void main(){
       pSprite = G.program(SPRITE_FS, SPRITE_VS); pTerrain = G.program(TERRAIN_FS, TERRAIN_VS); pTrail = G.program(TRAIL_FS); pSky = G.program(SKY_FS);
       pRelief = G.program(RELIEF_FS, RELIEF_VS); pMask = G.program(MASK_FS, RELIEF_VS); pPicGrade = G.program(PIC_GRADE_FS); pPicLimit = G.program(PIC_LIMIT_FS); pPicOut = G.program(PIC_OUT_FS); pGallery = G.program(GALLERY_FS); pMesh = G.program(MESH_FS, MESH_VS);
       tN = G.noiseTexture(20261103);
-      tHist = G.tex(kit.HIST_W, kit.BANDS, { internal: gl.RG8, format: gl.RG, type: gl.UNSIGNED_BYTE }, { data: kit.hist });
+      tHist = G.tex(HIST_W, BANDS, { internal: gl.RG8, format: gl.RG, type: gl.UNSIGNED_BYTE }, { data: fieldHist });
       G.bindTex(0, tHist); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-      tSpec = G.tex(kit.BANDS, 1, { internal: gl.RGBA8, format: gl.RGBA, type: gl.UNSIGNED_BYTE }, { data: specBytes });
+      tSpec = G.tex(64, 1, { internal: gl.RGBA8, format: gl.RGBA, type: gl.UNSIGNED_BYTE }, { data: specBytes });
       maskT = G.target(96, 54, { internal: gl.RGBA8, format: gl.RGBA, type: gl.UNSIGNED_BYTE });
       const attrib = (vao, vbo) => { gl.bindVertexArray(vao); gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 4, gl.FLOAT, false, 24, 0); gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 24, 16); gl.bindVertexArray(null); };
       vaoFile = gl.createVertexArray(); vboFile = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vboFile); gl.bufferData(gl.ARRAY_BUFFER, atomsToField(b0.atoms, b0.dur, b0.rate), gl.STATIC_DRAW); attrib(vaoFile, vboFile);
-      vaoLive = gl.createVertexArray(); vboLive = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vboLive); gl.bufferData(gl.ARRAY_BUFFER, liveData, gl.DYNAMIC_DRAW); attrib(vaoLive, vboLive);
       vaoMesh = gl.createVertexArray(); vboMesh = gl.createBuffer(); iboMesh = gl.createBuffer();
       const info = gl.getExtension('WEBGL_debug_renderer_info'), renderer = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : '';
       strongGPU = /apple m\d+ (pro|max|ultra)|apple m[3-9]|rtx|radeon rx/i.test(renderer);
@@ -1276,8 +1228,8 @@ void main(){
   if (G && gl && (w0 === 'picture' || w0 === 'print')) shell.setMode(w0);
 
   window.__app = {
-    S, kit, Sound, Cast, cams, depth, recordLuma,
-    get P() { return P; }, get M() { return M; }, get liveCount() { return liveCount; }, get fileN() { return fileN; },
+    S, Sound, Cast, cams, depth, recordLuma,
+    get P() { return P; }, get M() { return M; }, get fileN() { return fileN; },
     reliefPoint, builtInSound, stlBlob, bakeAngle,
     pixel() {
       const c = document.createElement('canvas'); c.width = 32; c.height = 18;
