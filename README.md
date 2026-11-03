@@ -2,7 +2,7 @@
 
 **[Open the home page](https://patrickiben.github.io/generative-av-labs/)** · [Nebula](https://patrickiben.github.io/generative-av-labs/nebula.html) · [Endless Cockpit](https://patrickiben.github.io/generative-av-labs/endless-cockpit.html) · [Field guide](https://patrickiben.github.io/generative-av-labs/field-guide.html)
 
-Two browser instruments that turn an electronic drum kit into light. Plug audio and MIDI into your computer and open a page. There is no helper app, no server and no model, and nothing leaves the browser.
+Browser instruments that turn an electronic drum kit into light. Plug audio and MIDI into your computer and open a page. There is no helper app and no server, and your audio, MIDI and pictures never leave the browser. Nebula and Endless Cockpit use no model. Enter uses one, a depth estimate for your own picture, which downloads only when you ask.
 
 ![Nebula during the demo](docs/nebula.jpg)
 
@@ -11,6 +11,10 @@ Two browser instruments that turn an electronic drum kit into light. Plug audio 
 ![Endless Cockpit during the demo](docs/endless-cockpit.jpg)
 
 **Endless Cockpit** is a road at dusk that keeps time. Your tempo sets the speed, the kick surges you forward and sends a ring of light down the road, and the horizon is your live spectrum. The scene is raymarched each frame and fed through a zoom-feedback loop. Ride mode takes speed from a Bluetooth cadence sensor instead, directly from the browser.
+
+**Enter** lets you walk into a picture and fly through a sound. The sound world is a synesthetic map: time runs along X, pitch climbs and salience comes toward you, while your last twelve seconds roll past as terrain. The picture world is a depth relief, and hits send wavefronts through its depth. Your own picture gets its depth from Depth Anything V2 Small (Apache-2.0) on ONNX Runtime Web. The first time, the page asks and then downloads about 76 MB from Hugging Face and jsDelivr. Without WebGPU, it downloads about 41 MB and runs on the processor. The print world casts a sound into a watertight STL. Grow World and Make 3D Object stay in the desktop app, because no browser path was found for SDXL or TripoSR.
+
+![Enter's painted scene](docs/enter.jpg)
 
 ## Wire it
 

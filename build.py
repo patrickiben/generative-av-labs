@@ -56,6 +56,8 @@ if __name__ == "__main__":
     page("endless-cockpit.html", "Endless Cockpit", "A procedural road at dusk that follows live drums: tempo sets the speed and the horizon is the live spectrum.", ["endless.js"])
     if (SRC / "nebula.js").exists():
         page("nebula.html", "Nebula", "A particle nebula made from the last twelve seconds of live drums: time winds outward from the core and frequency sets the color.", ["nebula.js"])
+    if (SRC / "enter.js").exists():
+        page("enter.html", "Enter", "Walk into a picture and fly through a sound, moved by live drums: a first-person depth relief, a synesthetic sound field and a printable sculpture of the sound.", ["enter-workers.js", "enter.js"], extra_css=(SRC / "enter.css").read_text())
     if (SRC / "index.src.html").exists():
         static("index.html", "index.src.html", "Generative AV Labs", "Nebula and Endless Cockpit: two browser instruments that turn a drum kit's audio and MIDI into light.")
     if (SRC / "field-guide.src.html").exists():

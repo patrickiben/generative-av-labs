@@ -114,4 +114,11 @@ Measured while building: fp16 and fp32 depth correlate at 0.9997, and the quanti
 
 `App_Validation_Harness/web_gate.py` (`enter_web`), on the local file, gave A1, A3 and A7 RUN, with no red. A0, A2, A4, A5, A8, A9 and A10 are PARTIAL until the author signs. A6 is NOT RUN until it is deployed. The open decisions under A10 are the 76 MB first download and a reading of jsDelivr's terms in a browser.
 
+`tests/flash_check.py` now covers `enter.html`, `enter.html?world=picture` and `enter.html?world=print`, with and without reduced motion. Under the hardest pattern of crash, kick and snare on every eighth note, the worst region flashing more than three times a second was 12% in the sound world, 18% in the picture world and 0% in the print world, against a limit of 25%. All three worlds pass through the same flicker limiter. The picture world runs its own copy, after its own grade, so the artwork keeps its colors.
+
+Getting there took these changes. Each one measured as a cause:
+- The floor's ridges swept past several times a second, so the floor now shows loudness averaged over about a third of a second, dimmed, with the light in thin lines.
+- An additive full-field flash on crash was over-corrected by the limiter into a dark flash beside bright things, so no world adds one.
+- Per-hit sweeps that covered a large area were cut to about the size the reduced-motion path used: the snare's scatter, the pulse back through time, the print's bands, and the sky's response to single hits. The sky now follows slow averages.
+
 Not tested: Safari, Firefox, Edge, phone hardware, a real browser without WebGPU, a slow connection, and file:// with the model. The marching tetrahedra here are not the desktop app's marching cubes, so the two apps give different meshes for the same sound.
