@@ -3,7 +3,7 @@
 
   states    : silent at load, sound started by a click, the demo labeled and undone
   MIDI      : refused (no grant), no device (granted, no port), live from a virtual CoreMIDI port in a separate
-              process with drums, keys, the hat pedal, a choke and clock, then the port unplugged
+              process with notes on two channels, a controller, pitch bend and clock, then the port unplugged
   files     : one short sound in WAV, AIFF, CAF, M4A, MP3, FLAC, Ogg Vorbis and Opus, each through the real file input
   breeding  : arrow keys and Enter grow a seed; a sample grows a seed by differential evolution
   exports   : WAV render, recording, picture and patch file arrive as downloads; a share link restores the patch
@@ -47,13 +47,13 @@ def fixtures():
 SENDER = """
 import rtmidi, time, sys
 o = rtmidi.MidiOut(); o.open_virtual_port('Chimera Test Port'); time.sleep(float(sys.argv[1]))
-seq = [[0x99,36,100],[0x89,36,0],[0xF8],[0x99,38,90],[0xF8],[0xB9,4,127],[0x99,42,80],[0x99,22,70],[0xB9,4,0],[0x99,46,90],
-       [0x99,48,100],[0x99,49,120],[0xA9,49,90],[0xF8],[0x90,67,100],[0x80,67,0]]
+seq = [[0x90,60,100],[0x80,60,0],[0xF8],[0x90,64,90],[0xF8],[0xB0,1,64],[0x90,67,80],[0x80,64,0],[0x99,48,100],[0xE0,0,72],
+       [0xF8],[0x90,72,100],[0x80,72,0]]
 for m in seq:
     o.send_message(m); time.sleep(0.12)
 time.sleep(1.2); o.close_port()
 """
-SENT_CHANNEL_MESSAGES = 13          # the sequence above, without its three clock bytes
+SENT_CHANNEL_MESSAGES = 10          # the sequence above, without its three clock bytes
 
 class Q(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *a, **k): super().__init__(*a, directory=str(ROOT), **k)
@@ -219,13 +219,14 @@ with sync_playwright() as p:
     pg.wait_for_timeout(1500)
     r = read(pg)
     check('MIDI live reads as live and names the input', r['m'] == 'live' and r['chipM'].startswith('MIDI · note'), r['chipM'])
-    check('drums and keys land where the stated map says', any('kick → -12' in l for l in r['log']) or any('kick → -12' in l for l in pg.evaluate('__app.midi.log')), ' | '.join(r['log'][:4]))
     shot(pg, '7-midi-live')
     send.wait(timeout=30); pg.wait_for_timeout(1500)
     r = read(pg)
     log = r['log']
+    full = pg.evaluate('__app.midi.log')
+    check('notes play from middle C, on every channel', any('note 60 vel 100 ch 1 → root' in l for l in full) and any('ch 10 → -12' in l for l in full), ' | '.join(full[-4:]))
     check('clock is not counted as playing', r['count'] == SENT_CHANNEL_MESSAGES, f"{r['count']} channel messages")
-    check('the last key note sets the pitch, and pedal and choke are read', r['note'] == 7 and any('CC4 hat pedal = 0 · open' in l for l in log + pg.evaluate('__app.midi.log')) and any('choke' in l for l in log), ' | '.join(log[:6]))
+    check('the last note sets the pitch; controllers and pitch bend are shown as not used', r['note'] == 12 and any('CC1 = 64 · not used' in l for l in log) and any('pitch bend · not used' in l for l in log), ' | '.join(log[:6]))
     check('an unplugged port reads as disconnected', r['m'] == 'lost' and r['chipM'] == 'MIDI · device disconnected', r['chipM'])
     shot(pg, '7-midi-unplugged')
     check('no page errors with MIDI', not err, '; '.join(err[:2]))
