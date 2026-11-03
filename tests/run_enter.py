@@ -33,7 +33,7 @@ with sync_playwright() as p:
     b = p.chromium.launch(channel='chrome', headless=True, args=ARGS)
     # 1. the page alone asks the network for nothing
     c, pg = fresh(b); pg.goto(URL); pg.wait_for_timeout(1500)
-    pg.click('[data-mode=picture]'); pg.wait_for_timeout(1500); pg.click('[data-mode=print]'); pg.wait_for_timeout(4000); pg.click('[data-mode=sound]'); pg.click('#demo-button'); pg.wait_for_timeout(1500)
+    pg.click('[data-mode=picture]'); pg.wait_for_timeout(1500); pg.click('[data-mode=print]'); pg.wait_for_timeout(4000); pg.click('[data-mode=sound]'); pg.wait_for_timeout(1500)
     check('no outside request until a picture is chosen', not outside(pg), str(outside(pg)[:2]))
     check('no page errors in three worlds', not pg._errs, str(pg._errs[:2])); c.close()
     # 2. the real model on WebGPU, with consent first
@@ -109,17 +109,15 @@ with sync_playwright() as p:
       const f=new File([h.buffer,d.buffer],'tone440.wav',{type:'audio/wav'});const dt=new DataTransfer();dt.items.add(f);const i=document.getElementById('snd-file');i.files=dt.files;i.dispatchEvent(new Event('change'));
       for(let k=0;k<200&&!__app.Sound.fromFile;k++)await new Promise(q=>setTimeout(q,100));const a=__app.Sound.atoms;const top=a.slice().sort((p,q)=>q.amp-p.amp).slice(0,20);return{n:a.length,f:top.reduce((s,x)=>s+x.f,0)/top.length,label:__app.Sound.label}}""")
     check('a 440 Hz tone lifts to atoms near 440 Hz', abs(tone['f'] - 440) < 25, json.dumps(tone)); check('the file field is named', 'tone440' in pg.inner_text('#world-source')); c.close()
-    # 8. drums move every world, measured in pixels
-    c, pg = fresh(b); pg.goto(URL); pg.wait_for_timeout(1500)
-    diff = "async()=>{const a=await __app.pixel();await new Promise(r=>setTimeout(r,250));const b=await __app.pixel();let s=0;for(let i=0;i<a.grid.length;i++)s+=Math.abs(a.grid[i]-b.grid[i]);return s/a.grid.length}"
-    for world in ('sound', 'picture', 'print'):
-        pg.click(f'[data-mode={world}]'); pg.wait_for_timeout(5000 if world == 'print' else 2000)
-        if world == 'print': pg.evaluate('__app.S.cast.auto=false')     # the slow spin is its own motion; measure the hits alone
-        rest = pg.evaluate(diff)
-        pg.evaluate("window.__t=setInterval(()=>{__app.kit.feedMidi([0x99,[36,38,42,48,49,51][Math.floor(Math.random()*6)],120])},140)"); pg.wait_for_timeout(1200)
-        hit = pg.evaluate(diff); pg.evaluate('clearInterval(__t)')
-        check(f'{world}: hits change the picture', hit > rest * 1.5 and hit > 0.25, f'rest {rest:.2f}, hits {hit:.2f}')
-        pg.wait_for_timeout(1500)
+    # 8. no live input: nothing asks for a microphone or MIDI in any world, and no kit control is on the page
+    c, pg = fresh(b, init="window.__asks=0;const g=navigator.mediaDevices&&navigator.mediaDevices.getUserMedia;if(g)navigator.mediaDevices.getUserMedia=function(){window.__asks++;return g.apply(this,arguments)};if(navigator.requestMIDIAccess){const m=navigator.requestMIDIAccess.bind(navigator);navigator.requestMIDIAccess=function(){window.__asks++;return m.apply(null,arguments)}}")
+    pg.goto(URL); pg.wait_for_timeout(1500)
+    for world in ('picture', 'print', 'sound'):
+        pg.click(f'[data-mode={world}]'); pg.wait_for_timeout(4000 if world == 'print' else 1500)
+    for k in 'jklupn': pg.keyboard.press(k)
+    pg.wait_for_timeout(500)
+    q = pg.evaluate("({asks: window.__asks, kit: typeof createKit, controls: ['connect-button','demo-button','chip-audio','chip-midi','hit-strip'].filter(i=>document.getElementById(i))})")
+    check('no live input anywhere: no microphone or MIDI request, no kit controls', q['asks'] == 0 and q['kit'] == 'undefined' and not q['controls'], json.dumps(q))
     c.close(); b.close()
 srv.shutdown()
 print(f'{sum(res)} of {len(res)} checks passed'); sys.exit(0 if all(res) else 1)

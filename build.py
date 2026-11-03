@@ -57,7 +57,7 @@ if __name__ == "__main__":
     if (SRC / "nebula.js").exists():
         page("nebula.html", "Nebula", "A particle nebula made from the last twelve seconds of live drums: time winds outward from the core and frequency sets the color.", ["nebula.js"])
     if (SRC / "enter.js").exists():
-        page("enter.html", "Enter", "Walk into a picture and fly through a sound, moved by live drums: a first-person depth relief, a synesthetic sound field and a printable sculpture of the sound.", ["enter-workers.js", "enter.js"], extra_css=(SRC / "enter.css").read_text())
+        page("enter.html", "Enter", "Walk into a picture and fly through a sound: a first-person depth relief, a synesthetic sound field and a printable sculpture of the sound.", ["enter-workers.js", "enter-chrome.js", "enter.js"], extra_css=(SRC / "enter.css").read_text(), base=("gl.js",))
     if (SRC / "chimera.js").exists():
         page("chimera.html", "Chimera Synth", "A synth you breed by ear: animal voices, a playable genome and a phase-checked sub, synthesized live in your browser.", ["chimera-ui.js", "chimera-engine.js", "chimera.js"], base=("gl.js",), extra_css=(SRC / "chimera.css").read_text())
     if (SRC / "index.src.html").exists():

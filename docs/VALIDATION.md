@@ -93,33 +93,25 @@ Firefox, Edge, Safari, and any phone hardware. Phone width was checked by layout
 
 ## Enter
 
-Checked on 2026-11-02 in Chrome on the same Apple M4 Max Mac. **No real kit and no outside visitor has used it yet.**
+Enter takes a picture or a sound, as the desktop app does. It has no drum or live input: on 2026-11-03 Patrick said drum input belongs only in Nebula, and it was taken out. Checked in Chrome on an Apple M4 Max Mac. **No outside visitor has used it yet.**
 
-`tests/run_states.py`, pointed at `enter.html` from a scratch copy, passed 49 of 49 input-state checks, using the same real and stubbed paths as above. Audio hits moved the picture by 12.94 against 2.59 at rest, and MIDI hits by 7.98. The estimator read 9 kicks, 9 snares and 16 hats from the synthetic loop.
+`tests/run_enter.py` downloads the real model, so it is run by hand. It passed 24 of 24, locally and against the deployed page:
 
-`tests/run_enter.py` downloads the real model, so it is run by hand. It passed 26 of 26:
-
-- With no picture chosen, the page made no outside request in any of the three worlds.
+- With no picture chosen, the page made no outside request in any of the three worlds. No world asks for a microphone or MIDI, and no kit control is on the page.
 - It asks before downloading, naming the size and both hosts, and shows byte progress to 76 of 76 MB.
-- On WebGPU, with the half-precision model, a 1440 × 900 picture was estimated at 826 × 518 in about 150 ms after a 2 s start. Only GET requests went out, to huggingface.co, us.aws.cdn.hf.co and cdn.jsdelivr.net.
+- On WebGPU, with the half-precision model, a 1440 × 900 picture was estimated at 826 × 518 in about 100 to 150 ms after a 2 s start. Only GET requests went out, to huggingface.co, us.aws.cdn.hf.co and cdn.jsdelivr.net.
 - Size and SHA-256 are checked against the files measured on 2026-11-02. A stored model is reused after a reload with no download, and it can be removed.
 - On the painted scene, whose depth is known, the estimate correlated with the true depth at r = 0.95. That is one scene, not a measure of the model.
 - With WebGPU removed from the page, which is **stubbed**, the processor path used the quantized model and estimated at 630 × 392 in about 2.6 s.
 - With Hugging Face blocked, the page says the download failed and keeps the last relief. The brightness rule still works, and it is labeled as a rule.
 - The cast of the built-in sound gave 242,496 faces. It is watertight by an edge check on the mesh, and every edge in the downloaded STL file is paired. The same sound gave the same shape.
 - A 440 Hz test tone lifted to atoms averaging 431 Hz.
-- Hits changed the picture in all three worlds, after the flicker work: sound 3.62 against 1.85 at rest, picture 26.56 against 0.78, and print 3.39 against 0.85 with its slow spin paused. The same run against the deployed page is what made it LIVE-VERIFIED.
 
 Measured while building: fp16 and fp32 depth correlate at 0.9997, and the quantized model against fp32 on the processor at 0.987.
 
-`App_Validation_Harness/web_gate.py` (`enter_web`), on the local file, gave A1, A3 and A7 RUN, with no red. A0, A2, A4, A5, A8, A9 and A10 are PARTIAL until the author signs. A6 is NOT RUN until it is deployed. The open decisions under A10 are the 76 MB first download and a reading of jsDelivr's terms in a browser.
+Nothing on the page reacts to hits any more, so it adds no flashes. It still passes through the flicker limiter, and its camera drift stops under reduced motion.
 
-`tests/flash_check.py` now covers `enter.html`, `enter.html?world=picture` and `enter.html?world=print`, with and without reduced motion. Under the hardest pattern of crash, kick and snare on every eighth note, the worst region flashing more than three times a second was 17% in the sound world, 18% in the picture world and 1% in the print world, against a limit of 25%. All three worlds pass through the same flicker limiter. The picture world runs its own copy, after its own grade, so the artwork keeps its colors.
-
-Getting there took these changes. Each one measured as a cause:
-- The floor's ridges swept past several times a second, so the floor now shows loudness averaged over about a third of a second, dimmed, with the light in thin lines.
-- An additive full-field flash on crash was over-corrected by the limiter into a dark flash beside bright things, so no world adds one.
-- Per-hit sweeps that covered a large area were cut to about the size the reduced-motion path used: the snare's scatter, the pulse back through time, the print's bands, and the sky's response to single hits. The sky now follows slow averages.
+`App_Validation_Harness/web_gate.py` (`enter_web`) gave A1, A3, A6 and A7 RUN, with no red, on the deployed page. A0, A2, A4, A5, A8, A9 and A10 are PARTIAL until the author signs. The open decisions under A10 are the 76 MB first download and a reading of jsDelivr's terms in a browser.
 
 Not tested: Safari, Firefox, Edge, phone hardware, a real browser without WebGPU, a slow connection, and file:// with the model. The marching tetrahedra here are not the desktop app's marching cubes, so the two apps give different meshes for the same sound.
 

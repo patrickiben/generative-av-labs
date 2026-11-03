@@ -13,7 +13,7 @@ srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Q)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 bad = []
 with sync_playwright() as p:
-    for page in ('nebula.html', 'endless-cockpit.html', 'enter.html', 'chimera.html'):
+    for page in ('nebula.html', 'endless-cockpit.html', 'chimera.html'):
         # a browser of its own for each page: under software rendering, a page left running starves the next one,
         # and on Linux closing one page's GL context stalled the next page's
         b = p.chromium.launch(args=['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'])
@@ -29,6 +29,16 @@ with sync_playwright() as p:
         if errors: bad.append(f'{page}: {errors[0]}')
         print(f'{page}: {hits} hits, {len(errors)} page errors')
         b.close()
+    # Enter takes a picture or a sound and no live input: it boots, names its world, and carries no kit
+    b = p.chromium.launch(args=['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'])
+    pg = b.new_page(); pg.set_default_timeout(120000); errors = []
+    pg.on('pageerror', lambda e: errors.append(str(e)[:200]))
+    pg.goto(f'http://127.0.0.1:{srv.server_port}/enter.html', timeout=120000); pg.wait_for_timeout(2500)
+    if 'SYNESTHETIC MAP' not in pg.inner_text('#world-badge').upper(): bad.append('enter.html: the world badge is missing')
+    if pg.evaluate("typeof createKit") != 'undefined' or pg.query_selector('#connect-button'): bad.append('enter.html: drum input is on the page')
+    if errors: bad.append(f'enter.html: {errors[0]}')
+    print(f'enter.html: {len(errors)} page errors')
+    b.close()
 srv.shutdown()
 print('\n'.join(bad) or 'smoke passed')
 sys.exit(1 if bad else 0)
