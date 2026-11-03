@@ -1448,7 +1448,7 @@ const DRUMMAP={36:[-12,1.25,220],35:[-12,1.25,220],38:[2,1.1,160],40:[2,1.1,160]
   41:[-8,1.0,240],43:[-8,1.0,240],
   45:[-5,1.0,240],47:[-5,1.0,240],48:[-3,1.0,220],50:[-3,1.0,220],
   49:[5,1.15,650],55:[5,1.1,550],57:[5,1.15,650],52:[5,1.0,550],51:[6,0.8,320],53:[6,0.85,320],59:[6,0.8,320]};
-// 22 = hat closed edge, 23 = brush sweep (Pearl Mimic Pro; non-GM). Mimic sends ONLY closed-hat
+// 22 = hat closed edge, 23 = brush sweep (non-GM). The module sends ONLY closed-hat
 // notes — openness arrives as CC#4 (0=open..127=closed), so the hat gate stretches with the pedal.
 let _hatOpen=0;
 window.__hatPedal=function(val){ _hatOpen=1-Math.min(1,val/127); };
