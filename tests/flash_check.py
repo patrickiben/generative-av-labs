@@ -69,7 +69,7 @@ with sync_playwright() as p:
     # results shown; Floor against SBR is the largest change the lower spectrogram can make.
     ANALOG_HARD = {f'switching every {ms} ms': f"(()=>{{let i=0;const M={m};window.__hard=setInterval(()=>{{__app.setMode(M[i++%M.length]);__app.flip()}},{ms})}})()"
                    for ms, m in ((110, "['floor','exciter','transient','sbr']"), (250, "['sbr','floor']"), (400, "['sbr','floor']"))}
-    for page in (os.environ.get('FLASH_PAGES') or 'nebula.html chimera.html analog.html').split():
+    for page in (os.environ.get('FLASH_PAGES') or 'nebula.html chimera.html analog.html enter.html enter.html?world=picture enter.html?world=print').split():
         for motion in ('no-preference', 'reduce'):
             pg = b.new_context(viewport={'width': 1440, 'height': 900}, device_scale_factor=1, reduced_motion=motion).new_page()
             pg.goto(f'{BASE}/{page}'); pg.wait_for_timeout(1500)
@@ -83,9 +83,10 @@ with sync_playwright() as p:
                     pg.evaluate('clearInterval(window.__hard)'); x['resultsShown'] = pg.evaluate('__app.runs') - n0
                     cases.append((name, x)); pg.wait_for_timeout(900)
             else:
-                pg.click('#demo-button'); pg.wait_for_timeout(1500)
+                drums = pg.query_selector('#demo-button') is not None     # a page with no demo (Enter) gets the rest-and-drift case only
+                if drums: pg.click('#demo-button'); pg.wait_for_timeout(1500)
                 r = analyze(pg.evaluate('__app.recordLuma(9000)'))
-                pg.evaluate(HARD)
+                if drums: pg.evaluate(HARD)
                 if page in HARDER: pg.evaluate(HARDER[page])
                 cases = [('demo', r), ('hardest', analyze(pg.evaluate('__app.recordLuma(6000)')))]
             for name, x in cases:
