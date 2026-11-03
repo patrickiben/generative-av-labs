@@ -633,7 +633,7 @@ onmessage = (e) => {
     $('g-side-name').textContent = S.side === 'A' ? 'source' : 'result';
     const ab = $('ab-toggle');
     ab.setAttribute('aria-pressed', String(S.side === 'B'));
-    ab.setAttribute('aria-label', S.side === 'A' ? 'Listening to A, the source. Press to hear B, the result' : 'Listening to B, the result. Press to hear A, the source');
+    ab.setAttribute('aria-label', S.side === 'A' ? 'Listening: A, source. Press to hear B, the result' : 'Listening: B, result. Press to hear A, the source');   // starts with the visible text, for speech input
   }
   function renderMeasured() {
     const r = S.res; if (!r) return;
@@ -951,7 +951,7 @@ onmessage = (e) => {
     get busy() { return !!(inflight || runT || pending); }, get runs() { return S.runs; }, get lastDownload() { return LAST_DOWNLOAD; },
     get source() { const s = S.src; return s && { name: s.name, origin: s.origin, sr: s.sr, channels: s.ch.length, frames: s.n, seconds: s.dur, rateFrom: s.rateFrom, format: s.format, channelsInFile: s.channelsInFile }; },
     get result() { const r = S.res; if (!r) return null; const { wb, wa, ...m } = r.metrics; return { mode: r.mode, fc: r.fc, selective: r.selective, n0: r.n0, n1: r.n1, metrics: m, kA: r.kA, kB: r.kB, ms: r.ms }; },
-    get gainB() { return bGain(); },
+    get gainB() { return bGain(); }, get geo() { return geo && { ...geo, dur: S.src.dur }; },
     outSlice(c, i0, i1) { return Array.from(S.res.out[c].subarray(i0, i1)); },
     srcSlice(c, i0, i1) { return Array.from(S.src.ch[c].subarray(i0, i1)); },
   };

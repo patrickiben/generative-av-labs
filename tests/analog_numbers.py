@@ -111,8 +111,8 @@ def chord_sound():
     return np.stack(chans, axis=1).astype(np.float32), sr
 
 
-def drum_sound():
-    """3 s of synthetic drums: swept-sine kicks, noise snares and hats, low-passed at 7 kHz, mono at 44.1 kHz."""
+def hits_sound():
+    """3 s of synthetic percussive hits: swept-sine thumps, noise bursts and ticks, low-passed at 7 kHz, mono at 44.1 kHz."""
     sr, n = 44100, 3 * 44100
     rng = np.random.default_rng(2)
     x = np.zeros(n)
@@ -187,7 +187,7 @@ def main():
         sys.exit('node is not installed: the page\'s processing runs under Node for this test')
     work = Path(tempfile.mkdtemp(prefix='analog-numbers-'))
     t_start = time.time()
-    sounds = {'selftest': selftest_sound(), 'chord48': chord_sound(), 'drums': drum_sound()}
+    sounds = {'selftest': selftest_sound(), 'chord48': chord_sound(), 'hits': hits_sound()}
     job = {'inputs': [], 'runs': [], 'wav': []}
     for name, (x, sr) in sounds.items():
         x2 = x[:, None] if x.ndim == 1 else x
@@ -221,8 +221,8 @@ def main():
     add('chord48_exciter_hot', 'chord48', {'mode': 'exciter', 'drive': 7.0, 'emix': 0.6})
     add('chord48_transient_full', 'chord48', {'mode': 'transient', 'tamt': 1.0})
     add('chord48_sbr_alt', 'chord48', {'mode': 'sbr', 'wet': 0.9, 'tilt': -3.0, 'target_hz': 22000.0})
-    add('drums_sbr_range', 'drums', {'mode': 'sbr', 'sel': [0.8, 1.9]})
-    add('drums_sbr_range_span', 'drums', {'mode': 'sbr', 'sel': [0.8, 1.9]}, measure='span')
+    add('hits_sbr_range', 'hits', {'mode': 'sbr', 'sel': [0.8, 1.9]})
+    add('hits_sbr_range_span', 'hits', {'mode': 'sbr', 'sel': [0.8, 1.9]}, measure='span')
     add('chord48_exciter_late', 'chord48', {'mode': 'exciter', 'sel': [5.6, 6.7]})
     add('chord48_exciter_late_span', 'chord48', {'mode': 'exciter', 'sel': [5.6, 6.7]}, measure='span')
 

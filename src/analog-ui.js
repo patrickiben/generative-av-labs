@@ -77,7 +77,7 @@
     <div class="dock-wrap">
       <div id="hud" class="chrome">
         <div class="gauge"><span class="k">Cutoff</span><span class="v" id="g-cutoff">-</span></div>
-        <button class="gauge hero" id="ab-toggle" aria-pressed="false" aria-label="Listening to A, the source. Press to hear B, the result"><span class="k">Listening</span><span class="v" id="g-side">A</span><span class="ab-sub" id="g-side-name">source</span></button>
+        <button class="gauge hero" id="ab-toggle" aria-pressed="false" aria-label="Listening: A, source. Press to hear B, the result"><span class="k">Listening</span> <span class="v" id="g-side">A</span> <span class="ab-sub" id="g-side-name">source</span></button>
         <div class="gauge"><span class="k">Bandwidth</span><span class="v" id="g-bw">-</span></div>
       </div>
       <div class="badges">

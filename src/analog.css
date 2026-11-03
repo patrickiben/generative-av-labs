@@ -8,6 +8,7 @@ body[data-app="analog"] .mode-switch button { padding: 10px 20px; font-size: 11p
 .source-badge[data-source="synthetic"] .dot { background: var(--demo); box-shadow: 0 0 10px #e6c7a388; }
 .source-badge[data-source="file"] .dot { background: var(--good); box-shadow: 0 0 12px #bfe8a688; }
 #source-label { max-width: 44vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#chip-proc { max-width: 64vw; }   /* the engine's label fits whole on a phone: "SBR · synthesized above 11.0 kHz" */
 
 #ab-toggle { pointer-events: auto; display: grid; justify-items: center; padding: 4px 18px 6px; border-radius: 20px; color: var(--ink); transition: background 0.2s; }
 #ab-toggle:hover { background: rgba(184, 183, 255, 0.08); }
