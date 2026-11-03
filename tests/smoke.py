@@ -17,8 +17,9 @@ with sync_playwright() as p:
         # and on Linux closing one page's GL context stalled the next page's
         b = p.chromium.launch(args=['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'])
         pg = b.new_page(); errors = []
+        pg.set_default_timeout(120000)            # software rendering on the CI runner can hold a frame for many seconds
         pg.on('pageerror', lambda e: errors.append(str(e)[:200]))
-        pg.goto(f'http://127.0.0.1:{srv.server_port}/{page}'); pg.wait_for_timeout(2500)
+        pg.goto(f'http://127.0.0.1:{srv.server_port}/{page}', timeout=120000); pg.wait_for_timeout(2500)
         if pg.get_attribute('#source-badge', 'data-source') != 'ambient': bad.append(f'{page}: not ambient at load')
         pg.click('#demo-button'); pg.wait_for_timeout(4000)
         if pg.get_attribute('#source-badge', 'data-source') != 'demo': bad.append(f'{page}: demo is not labeled')
