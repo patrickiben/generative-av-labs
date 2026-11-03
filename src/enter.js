@@ -339,12 +339,13 @@ void main(){
     name: 'Enter', brand,
     modes: [{ id: 'sound', label: 'Sound' }, { id: 'picture', label: 'Picture' }, { id: 'print', label: 'Print' }], mode: 'sound', modeLabel: 'Which world',
     onMode: (m) => setWorld(m),
-    intro: { eyebrow: 'Enter · walk into a picture, fly through a sound', title: 'Cross the surface.', subtitle: 'W A S D to move, drag to look. Choose a picture or a sound under World. No helper app.' },
+    intro: { eyebrow: 'Enter · walk into a picture, fly through a sound', title: 'Cross the surface.', subtitle: 'W A S D to move, drag to look. Open your own picture or sound from the top bar.' },
+    open: '<label class="top-action open-action" id="open-label" for="open-file"><span class="long">Open a picture or sound</span><span class="short">Open a file</span></label><input type="file" id="open-file" class="visually-hidden" accept="image/*,audio/*" aria-label="Open a picture or a sound">',
     hud, truth: TRUTH.sound,
     sheets: [{ id: 'world', label: 'World', icon: 'sliders', title: 'Choose what to enter.', html: worldSheet }],
     about,
   });
-  if (matchMedia('(pointer: coarse)').matches) { const sub = document.querySelector('.intro p:last-child'); if (sub) sub.textContent = 'Drag to look, hold Fwd to fly, pinch to move. Choose a picture or a sound under World.'; }
+  if (matchMedia('(pointer: coarse)').matches) { const sub = document.querySelector('.intro p:last-child'); if (sub) sub.textContent = 'Drag to look, hold Fwd to fly. Open your own picture or sound from the top bar.'; }
 
   const scene0 = $('scene');
   scene0.insertAdjacentHTML('beforeend', `
@@ -578,7 +579,7 @@ void main(){
     for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < mono.length; i++) mono[i] += d[i] / buf.numberOfChannels; }
     return { mono, rate: buf.sampleRate };
   }
-  async function useSoundFile(f) {
+  async function useSoundFile(f, castIt) {
     $('snd-status').textContent = `Reading ${f.name}.`;
     try {
       const { mono, rate } = await decodeFile(f);
@@ -592,6 +593,7 @@ void main(){
       setField(r.atoms, r.dur, rate, `Your sound: ${f.name}`, true);
       updateSource();
       shell.toast(`${r.atoms.length.toLocaleString()} atoms lifted from ${f.name}.`);
+      if (castIt) castNow();
     } catch (err) { $('snd-status').textContent = `That file could not be decoded: ${err.message || err}. The field did not change.`; }
   }
   $('snd-choose').addEventListener('click', () => $('snd-file').click());
@@ -798,7 +800,15 @@ void main(){
   });
   $('model-clear').addEventListener('click', async () => { await depth.clear(); modelUI('idle', 'Removed from this browser', 'The next picture will ask before it downloads again.', {}); });
   addEventListener('dragover', (e) => e.preventDefault());
-  addEventListener('drop', (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (!f) return; if (f.type.startsWith('image/')) usePictureFile(f); else if (f.type.startsWith('audio/')) { shell.setMode('sound'); useSoundFile(f); } });
+  function openAny(f) {
+    const img = (f.type || '').startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|tiff?|heic|heif|avif)$/i.test(f.name);
+    const aud = (f.type || '').startsWith('audio/') || /\.(wav|mp3|m4a|aac|ogg|oga|opus|flac|aiff?|caf|webm)$/i.test(f.name);
+    if (img) usePictureFile(f);
+    else if (aud) { const inPrint = S.world === 'print'; if (!inPrint) shell.setMode('sound'); useSoundFile(f, inPrint); }
+    else shell.toast('That file is neither a picture nor a sound this page can open.');
+  }
+  $('open-file').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) openAny(f); });
+  addEventListener('drop', (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) openAny(f); });
 
   /* ---------- the print world's data ---------- */
   const Cast = { file: null, busy: false };

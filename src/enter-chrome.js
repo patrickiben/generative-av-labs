@@ -21,7 +21,7 @@
       <div class="vignette"></div>
       <header class="header chrome">
         <a class="brand" href="./" aria-label="${esc(cfg.name)}: back to the home page">${cfg.brand}<span>${esc(cfg.name)}</span></a>
-        <div class="top-actions"><button class="top-action icon" id="fs-button" aria-label="Full screen">${svg('full')}</button></div>
+        <div class="top-actions">${cfg.open || ''}<button class="top-action icon" id="fs-button" aria-label="Full screen">${svg('full')}</button></div>
       </header>
       <nav class="mode-switch chrome" aria-label="${esc(cfg.modeLabel)}">${cfg.modes.map((m) => `<button data-mode="${m.id}" aria-pressed="${m.id === cfg.mode}">${esc(m.label)}</button>`).join('')}</nav>
       <div class="intro">
@@ -71,7 +71,14 @@
     modeButtons.forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
     const toast = (msg, ms) => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), ms || 3200); };
-    const fullscreen = () => { if (document.fullscreenElement) document.exitFullscreen(); else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => toast('Full screen is not available here.')); };
+    const de = document.documentElement, canFull = !!(de.requestFullscreen || de.webkitRequestFullscreen);
+    const fullscreen = () => {
+      if (!canFull) return;
+      if (document.fullscreenElement || document.webkitFullscreenElement) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+      try { const r = (de.requestFullscreen || de.webkitRequestFullscreen).call(de); if (r && r.catch) r.catch(() => toast('Full screen is not available here.')); } catch (e) { toast('Full screen is not available here.'); }
+    };
+    // iPhone browsers have no full-screen API for pages, so the button is not shown there rather than doing nothing
+    $('fs-button').hidden = !canFull;
     $('fs-button').addEventListener('click', fullscreen);
     let hideChrome = false;
     addEventListener('keydown', (e) => {

@@ -44,3 +44,8 @@ body.moved .intro { opacity: 0; transform: translateY(-10px); }
 }
 #credit-line { font-size: 9.5px; color: var(--faint); margin: -6px 0 0; text-align: center; text-shadow: 0 1px 10px rgba(4, 6, 16, 0.9); }
 @media (max-height: 640px) { #world-source, #credit-line { display: none; } #tether { top: 30%; } }
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.open-action { cursor: pointer; display: inline-flex; align-items: center; }
+.open-action .short { display: none; }
+@media (max-width: 520px) { .open-action .long { display: none; } .open-action .short { display: inline; } }
