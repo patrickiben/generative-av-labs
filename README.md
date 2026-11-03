@@ -1,8 +1,8 @@
 # Generative AV Labs
 
-**[Open the home page](https://patrickiben.github.io/generative-av-labs/)** · [Nebula](https://patrickiben.github.io/generative-av-labs/nebula.html) · [Enter](https://patrickiben.github.io/generative-av-labs/enter.html) · [Chimera Synth](https://patrickiben.github.io/generative-av-labs/chimera.html) · [Field guide](https://patrickiben.github.io/generative-av-labs/field-guide.html)
+**[Open the home page](https://patrickiben.github.io/generative-av-labs/)** · [Nebula](https://patrickiben.github.io/generative-av-labs/nebula.html) · [Enter](https://patrickiben.github.io/generative-av-labs/enter.html) · [Chimera Synth](https://patrickiben.github.io/generative-av-labs/chimera.html) · [Detail Forge Analog](https://patrickiben.github.io/generative-av-labs/analog.html) · [Field guide](https://patrickiben.github.io/generative-av-labs/field-guide.html)
 
-Browser instruments for light and sound. Each page runs in your browser. There is no helper app and no server, and your audio, MIDI and pictures never leave the browser. Nebula and Chimera Synth use no model. Enter uses one, a depth estimate for your own picture, which downloads only when you ask.
+Browser instruments for light and sound. Each page runs in your browser. There is no helper app and no server, and your audio, MIDI and pictures never leave the browser. Nebula, Chimera Synth and Detail Forge Analog use no model. Enter uses one, a depth estimate for your own picture, which downloads only when you ask.
 
 ![Nebula during the demo](docs/nebula.jpg)
 
@@ -15,6 +15,10 @@ Browser instruments for light and sound. Each page runs in your browser. There i
 ![Chimera Synth during the demo](docs/chimera.jpg)
 
 **Chimera Synth** is a bass you breed by ear, and the one page here that makes sound. A genome of 20 genes grows the voice: drag a bud toward its tip and hear the seed lean that way, then let go to grow a new seed. Morph mode blends fifteen animal voices, from a mallard to a dolphin, by sliding their formants along a log-frequency axis. A phase check measures the low end and locks the sub where it adds up. A MIDI keyboard plays it over Web MIDI, and so do the computer keys. It came from the desktop Bio-Bass Chimera Lab, whose page is kept in `legacy/` with one hardware comment removed.
+
+![Detail Forge Analog's before and after spectrograms](docs/analog.jpg)
+
+**Detail Forge Analog** brightens a dull, band-limited recording and labels what it did. It measures the cutoff, then runs one of four engines: Floor, a high shelf that invents nothing, Transient, which lifts attacks, and two that synthesize detail above the cutoff, a 4x oversampled Exciter and spectral band replication (SBR). Before and after spectrograms show the change, a loudness-matched A/B lets you hear it, and every number is measured on the output. The processing is the desktop app's, ported line by line and checked against it number for number by `tests/analog_numbers.py`; the desktop original is kept in `legacy/analog/` with one comment reworded. Files are read and decoded in the browser at their own sample rate, and the result saves as a 24-bit WAV.
 
 ## Wire a drum kit for Nebula
 
@@ -40,7 +44,7 @@ Edit `src/`, then run `python3 build.py`, which inlines everything into the page
 
 ## Read more
 
-- [Field guide](field-guide.html): wiring, statuses, what each drum does in Nebula, and connecting Chimera Synth.
+- [Field guide](field-guide.html): wiring, statuses, what each drum does in Nebula, connecting Chimera Synth, and Detail Forge Analog.
 - [Inputs](docs/INPUTS.md): wiring a kit and browser support, with sources.
 - [Methods](docs/METHODS.md): onset detection, tempo, the fluid field, the feedback loop and transport.
 - [Validation](docs/VALIDATION.md): what was tested, how, and what still needs real gear.

@@ -20,6 +20,10 @@ jobs:
       - name: Built pages match src
         run: |
           python3 build.py
-          git diff --exit-code -- nebula.html enter.html chimera.html index.html field-guide.html
+          git diff --exit-code -- nebula.html enter.html chimera.html analog.html index.html field-guide.html
+      - name: Analog matches the desktop app number for number
+        run: |
+          pip install numpy scipy
+          python3 tests/analog_numbers.py
       - run: pip install playwright && playwright install --with-deps chromium
       - run: python3 tests/smoke.py
