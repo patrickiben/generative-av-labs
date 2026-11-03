@@ -66,7 +66,7 @@ void main(){
   if(b>.62&&h1>.86)val*=1.+uHat*(1.+uHatOpen)*(.4+1.1*abs(sin(aA.z*6283.+uT*34.)));
   if(h2>.88)val*=1.+.8*uRide*(.5+.5*sin(uT*16.+aA.z*900.));
   val*=1.+.1*uKick*(1.-b)+.08*uCrash;
-  if(uLive>.5){val*=(1.+.4*exp(-age*${LIVE_SPAN.toFixed(1)}*3.))*smoothstep(1.,.84,age)*smoothstep(0.,.025,age);}
+  if(uLive>.5){val*=(1.+.9*exp(-age*${LIVE_SPAN.toFixed(1)}*3.))*smoothstep(1.,.84,age)*smoothstep(0.,.025,age);}
   float fog=clamp(exp(-clip.w*.011),.08,1.)*smoothstep(2.5,10.,clip.w);
   float sz=clamp(uPxK*(.7+amp*2.6)/max(clip.w,.3),1.,uMaxPx);
   vC=law*min(val,1.6)*fog*uI;
@@ -240,7 +240,7 @@ void main(){
   vec3 c=alb*(amb+vec3(1.,.95,.86)*nl*.82*(.35+.65*vO)+vec3(.5,.7,1.)*max(dot(N,L2),0.)*.42)+vec3(1.)*sp*.5*vO+vec3(.5,.56,1.)*fr*(.13+.14*uKick+.08*uCrash)*vO;
   vec3 add=vec3(0.);
   for(int i=0;i<8;i++){float x=(vL.x-uW[i].x)/uW[i].y;add+=hsl(uW[i].w,.72,.6)*uW[i].z*exp(-x*x);}
-  add+=hsl(.66*h,.7,.6)*exp(-pow((h-(.12+uTomPos*.42))*9.,2.))*uTom*.5;
+  add+=hsl(.66*h,.7,.6)*exp(-pow((h-(.12+uTomPos*.42))*9.,2.))*uTom*1.0;
   add+=hsl(.55,.5,.72)*smoothstep(.62,.95,h)*uHat*fr*(1.2+uHatOpen*1.6);
   add+=vec3(.6,.75,1.)*uRide*.12*(.5+.5*sin(uT*16.+vL.x*30.));
   o=vec4(clamp(c*(1.+uCrash*.12)+add,vec3(0.),vec3(16.)),1.);
@@ -513,7 +513,7 @@ void main(){
     else if (h.voice === 'crash') fronts.push({ t0: now, from: 0.5, to: 0.5, dur: 1200, w: 0.85, s: 0.42 * v, hue: VOICE_HUE.crash, still: true });
     if (fronts.length > 8) fronts.shift();
     // A burst of atoms at this drum's pitch, so the present keeps its sharp events.
-    const ctr = { kick: 70, snare: 240, hat: 9000, tom: 95 + kit.env.tomPos * 200, crash: 7000, ride: 4200 }[h.voice] || 300, wide = { kick: 0.05, snare: 0.5, hat: 0.1, tom: 0.05, crash: 0.5, ride: 0.2 }[h.voice] || 0.1, n = Math.round(3 + h.vel * 7), born = sTime();
+    const ctr = { kick: 70, snare: 240, hat: 9000, tom: 95 + kit.env.tomPos * 200, crash: 7000, ride: 4200 }[h.voice] || 300, wide = { kick: 0.05, snare: 0.5, hat: 0.1, tom: 0.05, crash: 0.5, ride: 0.2 }[h.voice] || 0.1, n = Math.round(4 + h.vel * 12), born = sTime();
     for (let i = 0; i < n; i++) pushLive(toV(ctr) + (liveR() - 0.5) * wide, Math.pow(h.vel, 1.3) * (0.5 + liveR() * 0.5), h.voice === 'tom' || h.voice === 'kick' ? 0.8 : 0.2, born - liveR() * 0.04);
   });
   function builtInSound() {
@@ -1158,7 +1158,7 @@ void main(){
   }
   // Along the print's base a wavefront reads as time moving through the sculpture.
   const printU = new Float32Array(32);
-  function printFronts() { printU.fill(0); for (let k = 0; k < 8; k++) { printU[k * 4] = 9; printU[k * 4 + 1] = 1; } for (let k = 0; k < 4; k++) { if (pulseU[k * 4 + 2] <= 0) continue; printU[k * 4] = -pulseU[k * 4]; printU[k * 4 + 1] = 0.07; printU[k * 4 + 2] = pulseU[k * 4 + 2] * 0.45; printU[k * 4 + 3] = VOICE_HUE.kick; } return printU; }
+  function printFronts() { printU.fill(0); for (let k = 0; k < 8; k++) { printU[k * 4] = 9; printU[k * 4 + 1] = 1; } for (let k = 0; k < 4; k++) { if (pulseU[k * 4 + 2] <= 0) continue; printU[k * 4] = -pulseU[k * 4]; printU[k * 4 + 1] = 0.085; printU[k * 4 + 2] = pulseU[k * 4 + 2] * 1.6; printU[k * 4 + 3] = VOICE_HUE.kick; } return printU; }
 
   function updateHud(cam) {
     $('g-hits').textContent = kit.hits;

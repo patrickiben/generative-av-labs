@@ -108,13 +108,13 @@ Checked on 2026-11-02 in Chrome on the same Apple M4 Max Mac. **No real kit and 
 - With Hugging Face blocked, the page says the download failed and keeps the last relief. The brightness rule still works, and it is labeled as a rule.
 - The cast of the built-in sound gave 242,496 faces. It is watertight by an edge check on the mesh, and every edge in the downloaded STL file is paired. The same sound gave the same shape.
 - A 440 Hz test tone lifted to atoms averaging 431 Hz.
-- Hits changed the picture in all three worlds: sound 17.96 against 2.15 at rest, picture 6.85 against 0.74, and print 14.93 against 2.48.
+- Hits changed the picture in all three worlds, after the flicker work: sound 3.62 against 1.85 at rest, picture 26.56 against 0.78, and print 3.39 against 0.85 with its slow spin paused. The same run against the deployed page is what made it LIVE-VERIFIED.
 
 Measured while building: fp16 and fp32 depth correlate at 0.9997, and the quantized model against fp32 on the processor at 0.987.
 
 `App_Validation_Harness/web_gate.py` (`enter_web`), on the local file, gave A1, A3 and A7 RUN, with no red. A0, A2, A4, A5, A8, A9 and A10 are PARTIAL until the author signs. A6 is NOT RUN until it is deployed. The open decisions under A10 are the 76 MB first download and a reading of jsDelivr's terms in a browser.
 
-`tests/flash_check.py` now covers `enter.html`, `enter.html?world=picture` and `enter.html?world=print`, with and without reduced motion. Under the hardest pattern of crash, kick and snare on every eighth note, the worst region flashing more than three times a second was 12% in the sound world, 18% in the picture world and 0% in the print world, against a limit of 25%. All three worlds pass through the same flicker limiter. The picture world runs its own copy, after its own grade, so the artwork keeps its colors.
+`tests/flash_check.py` now covers `enter.html`, `enter.html?world=picture` and `enter.html?world=print`, with and without reduced motion. Under the hardest pattern of crash, kick and snare on every eighth note, the worst region flashing more than three times a second was 17% in the sound world, 18% in the picture world and 1% in the print world, against a limit of 25%. All three worlds pass through the same flicker limiter. The picture world runs its own copy, after its own grade, so the artwork keeps its colors.
 
 Getting there took these changes. Each one measured as a cause:
 - The floor's ridges swept past several times a second, so the floor now shows loudness averaged over about a third of a second, dimmed, with the light in thin lines.

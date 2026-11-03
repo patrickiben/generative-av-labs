@@ -26,7 +26,9 @@ def go_picture(pg):
     pg.goto(URL); pg.wait_for_timeout(1500); pg.click('[data-mode=picture]'); pg.wait_for_timeout(1200)
 def world_sheet(pg):
     if not pg.evaluate("document.getElementById('world-sheet').open"): pg.click('#world-button')
-def outside(pg): return [(m, u) for m, u in pg._reqs if not u.startswith(('http://127.0.0.1', 'data:', 'blob:', 'file:'))]
+def outside(pg):
+    own = '/'.join(URL.split('/')[:3])                     # the page's own site, local or deployed
+    return [(m, u) for m, u in pg._reqs if not u.startswith((own, 'http://127.0.0.1', 'data:', 'blob:', 'file:'))]
 with sync_playwright() as p:
     b = p.chromium.launch(channel='chrome', headless=True, args=ARGS)
     # 1. the page alone asks the network for nothing
@@ -112,6 +114,7 @@ with sync_playwright() as p:
     diff = "async()=>{const a=await __app.pixel();await new Promise(r=>setTimeout(r,250));const b=await __app.pixel();let s=0;for(let i=0;i<a.grid.length;i++)s+=Math.abs(a.grid[i]-b.grid[i]);return s/a.grid.length}"
     for world in ('sound', 'picture', 'print'):
         pg.click(f'[data-mode={world}]'); pg.wait_for_timeout(5000 if world == 'print' else 2000)
+        if world == 'print': pg.evaluate('__app.S.cast.auto=false')     # the slow spin is its own motion; measure the hits alone
         rest = pg.evaluate(diff)
         pg.evaluate("window.__t=setInterval(()=>{__app.kit.feedMidi([0x99,[36,38,42,48,49,51][Math.floor(Math.random()*6)],120])},140)"); pg.wait_for_timeout(1200)
         hit = pg.evaluate(diff); pg.evaluate('clearInterval(__t)')
