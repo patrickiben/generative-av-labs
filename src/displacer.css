@@ -8,6 +8,18 @@
 #busy::before { content: ""; position: absolute; left: 10px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--accent); animation: pulse 1.1s ease-in-out infinite; }
 body.moved .intro { opacity: 0; transform: translateY(-10px); }
 
+/* A sound image should read as sound, with the same axes as the rendered spectrum. */
+#spectrogram-guide { position: absolute; pointer-events: none; border: 1px solid rgba(184,183,255,.17); border-radius: 3px; color: #bcbdd2; font: 10px/1.4 var(--mono); }
+.spec-heading { position: absolute; left: 0; bottom: calc(100% + 16px); display: grid; gap: 5px; max-width: 100%; }
+.spec-heading > span { color: #8be0d4; letter-spacing: 1.8px; font-size: 10px; }
+.spec-heading strong { color: #eeedfb; font: 400 clamp(14px, 1.5vw, 21px)/1.3 var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#spec-frequencies span { position: absolute; right: calc(100% + 10px); transform: translateY(50%); white-space: nowrap; }
+#spec-frequencies span::after { content: ''; position: absolute; left: calc(100% + 4px); top: 50%; width: 6px; border-top: 1px solid #777993; }
+#spec-times span { position: absolute; top: calc(100% + 8px); transform: translateX(-50%); white-space: nowrap; }
+.spec-key { position: absolute; top: calc(100% + 29px); left: 50%; transform: translateX(-50%); white-space: nowrap; color: #8b8da6; }
+body:not(.moved) #spectrogram-guide .spec-heading { opacity: 0; }
+body.performance #spectrogram-guide { display: none; }
+
 /* the A to B bar is the instrument */
 .ab { display: flex; align-items: center; justify-content: center; gap: 14px; max-width: min(980px, 100%); }
 .ab-thumb { position: relative; width: 88px; height: 55px; flex: none; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #0c1020; box-shadow: 0 8px 30px var(--shadow); transition: border-color 0.2s, transform 0.2s; }
@@ -86,6 +98,11 @@ body.performance .intro, body.performance .vignette { opacity: 0 !important; poi
   #view-seg { order: 5; }
   #hear { order: 6; }
   .src-grid { grid-template-columns: 1fr; }
+  #spectrogram-guide { font-size: 9px; }
+  .spec-heading { bottom: calc(100% + 12px); }
+  .spec-heading > span { font-size: 8px; letter-spacing: 1px; }
+  #spec-times span:nth-child(even) { display: none; }
+  .spec-key { font-size: 8px; }
 }
 @media (max-width: 560px) {
   body[data-app="displacer"] .dock button { min-width: 0; padding: 9px 7px 8px; }

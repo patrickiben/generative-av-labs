@@ -17,6 +17,7 @@
     image: '<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="m4 17 5-5 4 4 2.5-2.5L20 18"/><circle cx="15.5" cy="9.5" r="1.5"/>',
     table: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M10 5v14"/>',
     wave: '<path d="M3 12h2l2-5 3 10 3-14 3 14 2-5h3"/>',
+    forge: '<path d="M3 17h18M4 13h4l2-8 3 11 2-6h5"/><path d="m17 3 1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/>',
     floor: '<path d="M3 17h6c3.5 0 3.5-9 7-9h5"/>',
     exciter: '<path d="M5 20V8M9 20v-8M13 20v-5M17 20v-3M21 20v-1.5"/>',
     transient: '<path d="M3 18h4l2.5-13L12 18h9"/>',
@@ -33,12 +34,13 @@
 
   const DOCK = [
     { id: 'source', label: 'Source', icon: 'file' },
-    { id: 'engine', label: 'Engine', icon: 'sliders' },
+    { id: 'engine', label: 'Forge', icon: 'sliders' },
     { id: 'listen', label: 'Listen', icon: 'phones' },
     { id: 'measured', label: 'Measured', icon: 'chart' },
     { id: 'keep', label: 'Keep', icon: 'keep' },
   ];
   const MODES = [
+    { id: 'forge', name: 'Forge', cap: 'Guarded detail synthesis', kind: 'syn' },
     { id: 'floor', name: 'Floor', cap: 'High shelf', kind: 'amp' },
     { id: 'exciter', name: 'Exciter', cap: 'Harmonics', kind: 'syn' },
     { id: 'transient', name: 'Transient', cap: 'Attack restore', kind: 'amp' },
@@ -58,12 +60,12 @@
       </div>
     </header>
     <nav class="mode-switch chrome" aria-label="Engine">
-      ${MODES.map((m) => `<button data-mode="${m.id}" aria-pressed="${m.id === 'sbr'}">${m.name}</button>`).join('')}
+      <button data-mode="forge" aria-pressed="true">Forge detail</button><button id="compare-open">Compare effects</button><button id="detail-button" aria-pressed="false">Hear added layer</button>
     </nav>
     <div class="intro">
-      <p class="eyebrow" id="intro-eyebrow">Detail Forge Analog · labeled detail</p>
-      <h1 id="intro-title">Brighten a dull recording, honestly.</h1>
-      <p id="intro-sub">A synthetic test sound is loaded. Press Play, then flip A and B by tapping the letter or pressing the space bar.</p>
+      <p class="eyebrow" id="intro-eyebrow">Preserve the sound. Invent the fine detail.</p>
+      <h1 id="intro-title">Forge the missing texture.</h1>
+      <p id="intro-sub">Keep the source as the anchor. Add a new layer of harmonics and texture above its estimated cutoff. Hear the original, the result, or only what was invented.</p>
       <button class="pill primary start" id="start-listen">${svg('play')}Start listening</button>
     </div>
     <div id="toast" role="status"></div>
@@ -91,7 +93,7 @@
         <div class="dock-divider"></div>
         <button id="about-button" aria-haspopup="dialog" aria-expanded="false">${svg('about')}<span>About</span></button>
       </nav>
-      <p class="truth chrome" id="truth">Nothing here recovers lost audio. Floor amplifies what is there; Exciter and SBR synthesize new detail above the measured cutoff, and Transient's moving gain spreads some new highs there too. Every number is measured on the output, in this browser.</p>
+      <p class="truth chrome" id="truth">Source + invented detail. Forge follows the sound’s local texture and protects the original band. Procedural synthesis, not recovered audio or a neural model.</p>
     </div>`);
 
   const sheet = (id, title, intro, html, wide) => `
@@ -121,7 +123,7 @@
         ${row('Enhance from', 'Seconds into the sound', '<div class="range-in"><input type="number" id="sel-t0" step="0.01" min="0" aria-label="Range start in seconds"><span>to</span><input type="number" id="sel-t1" step="0.01" min="0" aria-label="Range end in seconds"></div>')}
         <p class="hint" id="sel-status">The whole sound. Drag across the spectrograms to choose a stretch, and a click clears it.</p>
         ${callout('Only the range is processed, with 50 ms crossfades at the seams, and the rest stays untouched. The numbers are measured on the range itself.')}`, { right: '<button class="pill small" id="sel-full">Whole sound</button>' })}
-      ${card('Test sound', `${row('Synthetic test sound', 'Plucked chords and breath noise, cut off above 11 kHz', '<button class="pill" id="src-synth">Load it</button>')}
+      ${card('Test sound', `${row('Synthetic test sound', 'Plucked chords and breath noise, cut off above 6 kHz', '<button class="pill" id="src-synth">Load it</button>')}
         ${callout('Made in this page from a fixed seed, to stand in for a dull recording. It is not a recording of anything.')}`, { right: SYNTH })}
       ${dcard('What this browser can open', `<ul>
           <li><b>WAV and AIFF</b> are read straight from the file, sample for sample: 8 to 32-bit PCM and 32 or 64-bit float.</li>
@@ -130,14 +132,20 @@
           <li>Up to 10 minutes and two channels. Extra channels are left out, and the page says so.</li>
         </ul>`, { id: 'formats' })}`),
 
-    sheet('engine', 'Choose the engine.', 'Two engines amplify what is there, and two synthesize new detail above the measured cutoff. Each change runs again by itself.', `
+    sheet('engine', 'Build the detail layer.', 'Like Detail Forge for images: keep the source as an anchor, synthesize fine texture, then guard the original structure. Every setting runs again automatically.', `
       <div class="tiles four" role="group" aria-label="Engine">
-        ${MODES.map((m) => `<button class="tile-btn eng" data-mode="${m.id}" aria-pressed="${m.id === 'sbr'}">${svg(m.id)}<b>${m.name}</b><span class="cap">${m.cap}</span>${m.kind === 'amp' ? AMP : SYN}</button>`).join('')}
+        ${MODES.filter(m => m.id === 'forge').map((m) => `<button class="tile-btn eng ${m.id === 'forge' ? 'forge-choice' : ''}" data-mode="${m.id}" aria-pressed="${m.id === 'forge'}">${svg(m.id)}<b>${m.name}</b><span class="cap">${m.cap}</span>${m.kind === 'amp' ? AMP : SYN}</button>`).join('')}
       </div>
-      ${card('Response', `<canvas class="viz" id="engine-viz" role="img" aria-label="A picture of what the chosen engine does" style="height:150px"></canvas>
-        <p class="hint" id="engine-viz-note">-</p>`, { hid: 'engine-viz-title', right: '<span class="cstate" id="engine-state"></span>' })}
       ${card('Settings', `
-        <div class="knobs" data-for="sbr">
+        <div class="knobs" data-for="forge">
+          <div class="forge-process"><span><b>01</b> Source anchor</span><span><b>02</b> Texture synthesis</span><span><b>03</b> Band guard</span></div>
+          ${knob('k-amount', 'Amount of invented detail', 'v-amount', 0, 100, 55, '55 %')}
+          ${knob('k-cutoff', 'Protect the original band below', 'v-cutoff', 0, 200, 0, 'Auto · estimated')}
+          ${knob('k-ceiling', 'Detail ceiling', 'v-ceiling', 40, 220, 200, '20.0 kHz')}
+          <div class="set-row"><div><b>Texture seed</b><span>Repeat a result or try a new fine texture.</span></div><div class="range-in"><input id="forge-seed" type="number" min="0" max="4294967295" step="1" value="17" aria-label="Texture seed"><button class="pill small" id="new-seed">New</button></div></div>
+          <p class="hint">Auto estimates the source cutoff; it cannot know what was lost. Drag the guard to override it. The original samples stay underneath the new layer. A finite transition above the guard limits low-band leakage. There is no upsampling: if the source rate leaves no room above the guard, the sound passes through unchanged.</p>
+        </div>
+        <div class="knobs" data-for="sbr" hidden>
           ${knob('k-wet', 'Wet, the synthesized amount', 'v-wet', 0, 100, 65, '65 %')}
           ${knob('k-tilt', 'High-frequency tilt', 'v-tilt', -14, -2, -6, '-6 dB/oct')}
           ${knob('k-target', 'Target ceiling', 'v-target', 10, 22, 20, '20 kHz')}
@@ -150,13 +158,17 @@
         <div class="knobs" data-for="transient" hidden>${knob('k-tamt', 'Attack amount', 'v-tamt', 10, 100, 60, '60 %')}</div>
         <div class="bar" aria-hidden="true"><i id="proc-bar"></i></div>
         <p class="hint" id="proc-line" role="status">-</p>
-        ${callout('-', 'engine-note')}`, { right: '<button class="pill small" id="eng-reset">Defaults</button>' })}`, true),
+        ${callout('-', 'engine-note')}`, { right: '<button class="pill small" id="eng-reset">Defaults</button>' })}
+      ${card('Detail map', `<canvas class="viz" id="engine-viz" role="img" aria-label="A picture of what the chosen engine does" style="height:150px"></canvas>
+        <p class="hint" id="engine-viz-note">-</p>`, { hid: 'engine-viz-title', right: '<span class="cstate" id="engine-state"></span>' })}
+      ${dcard('Compare with classic effects', `<p class="hint">These are reference effects from the original Analog app. Forge is the source-anchored detail workflow.</p><div class="tiles four">${MODES.filter(m => m.id !== 'forge').map(m => `<button class="tile-btn eng" data-mode="${m.id}" aria-pressed="false">${svg(m.id)}<b>${m.name}</b><span class="cap">${m.cap}</span>${m.kind === 'amp' ? AMP : SYN}</button>`).join('')}</div>`, { id: 'comparison-engines' })}`, true),
 
     sheet('listen', 'Hear the difference.', 'A and B play from the same instant, so a flip changes only the processing.', `
-      <div class="tiles three">
+      <div class="tiles four">
         <button class="tile-btn" id="listen-play" aria-pressed="false">${svg('play')}<b id="listen-play-b">Play</b><span class="cap" id="listen-play-cap">From the start</span></button>
         <button class="tile-btn side" id="side-a" aria-pressed="true"><span class="big">A</span><b>Source</b><span class="cap">As it was</span></button>
         <button class="tile-btn side" id="side-b" aria-pressed="false"><span class="big">B</span><b>Result</b><span class="cap" id="side-b-cap">Loudness-matched</span></button>
+        <button class="tile-btn side" id="side-d" aria-pressed="false"><span class="big">Δ</span><b>Added detail</b><span class="cap">Result minus source · actual level</span></button>
       </div>
       ${card('Level, K-weighted', `<canvas class="viz" id="level-viz" role="img" aria-label="The K-weighted level of A, of B as made, and of B as you hear it, with the level playing now" style="height:112px"></canvas>
         <p class="hint" id="level-note">-</p>`, { right: tag('live', 'BS.1770') })}
@@ -172,12 +184,15 @@
         ${stat('Original band', 'm-lsd', 'log-spectral distance, lower is truer')}
         ${stat('Added band', 'm-nr', 'spectral flatness')}
         ${stat('Loudness match', 'm-gain', 'BS.1770 gain on B')}
-        ${stat('Cutoff', 'm-fc', 'measured on the source')}
+        ${stat('Guard cutoff', 'm-fc', 'estimated or chosen')}
+        ${stat('Invented layer', 'm-added', 'residual energy / result energy')}
+        ${stat('Guard leakage', 'm-guard', 'added low-band energy / source low-band energy')}
+        ${stat('Detail headroom', 'm-headroom', 'gain on added layer only')}
       </div>
       ${callout('The synthesized band reads as hiss. Lower the wet amount or the tilt, or the source may be too narrow.', 'm-warn')}
       ${card('Spectrum before and after', `<canvas class="viz" id="spec-viz" role="img" aria-label="Welch power spectra of the source and the result, with the measured cutoff" style="height:190px"></canvas>
         <p class="hint" id="m-span">-</p>`, { right: MEAS })}
-      ${dcard('Fixed from the desktop app', `<p>With a range selected, the desktop app measured the first 2<sup>18</sup> samples of the whole file, 5.46 s at 48 kHz, so a range later than that read as unchanged. This page measures the range it processed. Everything else matches the desktop app number for number.</p>`, { id: 'fix' })}`, true),
+      ${dcard('Fixed from the desktop app', `<p>With a range selected, the desktop app measured the first 2<sup>18</sup> samples of the whole file, 5.46 s at 48 kHz, so a range later than that read as unchanged. This page measures the range it processed. The four comparison effects retain the desktop algorithms. Forge is a new source-anchored synthesis path.</p>`, { id: 'fix' })}`, true),
 
     sheet('keep', 'Keep the result.', 'Everything stays in this browser until you save a file yourself.', `
       <div class="tiles three">
@@ -189,23 +204,23 @@
       ${card('Take it further', `<p class="hint lead">Save the WAV, then open it in <a href="nebula.html">Nebula</a>, whose Form mode turns a sound into a particle cloud, or in <a href="chimera.html">Chimera Synth</a>, which grows a seed from a sound or plays it as a voice.</p>`)}
       ${callout('The WAV is 24-bit at the source\'s own rate: the whole sound, with the range enhanced if you chose one, written sample for sample as the desktop app writes it.')}`),
 
-    sheet('about', 'What is real here.', 'Detail Forge Analog\'s signal processing, ported line by line from the desktop app and checked against it number for number, running in this browser.', `
+    sheet('about', 'What is real here.', 'A procedural audio analogue of Detail Forge: new fine detail on an original structure, with an inspectable difference layer. It is not neural audio super-resolution.', `
       <div class="legend" id="label-legend">
         <div class="lg">${MEAS}<p>Every number is measured on the real output: bandwidth, the level above the cutoff, how well the original band was kept, and the loudness match.</p></div>
         <div class="lg">${AMP}<p>Floor and Transient change the level of what is there. Floor is the honest control: a high shelf that invents nothing above the cutoff.</p></div>
-        <div class="lg">${SYN}<p>Exciter and SBR make new content above the cutoff from what is below it. Plausible detail, synthesized, never recovered.</p></div>
+        <div class="lg">${SYN}<p>Forge makes a separate detail layer from local spectral peaks and diffuse texture, guards its low band, and adds it to the untouched source. Exciter and SBR are comparison effects. None recovers lost audio.</p></div>
         <div class="lg">${SYNTH}<p>The test sound is made in this page and labeled on screen the whole time it is loaded.</p></div>
       </div>
       ${dcard('Running in this page', `<ul>
-          <li>The cutoff measured from a Welch spectrum, as the desktop app measures it.</li>
-          <li>Four engines: an RBJ high shelf, a 4x oversampled harmonic exciter, a dynamic-gain transient restore, and spectral band replication.</li>
+          <li>An estimated cutoff from a Welch spectrum; Forge also accepts a chosen guard frequency. A source with no room above its guard passes through unchanged.</li>
+          <li>Forge: harmonic peak continuation, source-shaped noise texture, short overlapping tiles, a linear-phase high-band guard, and headroom control that scales only the invented layer. Four older effects remain as comparison controls.</li>
           <li>Range processing with 50 ms crossfades, before and after spectrograms, and a loudness-matched A/B.</li>
           <li>A 24-bit WAV written the way the desktop app writes it.</li>
         </ul>`)}
       ${dcard('What it cannot do', `<p>It cannot recover lost audio. A band-limited recording cannot be restored, only continued. SBR folds the top octave below the cutoff upward and gives it fresh phase: plausible highs, not the ones that were there. Its random phases come from this page's own seeded generator, so its output differs from the desktop app's in the synthesized band, within the same spread.</p>`)}
-      ${dcard('Checked against the desktop app', `<p>230 of 230 checks passed: samples within 1.8 × 10<sup>-7</sup> of the desktop app's, every measure equal to four decimals, SBR inside the desktop app's own run-to-run spread, and the 24-bit WAV byte for byte. The one change is the measuring window, under Measured.</p>`)}
-      ${dcard('Keys', `<p>Space flips A and B. P plays or stops. 1 to 4 choose Floor, Exciter, Transient and SBR. O opens a file. F is full screen, and Escape closes a sheet.</p>`)}
-      ${dcard('Safety and privacy', `<p>Start quietly. Exciter and SBR add high frequencies that can sound harsh on headphones, and B is matched to A in loudness, not limited. The picture changes only when you act or play, and it measures under the WCAG limit of three flashes a second, even with fast engine and A/B switching. That is a measured screen, not a medical guarantee.</p>
+      ${dcard('Checked against the desktop app', `<p>The legacy comparison effects have numerical parity tests against the desktop app. Forge has separate tests for silence, deterministic seeds, stereo polarity, no-op endpoints, unchanged samples outside a selection, and low-band leakage. These are integrity checks, not evidence that synthesized detail is the lost original.</p>`)}
+      ${dcard('Keys', `<p>Space flips A and B. P plays or stops. 1 to 4 choose Floor, Exciter, Transient and SBR; 5 returns to Forge. D auditions the added layer. O opens a file. F is full screen, and Escape closes a sheet.</p>`)}
+      ${dcard('Safety and privacy', `<p>Start quietly. Forge, Exciter and SBR add high frequencies that can sound harsh on headphones, and B is matched to A in loudness, not limited. The picture changes only when you act or play, and it measures under the WCAG limit of three flashes a second, even with fast engine and A/B switching. That is a measured screen, not a medical guarantee.</p>
         <p>Your file is read in this browser and never sent anywhere. The page makes no network requests after it loads. Your volume, loop and match choices stay in this browser's storage.</p>`)}
       ${dcard('Ideas credited', `<p>No outside code is included. Spectral band replication follows the idea in HE-AAC's SBR. The shelf follows Robert Bristow-Johnson's Audio EQ Cookbook, and the loudness match uses the K-weighting of ITU-R BS.1770. The exciter follows the classic studio exciter.</p>`)}
       <p class="note"><a href="field-guide.html#analog">Read the field guide</a> · <a href="__REPO_URL__" rel="noopener">Source</a></p>`),

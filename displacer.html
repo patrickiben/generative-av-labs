@@ -216,6 +216,18 @@ table.maptable th { color: var(--ink); font-weight: 500; white-space: nowrap; }
 #busy::before { content: ""; position: absolute; left: 10px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--accent); animation: pulse 1.1s ease-in-out infinite; }
 body.moved .intro { opacity: 0; transform: translateY(-10px); }
 
+/* A sound image should read as sound, with the same axes as the rendered spectrum. */
+#spectrogram-guide { position: absolute; pointer-events: none; border: 1px solid rgba(184,183,255,.17); border-radius: 3px; color: #bcbdd2; font: 10px/1.4 var(--mono); }
+.spec-heading { position: absolute; left: 0; bottom: calc(100% + 16px); display: grid; gap: 5px; max-width: 100%; }
+.spec-heading > span { color: #8be0d4; letter-spacing: 1.8px; font-size: 10px; }
+.spec-heading strong { color: #eeedfb; font: 400 clamp(14px, 1.5vw, 21px)/1.3 var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#spec-frequencies span { position: absolute; right: calc(100% + 10px); transform: translateY(50%); white-space: nowrap; }
+#spec-frequencies span::after { content: ''; position: absolute; left: calc(100% + 4px); top: 50%; width: 6px; border-top: 1px solid #777993; }
+#spec-times span { position: absolute; top: calc(100% + 8px); transform: translateX(-50%); white-space: nowrap; }
+.spec-key { position: absolute; top: calc(100% + 29px); left: 50%; transform: translateX(-50%); white-space: nowrap; color: #8b8da6; }
+body:not(.moved) #spectrogram-guide .spec-heading { opacity: 0; }
+body.performance #spectrogram-guide { display: none; }
+
 /* the A to B bar is the instrument */
 .ab { display: flex; align-items: center; justify-content: center; gap: 14px; max-width: min(980px, 100%); }
 .ab-thumb { position: relative; width: 88px; height: 55px; flex: none; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); background: #0c1020; box-shadow: 0 8px 30px var(--shadow); transition: border-color 0.2s, transform 0.2s; }
@@ -294,6 +306,11 @@ body.performance .intro, body.performance .vignette { opacity: 0 !important; poi
   #view-seg { order: 5; }
   #hear { order: 6; }
   .src-grid { grid-template-columns: 1fr; }
+  #spectrogram-guide { font-size: 9px; }
+  .spec-heading { bottom: calc(100% + 12px); }
+  .spec-heading > span { font-size: 8px; letter-spacing: 1px; }
+  #spec-times span:nth-child(even) { display: none; }
+  .spec-key { font-size: 8px; }
 }
 @media (max-width: 560px) {
   body[data-app="displacer"] .dock button { min-width: 0; padding: 9px 7px 8px; }
@@ -1857,10 +1874,10 @@ void main(){
 <script>
 /* displacer-engine.js: the blend engine of the desktop Displacer (Displacer_OT_Blender.html), copied by line range.
    1D optimal transport per color channel or per sound frame, spatial OT on sampled pixel clouds, sliced OT in six
-   dimensions, Gabor atoms, Genopatch's differential evolution and the FX rack. The maths is unchanged. Four patches,
+   dimensions, Gabor atoms, Genopatch's differential evolution and the FX rack. The transport maths is retained. Browser adaptations,
    each marked: Genopatch reads its effort from state, the granular effect is seeded so a saved sound repeats exactly,
    the overlap-add no longer divides by a near-zero window at the edges (which left blends about 250 times too quiet),
-   and the two map builders are split so the page can run their sliced OT in a worker. createEngine(S) reads its
+   the two map builders run their sliced OT in a worker, and mixed-rate audio uses an anti-alias filter before downsampling. createEngine(S) reads its
    settings from the page's state object S, as the desktop page did. No drawing happens here. The public page is sound
    only: it calls the sound parts, and the picture functions stay so this file remains a line-range copy of the desktop
    engine. */
@@ -1956,10 +1973,36 @@ function fft(re,im,inv){ const n=re.length;
       const ur=re[a],ui=im[a], vr=re[b]*cr-im[b]*ci, vi=re[b]*ci+im[b]*cr;
       re[a]=ur+vr;im[a]=ui+vi;re[b]=ur-vr;im[b]=ui-vi; const ncr=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=ncr; } } }
   if(inv){for(let i=0;i<n;i++){re[i]/=n;im[i]/=n;}} }
-function resampleLinear(data,sr,dr){ if(sr===dr)return data.slice(); const ratio=sr/dr,L=Math.floor(data.length/ratio),out=new Float32Array(L);
+function resampleLinear(data,sr,dr){ if(sr===dr)return data.slice(); const ratio=sr/dr,L=Math.floor(data.length*dr/sr),out=new Float32Array(L);
   for(let i=0;i<L;i++){const x=i*ratio,i0=Math.floor(x),f=x-i0; out[i]=data[i0]*(1-f)+(data[i0+1]||0)*f;} return out; }
+// Mixing sample rates must not fold inaudible source highs into audible low frequencies.
+// A normalized, Blackman-windowed sinc at 90% of the destination Nyquist filters before
+// decimation. Phase tables keep the six-second import bounded; reflected ends avoid a DC step.
+function resampleAudio(data,sr,dr){
+  if(sr<=dr)return resampleLinear(data,sr,dr);
+  const ratio=sr/dr,L=Math.floor(data.length*dr/sr),out=new Float32Array(L);
+  if(!data.length)return out;
+  const radius=Math.ceil(24*ratio),phases=256,cutoff=0.45/ratio,kernels=[];
+  for(let p=0;p<=phases;p++){
+    const h=new Float64Array(2*radius+1);let sum=0;
+    for(let j=-radius;j<=radius;j++){
+      const d=j-p/phases,u=d/radius;
+      const win=Math.abs(u)>1?0:0.42+0.5*Math.cos(Math.PI*u)+0.08*Math.cos(2*Math.PI*u);
+      const v=(Math.abs(d)<1e-10?2*cutoff:Math.sin(2*Math.PI*cutoff*d)/(Math.PI*d))*win;
+      h[j+radius]=v;sum+=v;
+    }
+    for(let j=0;j<h.length;j++)h[j]/=sum;kernels.push(h);
+  }
+  const reflect=(j)=>{if(data.length===1)return 0;const period=2*(data.length-1);j=((j%period)+period)%period;return j<data.length?j:period-j;};
+  for(let i=0;i<L;i++){
+    const x=i*ratio,base=Math.floor(x),h=kernels[Math.round((x-base)*phases)];let v=0;
+    for(let j=-radius;j<=radius;j++){const k=base+j;v+=data[k<0||k>=data.length?reflect(k):k]*h[j+radius];}
+    out[i]=v;
+  }
+  return out;
+}
 function prepAudio(){ if(!S.srcA||!S.srcB)return false; const rate=Math.min(S.srcA.rate,S.srcB.rate); S.audRate=rate;
-  let a=resampleLinear(S.srcA.data,S.srcA.rate,rate), b=resampleLinear(S.srcB.data,S.srcB.rate,rate);
+  let a=resampleAudio(S.srcA.data,S.srcA.rate,rate), b=resampleAudio(S.srcB.data,S.srcB.rate,rate);
   const L=Math.min(a.length,b.length,Math.floor(rate*6)); S.audA=a.subarray(0,L); S.audB=b.subarray(0,L); S.audDirty=true; return true; }
 function invCDFarr(cdf,p,K){ if(p<=cdf[0])return 0; if(p>=1)return K; let lo=0,hi=K; while(lo<hi){const mid=(lo+hi)>>1; if(cdf[mid]<p)lo=mid+1; else hi=mid;} const c0=lo>0?cdf[lo-1]:0,c1=cdf[lo]; const f=c1>c0?(p-c0)/(c1-c0):0; return (lo-1)+f; }
 function buildCDFmag(mag,K){ const cdf=new Float64Array(K+1); let mx=0; for(let k=0;k<=K;k++)if(mag[k]>mx)mx=mag[k]; const fl=mx*1e-4; let s=0;
@@ -2299,7 +2342,7 @@ function decodeAiff(ab){ const dv=new DataView(ab), tag=o=>String.fromCharCode(d
   return {data:out,rate:Math.round(rate)}; }
 
     return { lerp, clamp, mulberry32, chanCDF, invCDF256, buildLUT, toSpace, fromSpace, cacheImageDists, applySliced, renderImage,
-      renderSpatial, xfadeImage, fft, resampleLinear, prepAudio, renderAudioOT, renderAudioMP, renderAudioXfade, normalize,
+      renderSpatial, xfadeImage, fft, resampleLinear, resampleAudio, prepAudio, renderAudioOT, renderAudioMP, renderAudioXfade, normalize,
       distFromImage, distFromAudio, mean256, cdf256, pushforward, maxv, encodeWav, gpParams, candSpec, specDescriptor, genopatch,
       initWorkers, synthFromPatch, applyFX, liftSplats, slicedOT, extractAtoms, hsl2rgb, atomColor, specCorr,
       slicedClouds, slicedAssemble, buildSlicedMap, spatialClouds, spatialAssemble, buildSpatialMap, packClouds, slicedOTxy, decodeAiff,
@@ -2338,7 +2381,7 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
   const SOUND_S = 6, CW = 0.0035;
 
   const S = {
-    view: 'space', t: 0.5, method: 'ot',
+    view: 'flat', t: 0.5, method: 'ot',
     phasemode: 'dominant', xlaw: 'ep', mpMix: 0.55,
     srcA: null, srcB: null, audA: null, audB: null, audRate: 0, audDirty: true, lastRender: null,
     names: { A: 'Sung ah', B: 'Glass bells' },
@@ -2407,7 +2450,7 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
   /* ---------- sheets and the stage chrome ---------- */
   const hud = `
     <div class="ab">
-      <div class="seg" id="view-seg" role="group" aria-label="View"><button data-view="flat" aria-pressed="false">Flat</button><button data-view="space" aria-pressed="true">Space</button></div>
+      <div class="seg" id="view-seg" role="group" aria-label="View"><button data-view="flat" aria-pressed="true">Spectrogram</button><button data-view="space" aria-pressed="false">Atoms · 3D</button></div>
       <button class="ab-thumb" id="slot-A" data-slot="A"><canvas id="thumb-A" width="176" height="110" aria-hidden="true"></canvas><span class="ab-tag">A</span></button>
       <div class="ab-mid">
         <div class="ab-read"><span class="ab-name" id="name-A">Sung ah</span><b class="ab-t" id="t-val">0.50</b><span class="ab-name b" id="name-B">Glass bells</span></div>
@@ -2447,10 +2490,10 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
       <label class="field"><div class="row"><span>Depth</span><b id="depth-v"></b></div><input type="range" id="depth" min="0" max="140" value="55"></label>
       <label class="field"><div class="row"><span>Atom size</span><b id="size-v"></b></div><input type="range" id="size" min="30" max="250" value="100"></label>
       <label class="check" style="margin:0"><input type="checkbox" id="sway" checked> Sway slowly</label>
-      <label class="check" style="margin:0"><input type="checkbox" id="sweep"> Slow sweep from A to B and back, 24 seconds</label>
+      <label class="check" style="margin:0"><input type="checkbox" id="sweep"> Visual sweep from A to B and back, 24 seconds</label>
     </div>
     <div class="row-actions" id="atom-actions"><button class="pill" id="atoms-play">Play the atoms</button></div>
-    <p class="note">Drag the stage to turn the cloud and scroll to move closer. Depth is each atom's salience: a stated rule, not a learned estimate. A controller's mod wheel (CC1) moves the slider.</p>`;
+    <p class="note">Drag the stage to turn the cloud and scroll to move closer. Hear holds the visual sweep at its current position; Save a sweep renders an audible journey from A to B. Depth is each atom's salience: a stated rule, not a learned estimate. A controller's mod wheel (CC1) moves the slider.</p>`;
 
   const patchSheet = `
     <div class="row-actions" style="margin-top:0"><div class="seg small" id="gp-src" role="group" aria-label="What to fit"><button data-s="blend" aria-pressed="true">The blend</button><button data-s="A" aria-pressed="false">A</button><button data-s="B" aria-pressed="false">B</button></div>
@@ -2581,6 +2624,11 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     <div id="method-badge" class="chrome" data-kind="space-audio"><span id="method-badge-text"></span></div>
     <div id="busy" class="chrome" role="status" hidden></div>`);
   sceneEl.insertAdjacentHTML('beforeend', `
+    <div id="spectrogram-guide" class="chrome" hidden>
+      <div class="spec-heading"><span>THE BLEND · SPECTROGRAM</span><strong id="spec-pair"></strong></div>
+      <div id="spec-frequencies"></div><div id="spec-times"></div>
+      <span class="spec-key">Time → · frequency ↑ · brighter = stronger</span>
+    </div>
     <div id="scope-card" class="chrome" hidden><canvas id="scope" width="560" height="300" role="img" aria-label="Transport scope"></canvas>
       <div class="scope-key"><span class="ka">A</span><span class="kb">B</span><span class="km">blend</span><span id="scope-mini"></span></div></div>
     <div id="drop" hidden><div data-slot="A"><b>A</b>Drop to replace A</div><div data-slot="B"><b>B</b>Drop to replace B</div></div>`);
@@ -2726,25 +2774,62 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     flatW = cols; flatH = rows; flatSpec = true;
     uploadFlat(sp);
     flatMean = [0.03, 0.025, 0.07];
+    const hi = r.rate / 2, span = Math.log(hi / 40);
+    $('spec-pair').textContent = `${S.names.A} → ${S.names.B}`;
+    $('spec-frequencies').innerHTML = [100, 1000, 10000].filter((hz) => hz < hi).map((hz) =>
+      `<span style="bottom:${100 * Math.log(hz / 40) / span}%">${hz >= 1000 ? `${hz / 1000} kHz` : `${hz} Hz`}</span>`).join('');
+    const duration = r.data.length / r.rate;
+    $('spec-times').innerHTML = [0, 0.25, 0.5, 0.75, 1].map((t) => `<span style="left:${t * 100}%">${(t * duration).toFixed(2)} s</span>`).join('');
   }
+
+  // Keep labels aligned with the actual WebGL image, including after a phone rotation.
+  let guideRect = '';
+  function placeSpectrogramGuide(rect, visible) {
+    const guide = $('spectrogram-guide');
+    guide.hidden = !visible || S.perform;
+    if (guide.hidden) return;
+    const css = `left:${rect[0] * 100}%;top:${(1 - rect[3]) * 100}%;width:${(rect[2] - rect[0]) * 100}%;height:${(rect[3] - rect[1]) * 100}%`;
+    if (css !== guideRect) { guide.style.cssText = css; guideRect = css; }
+  }
+  // Cache and worker results belong to the complete input state, including source files and effects.
+  // A render finishing after another slider/file change must never clear that change's dirty flag.
+  const audioKey = () => JSON.stringify([S.ver, S.t, S.method, S.phasemode, S.mpMix, S.xlaw, S.fx]);
+  let audioJob = null;
   function scheduleRender(ms) { clearTimeout(renderTimer); renderTimer = setTimeout(renderAudioNow, ms); }
-  async function renderAudioNow() {
-    if (!S.audA || !S.audB) return null;
-    const id = ++renderSeq, t = S.t, method = S.method;
+  function renderAudioNow() {
+    if (!S.audA || !S.audB) return Promise.resolve(null);
+    const key = audioKey();
+    if (audioJob && audioJob.key === key) return audioJob.promise;
+    const id = ++renderSeq, t = S.t, method = S.method, rate = S.audRate, ver = S.ver;
+    const job = { key, promise: null };
     busy('Rendering the blend');
-    const r = await work({ type: 'audio', A: S.audA.slice(), B: S.audB.slice(), rate: S.audRate, t, method, phasemode: S.phasemode, mpMix: S.mpMix, xlaw: S.xlaw, fx: S.fx });
-    if (id !== renderSeq) return null;
-    busy(null);
-    if (r.error) { shell.toast(`The blend could not render: ${r.error}`); return null; }
-    S.lastRender = { data: r.data, rate: S.audRate, t, method }; S.audDirty = false;
-    showSpectrogram(S.lastRender);
-    return S.lastRender;
+    job.promise = (async () => {
+      try {
+        const r = await work({ type: 'audio', A: S.audA.slice(), B: S.audB.slice(), rate, t, method, phasemode: S.phasemode, mpMix: S.mpMix, xlaw: S.xlaw, fx: S.fx });
+        if (id !== renderSeq || key !== audioKey()) return null;
+        if (r.error) { shell.toast(`The blend could not render: ${r.error}`); return null; }
+        S.lastRender = { data: r.data, rate, t, method, ver, key }; S.audDirty = false;
+        showSpectrogram(S.lastRender);
+        updateAudition(S.lastRender);
+        return S.lastRender;
+      } finally {
+        if (audioJob === job) { audioJob = null; busy(null); }
+      }
+    })();
+    audioJob = job;
+    return job.promise;
   }
   async function currentRender() {
-    const L = S.lastRender;
-    if (L && !S.audDirty && L.t === S.t && L.method === S.method) return L;
-    clearTimeout(renderTimer);
-    return renderAudioNow();
+    // A click to hear/save follows the newest requested state even if its predecessor is still rendering.
+    for (;;) {
+      stopSweep();  // hearing or saving a fixed blend holds the visual-only sweep at this position
+      const key = audioKey(), L = S.lastRender;
+      if (L && !S.audDirty && L.key === key) return L;
+      clearTimeout(renderTimer);
+      const r = await renderAudioNow();
+      if (r) return r;
+      if (key === audioKey()) return null;  // a real render failure, not a superseded request
+    }
   }
 
   /* ---------- the transport scope ---------- */
@@ -2992,7 +3077,8 @@ void main(){
         S.tMid += (S.t - S.tMid) * k; S.tView += (S.tMid - S.tView) * k;
         if (Math.abs(S.t - S.tMid) < 1e-4 && Math.abs(S.t - S.tView) < 1e-4) { S.tMid = S.t; S.tView = S.t; }
       }
-      if (S.view === 'space' && spaceKey !== wantKey()) buildSpace();
+      // Also prepare the optional atom view in the background, without making it the first impression.
+      if (spaceKey !== wantKey()) buildSpace();
       if (S.view === 'flat' && !flatReady && S.lastRender) showSpectrogram(S.lastRender);
       if (scopeDirty || $('blend-sheet').open) { scopeDirty = false; drawScopes(); }
       if (S.space.sway && !dragging && !RM.matches) S.space.phase += dt * 0.11;
@@ -3003,10 +3089,13 @@ void main(){
       const showSpace = S.view === 'space' && spaceN > 0 && !!splat;
       const center = [0.5, 1 - (safe.top + safe.bottom) / 2]; let rect = [0, 0, 0, 0];
       if (showFlat) {
-        const side = $('scope-card').hidden ? 0.05 : Math.min(0.3, 318 / Math.max(1, innerWidth)), aw = (1 - 2 * side) * W, ah = 0.94 * sh * H, k = Math.min(aw / flatW, ah / (flatW / 1.9)), pw = flatW * k, ph = (flatW / 1.9) * k;
+        const side = Math.max(66 / Math.max(1, innerWidth), $('scope-card').hidden ? 0.07 : Math.min(0.3, 318 / Math.max(1, innerWidth)));
+        const aspect = innerWidth < 700 ? 1.25 : 1.9, aw = (1 - 2 * side) * W, ah = Math.max(80, sh * H - 110 * H / innerHeight);
+        const k = Math.min(aw / flatW, ah / (flatW / aspect)), pw = flatW * k, ph = (flatW / aspect) * k;
         const cx = 0.5, cy = center[1];
         rect = [cx - pw / W / 2, cy - ph / H / 2, cx + pw / W / 2, cy + ph / H / 2];
       }
+      placeSpectrogramGuide(rect, showFlat);
       const back = { uRes: [W, H], uMean: showSpace ? splat.mean : flatMean, uCenter: center };
 
       gl.disable(gl.BLEND);
@@ -3044,24 +3133,71 @@ void main(){
   }
 
   /* ---------- sound: hearing the blend, the atoms and the patch ---------- */
-  let AC = null, playSrc = null, playStart = 0, playDur = 1, playKind = '';
+  let AC = null, playSrc = null, playGain = null, playStart = 0, playDur = 1, playKind = '';
+  let playBlendT = null, playKey = '', auditionRequest = 0, auditionPending = false;
   const ensureAC = () => { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); return AC; };
-  function playBuffer(data, rate, kind) {
-    ensureAC(); stopAudio();
+  const FADE = 0.018;
+  function fadeOut(src, gain) {
+    if (!src) return;
+    const now = AC.currentTime;
+    if (gain) {
+      if (gain.gain.cancelAndHoldAtTime) gain.gain.cancelAndHoldAtTime(now);
+      else { gain.gain.cancelScheduledValues(now); gain.gain.setValueAtTime(gain.gain.value, now); }
+      gain.gain.linearRampToValueAtTime(0, now + FADE);
+    }
+    try { src.stop(now + FADE); } catch (e) { /* already ended */ }
+  }
+  function startBuffer(data, rate, kind, offset = 0, blendT = null, key = '') {
+    const now = AC.currentTime, previous = playSrc, previousGain = playGain;
     const buf = AC.createBuffer(1, data.length, rate); buf.getChannelData(0).set(data);
-    const src = AC.createBufferSource(); src.buffer = buf; src.connect(AC.destination); src.start();
-    playSrc = src; playStart = AC.currentTime; playDur = data.length / rate; playKind = kind;
-    src.onended = () => { if (playSrc === src) { playSrc = null; syncHear(); } };
+    const src = AC.createBufferSource(), gain = AC.createGain(); src.buffer = buf;
+    src.connect(gain); gain.connect(AC.destination);
+    gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(1, now + FADE);
+    src.start(now, offset);
+    playSrc = src; playGain = gain; playStart = now - offset; playDur = data.length / rate; playKind = kind;
+    playBlendT = blendT; playKey = key;
+    fadeOut(previous, previousGain);
+    src.onended = () => {
+      src.disconnect(); gain.disconnect();
+      if (playSrc === src) { playSrc = null; playGain = null; playBlendT = null; playKey = ''; syncHear(); }
+    };
     syncHear();
   }
-  function stopAudio() { if (playSrc) { try { playSrc.stop(); } catch (e) { /* ended */ } playSrc = null; } syncHear(); }
-  function syncHear() { $('hear').textContent = playSrc && playKind === 'blend' ? 'Stop' : `Hear ${S.t.toFixed(2)}`; $('hear').classList.toggle('on', !!(playSrc && playKind === 'blend')); }
+  function playBuffer(data, rate, kind, blendT = null, key = '') {
+    ensureAC(); auditionRequest++; auditionPending = false;
+    startBuffer(data, rate, kind, 0, blendT, key);
+  }
+  function stopAudio() {
+    auditionRequest++; auditionPending = false;
+    const src = playSrc, gain = playGain;
+    playSrc = null; playGain = null; playBlendT = null; playKey = '';
+    fadeOut(src, gain); syncHear();
+  }
+  function updateAudition(r) {
+    if (!playSrc || playKind !== 'blend' || playKey === r.key) return;
+    const offset = AC.currentTime - playStart;
+    // Completing a worker job must never restart a stopped or naturally finished sound.
+    if (offset >= playDur || offset >= r.data.length / r.rate) { stopAudio(); return; }
+    startBuffer(r.data, r.rate, 'blend', offset, r.t, r.key);
+  }
+  function syncHear() {
+    const active = !!(playSrc && playKind === 'blend'), b = $('hear');
+    b.textContent = active ? `Stop ${playBlendT.toFixed(2)}` : auditionPending ? 'Cancel' : `Hear ${S.t.toFixed(2)}`;
+    b.classList.toggle('on', active || auditionPending);
+    b.title = active ? `Hearing blend ${playBlendT.toFixed(2)}. Slider changes update at the same playback position when rendered.` : 'Hear the current blend. Move the slider while listening to update the sound.';
+    b.setAttribute('aria-label', active ? `Stop playback. Hearing blend ${playBlendT.toFixed(2)}${playKey !== audioKey() ? ', updating to the current controls' : ''}` : auditionPending ? 'Cancel pending playback' : `Hear blend ${S.t.toFixed(2)}`);
+  }
   $('hear').addEventListener('click', async () => {
-    if (playSrc && playKind === 'blend') { stopAudio(); return; }
+    if ((playSrc && playKind === 'blend') || auditionPending) { stopAudio(); return; }
     ensureAC();
-    const r = await currentRender(); if (!r) return;
-    playBuffer(r.data, r.rate, 'blend');
+    const request = ++auditionRequest; auditionPending = true; syncHear();
+    const r = await currentRender();
+    if (request !== auditionRequest) return;
+    auditionPending = false;
+    if (!r) { syncHear(); return; }
+    playBuffer(r.data, r.rate, 'blend', r.t, r.key);
   });
+
   function atomMorph(t) {    // the desktop renderAtomMorph: each atom a windowed sine, at its transported place
     if (!splat || splat.kind !== 'audio' || !splat.atoms) return null;
     const rate = S.audRate, dur = Math.min(splat.atoms.ea.dur, splat.atoms.eb.dur), L = Math.floor(dur * rate), out = new Float32Array(L), lf0 = Math.log(40), lf1 = Math.log(rate / 2), r = E.mulberry32(4242), A = splat.A, D = splat.disp;
@@ -3344,7 +3480,7 @@ void main(){
   }
   document.body.dataset.view = S.view;
   loadBuiltIn(); syncCloud();
-  { const q = new URLSearchParams(location.search); if (q.get('view') === 'flat') setView('flat'); }
+  { const q = new URLSearchParams(location.search); if (['flat', 'space'].includes(q.get('view'))) setView(q.get('view')); }
   syncHear();
 
   // For the flicker check: the stage's brightness on a small grid, every frame, straight after it is drawn.
@@ -3368,6 +3504,7 @@ void main(){
     S, kit, E, recordLuma, setT, setView, setMethod, loadFile, buildSpace,
     get spaceN() { return spaceN; }, get spaceReady() { return spaceKey === wantKey() && !spaceBusy; }, get flat() { return { w: flatW, h: flatH, spec: flatSpec, ready: flatReady }; },
     get busy() { return !$('busy').hidden; }, get safe() { return safe; }, get playing() { return playSrc ? playKind : ''; }, currentRender,
+    get audition() { return { playing: !!playSrc, pending: auditionPending, t: playBlendT, key: playKey, position: playSrc && AC ? AC.currentTime - playStart : 0, duration: playDur }; },
     pixel() {
       const c = document.createElement('canvas'); c.width = 32; c.height = 18; const g = c.getContext('2d');
       return new Promise((res) => { wantSnap = (blob) => { const im = new Image(); im.onload = () => { g.drawImage(im, 0, 0, 32, 18); const d = g.getImageData(0, 0, 32, 18).data; let sum = 0, min = 1e9, max = 0; const grid = []; for (let i = 0; i < d.length; i += 4) { const l = d[i] * 0.2126 + d[i + 1] * 0.7152 + d[i + 2] * 0.0722; sum += l; min = Math.min(min, l); max = Math.max(max, l); grid.push(l); } res({ mean: sum / (d.length / 4), min, max, grid }); }; im.src = URL.createObjectURL(blob); }; });

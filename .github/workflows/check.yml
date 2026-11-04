@@ -25,5 +25,9 @@ jobs:
         run: |
           pip install numpy scipy
           python3 tests/analog_numbers.py
+      - name: Guarded synthesis and mixed-rate audio integrity
+        run: |
+          node tests/analog_forge.js
+          node tests/displacer_resampling.js
       - run: pip install playwright && playwright install --with-deps chromium
       - run: python3 tests/smoke.py

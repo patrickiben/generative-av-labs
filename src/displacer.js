@@ -13,7 +13,7 @@
   const SOUND_S = 6, CW = 0.0035;
 
   const S = {
-    view: 'space', t: 0.5, method: 'ot',
+    view: 'flat', t: 0.5, method: 'ot',
     phasemode: 'dominant', xlaw: 'ep', mpMix: 0.55,
     srcA: null, srcB: null, audA: null, audB: null, audRate: 0, audDirty: true, lastRender: null,
     names: { A: 'Sung ah', B: 'Glass bells' },
@@ -82,7 +82,7 @@
   /* ---------- sheets and the stage chrome ---------- */
   const hud = `
     <div class="ab">
-      <div class="seg" id="view-seg" role="group" aria-label="View"><button data-view="flat" aria-pressed="false">Flat</button><button data-view="space" aria-pressed="true">Space</button></div>
+      <div class="seg" id="view-seg" role="group" aria-label="View"><button data-view="flat" aria-pressed="true">Spectrogram</button><button data-view="space" aria-pressed="false">Atoms · 3D</button></div>
       <button class="ab-thumb" id="slot-A" data-slot="A"><canvas id="thumb-A" width="176" height="110" aria-hidden="true"></canvas><span class="ab-tag">A</span></button>
       <div class="ab-mid">
         <div class="ab-read"><span class="ab-name" id="name-A">Sung ah</span><b class="ab-t" id="t-val">0.50</b><span class="ab-name b" id="name-B">Glass bells</span></div>
@@ -122,10 +122,10 @@
       <label class="field"><div class="row"><span>Depth</span><b id="depth-v"></b></div><input type="range" id="depth" min="0" max="140" value="55"></label>
       <label class="field"><div class="row"><span>Atom size</span><b id="size-v"></b></div><input type="range" id="size" min="30" max="250" value="100"></label>
       <label class="check" style="margin:0"><input type="checkbox" id="sway" checked> Sway slowly</label>
-      <label class="check" style="margin:0"><input type="checkbox" id="sweep"> Slow sweep from A to B and back, 24 seconds</label>
+      <label class="check" style="margin:0"><input type="checkbox" id="sweep"> Visual sweep from A to B and back, 24 seconds</label>
     </div>
     <div class="row-actions" id="atom-actions"><button class="pill" id="atoms-play">Play the atoms</button></div>
-    <p class="note">Drag the stage to turn the cloud and scroll to move closer. Depth is each atom's salience: a stated rule, not a learned estimate. A controller's mod wheel (CC1) moves the slider.</p>`;
+    <p class="note">Drag the stage to turn the cloud and scroll to move closer. Hear holds the visual sweep at its current position; Save a sweep renders an audible journey from A to B. Depth is each atom's salience: a stated rule, not a learned estimate. A controller's mod wheel (CC1) moves the slider.</p>`;
 
   const patchSheet = `
     <div class="row-actions" style="margin-top:0"><div class="seg small" id="gp-src" role="group" aria-label="What to fit"><button data-s="blend" aria-pressed="true">The blend</button><button data-s="A" aria-pressed="false">A</button><button data-s="B" aria-pressed="false">B</button></div>
@@ -256,6 +256,11 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     <div id="method-badge" class="chrome" data-kind="space-audio"><span id="method-badge-text"></span></div>
     <div id="busy" class="chrome" role="status" hidden></div>`);
   sceneEl.insertAdjacentHTML('beforeend', `
+    <div id="spectrogram-guide" class="chrome" hidden>
+      <div class="spec-heading"><span>THE BLEND · SPECTROGRAM</span><strong id="spec-pair"></strong></div>
+      <div id="spec-frequencies"></div><div id="spec-times"></div>
+      <span class="spec-key">Time → · frequency ↑ · brighter = stronger</span>
+    </div>
     <div id="scope-card" class="chrome" hidden><canvas id="scope" width="560" height="300" role="img" aria-label="Transport scope"></canvas>
       <div class="scope-key"><span class="ka">A</span><span class="kb">B</span><span class="km">blend</span><span id="scope-mini"></span></div></div>
     <div id="drop" hidden><div data-slot="A"><b>A</b>Drop to replace A</div><div data-slot="B"><b>B</b>Drop to replace B</div></div>`);
@@ -401,25 +406,62 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     flatW = cols; flatH = rows; flatSpec = true;
     uploadFlat(sp);
     flatMean = [0.03, 0.025, 0.07];
+    const hi = r.rate / 2, span = Math.log(hi / 40);
+    $('spec-pair').textContent = `${S.names.A} → ${S.names.B}`;
+    $('spec-frequencies').innerHTML = [100, 1000, 10000].filter((hz) => hz < hi).map((hz) =>
+      `<span style="bottom:${100 * Math.log(hz / 40) / span}%">${hz >= 1000 ? `${hz / 1000} kHz` : `${hz} Hz`}</span>`).join('');
+    const duration = r.data.length / r.rate;
+    $('spec-times').innerHTML = [0, 0.25, 0.5, 0.75, 1].map((t) => `<span style="left:${t * 100}%">${(t * duration).toFixed(2)} s</span>`).join('');
   }
+
+  // Keep labels aligned with the actual WebGL image, including after a phone rotation.
+  let guideRect = '';
+  function placeSpectrogramGuide(rect, visible) {
+    const guide = $('spectrogram-guide');
+    guide.hidden = !visible || S.perform;
+    if (guide.hidden) return;
+    const css = `left:${rect[0] * 100}%;top:${(1 - rect[3]) * 100}%;width:${(rect[2] - rect[0]) * 100}%;height:${(rect[3] - rect[1]) * 100}%`;
+    if (css !== guideRect) { guide.style.cssText = css; guideRect = css; }
+  }
+  // Cache and worker results belong to the complete input state, including source files and effects.
+  // A render finishing after another slider/file change must never clear that change's dirty flag.
+  const audioKey = () => JSON.stringify([S.ver, S.t, S.method, S.phasemode, S.mpMix, S.xlaw, S.fx]);
+  let audioJob = null;
   function scheduleRender(ms) { clearTimeout(renderTimer); renderTimer = setTimeout(renderAudioNow, ms); }
-  async function renderAudioNow() {
-    if (!S.audA || !S.audB) return null;
-    const id = ++renderSeq, t = S.t, method = S.method;
+  function renderAudioNow() {
+    if (!S.audA || !S.audB) return Promise.resolve(null);
+    const key = audioKey();
+    if (audioJob && audioJob.key === key) return audioJob.promise;
+    const id = ++renderSeq, t = S.t, method = S.method, rate = S.audRate, ver = S.ver;
+    const job = { key, promise: null };
     busy('Rendering the blend');
-    const r = await work({ type: 'audio', A: S.audA.slice(), B: S.audB.slice(), rate: S.audRate, t, method, phasemode: S.phasemode, mpMix: S.mpMix, xlaw: S.xlaw, fx: S.fx });
-    if (id !== renderSeq) return null;
-    busy(null);
-    if (r.error) { shell.toast(`The blend could not render: ${r.error}`); return null; }
-    S.lastRender = { data: r.data, rate: S.audRate, t, method }; S.audDirty = false;
-    showSpectrogram(S.lastRender);
-    return S.lastRender;
+    job.promise = (async () => {
+      try {
+        const r = await work({ type: 'audio', A: S.audA.slice(), B: S.audB.slice(), rate, t, method, phasemode: S.phasemode, mpMix: S.mpMix, xlaw: S.xlaw, fx: S.fx });
+        if (id !== renderSeq || key !== audioKey()) return null;
+        if (r.error) { shell.toast(`The blend could not render: ${r.error}`); return null; }
+        S.lastRender = { data: r.data, rate, t, method, ver, key }; S.audDirty = false;
+        showSpectrogram(S.lastRender);
+        updateAudition(S.lastRender);
+        return S.lastRender;
+      } finally {
+        if (audioJob === job) { audioJob = null; busy(null); }
+      }
+    })();
+    audioJob = job;
+    return job.promise;
   }
   async function currentRender() {
-    const L = S.lastRender;
-    if (L && !S.audDirty && L.t === S.t && L.method === S.method) return L;
-    clearTimeout(renderTimer);
-    return renderAudioNow();
+    // A click to hear/save follows the newest requested state even if its predecessor is still rendering.
+    for (;;) {
+      stopSweep();  // hearing or saving a fixed blend holds the visual-only sweep at this position
+      const key = audioKey(), L = S.lastRender;
+      if (L && !S.audDirty && L.key === key) return L;
+      clearTimeout(renderTimer);
+      const r = await renderAudioNow();
+      if (r) return r;
+      if (key === audioKey()) return null;  // a real render failure, not a superseded request
+    }
   }
 
   /* ---------- the transport scope ---------- */
@@ -667,7 +709,8 @@ void main(){
         S.tMid += (S.t - S.tMid) * k; S.tView += (S.tMid - S.tView) * k;
         if (Math.abs(S.t - S.tMid) < 1e-4 && Math.abs(S.t - S.tView) < 1e-4) { S.tMid = S.t; S.tView = S.t; }
       }
-      if (S.view === 'space' && spaceKey !== wantKey()) buildSpace();
+      // Also prepare the optional atom view in the background, without making it the first impression.
+      if (spaceKey !== wantKey()) buildSpace();
       if (S.view === 'flat' && !flatReady && S.lastRender) showSpectrogram(S.lastRender);
       if (scopeDirty || $('blend-sheet').open) { scopeDirty = false; drawScopes(); }
       if (S.space.sway && !dragging && !RM.matches) S.space.phase += dt * 0.11;
@@ -678,10 +721,13 @@ void main(){
       const showSpace = S.view === 'space' && spaceN > 0 && !!splat;
       const center = [0.5, 1 - (safe.top + safe.bottom) / 2]; let rect = [0, 0, 0, 0];
       if (showFlat) {
-        const side = $('scope-card').hidden ? 0.05 : Math.min(0.3, 318 / Math.max(1, innerWidth)), aw = (1 - 2 * side) * W, ah = 0.94 * sh * H, k = Math.min(aw / flatW, ah / (flatW / 1.9)), pw = flatW * k, ph = (flatW / 1.9) * k;
+        const side = Math.max(66 / Math.max(1, innerWidth), $('scope-card').hidden ? 0.07 : Math.min(0.3, 318 / Math.max(1, innerWidth)));
+        const aspect = innerWidth < 700 ? 1.25 : 1.9, aw = (1 - 2 * side) * W, ah = Math.max(80, sh * H - 110 * H / innerHeight);
+        const k = Math.min(aw / flatW, ah / (flatW / aspect)), pw = flatW * k, ph = (flatW / aspect) * k;
         const cx = 0.5, cy = center[1];
         rect = [cx - pw / W / 2, cy - ph / H / 2, cx + pw / W / 2, cy + ph / H / 2];
       }
+      placeSpectrogramGuide(rect, showFlat);
       const back = { uRes: [W, H], uMean: showSpace ? splat.mean : flatMean, uCenter: center };
 
       gl.disable(gl.BLEND);
@@ -719,24 +765,71 @@ void main(){
   }
 
   /* ---------- sound: hearing the blend, the atoms and the patch ---------- */
-  let AC = null, playSrc = null, playStart = 0, playDur = 1, playKind = '';
+  let AC = null, playSrc = null, playGain = null, playStart = 0, playDur = 1, playKind = '';
+  let playBlendT = null, playKey = '', auditionRequest = 0, auditionPending = false;
   const ensureAC = () => { if (!AC) AC = new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === 'suspended') AC.resume(); return AC; };
-  function playBuffer(data, rate, kind) {
-    ensureAC(); stopAudio();
+  const FADE = 0.018;
+  function fadeOut(src, gain) {
+    if (!src) return;
+    const now = AC.currentTime;
+    if (gain) {
+      if (gain.gain.cancelAndHoldAtTime) gain.gain.cancelAndHoldAtTime(now);
+      else { gain.gain.cancelScheduledValues(now); gain.gain.setValueAtTime(gain.gain.value, now); }
+      gain.gain.linearRampToValueAtTime(0, now + FADE);
+    }
+    try { src.stop(now + FADE); } catch (e) { /* already ended */ }
+  }
+  function startBuffer(data, rate, kind, offset = 0, blendT = null, key = '') {
+    const now = AC.currentTime, previous = playSrc, previousGain = playGain;
     const buf = AC.createBuffer(1, data.length, rate); buf.getChannelData(0).set(data);
-    const src = AC.createBufferSource(); src.buffer = buf; src.connect(AC.destination); src.start();
-    playSrc = src; playStart = AC.currentTime; playDur = data.length / rate; playKind = kind;
-    src.onended = () => { if (playSrc === src) { playSrc = null; syncHear(); } };
+    const src = AC.createBufferSource(), gain = AC.createGain(); src.buffer = buf;
+    src.connect(gain); gain.connect(AC.destination);
+    gain.gain.setValueAtTime(0, now); gain.gain.linearRampToValueAtTime(1, now + FADE);
+    src.start(now, offset);
+    playSrc = src; playGain = gain; playStart = now - offset; playDur = data.length / rate; playKind = kind;
+    playBlendT = blendT; playKey = key;
+    fadeOut(previous, previousGain);
+    src.onended = () => {
+      src.disconnect(); gain.disconnect();
+      if (playSrc === src) { playSrc = null; playGain = null; playBlendT = null; playKey = ''; syncHear(); }
+    };
     syncHear();
   }
-  function stopAudio() { if (playSrc) { try { playSrc.stop(); } catch (e) { /* ended */ } playSrc = null; } syncHear(); }
-  function syncHear() { $('hear').textContent = playSrc && playKind === 'blend' ? 'Stop' : `Hear ${S.t.toFixed(2)}`; $('hear').classList.toggle('on', !!(playSrc && playKind === 'blend')); }
+  function playBuffer(data, rate, kind, blendT = null, key = '') {
+    ensureAC(); auditionRequest++; auditionPending = false;
+    startBuffer(data, rate, kind, 0, blendT, key);
+  }
+  function stopAudio() {
+    auditionRequest++; auditionPending = false;
+    const src = playSrc, gain = playGain;
+    playSrc = null; playGain = null; playBlendT = null; playKey = '';
+    fadeOut(src, gain); syncHear();
+  }
+  function updateAudition(r) {
+    if (!playSrc || playKind !== 'blend' || playKey === r.key) return;
+    const offset = AC.currentTime - playStart;
+    // Completing a worker job must never restart a stopped or naturally finished sound.
+    if (offset >= playDur || offset >= r.data.length / r.rate) { stopAudio(); return; }
+    startBuffer(r.data, r.rate, 'blend', offset, r.t, r.key);
+  }
+  function syncHear() {
+    const active = !!(playSrc && playKind === 'blend'), b = $('hear');
+    b.textContent = active ? `Stop ${playBlendT.toFixed(2)}` : auditionPending ? 'Cancel' : `Hear ${S.t.toFixed(2)}`;
+    b.classList.toggle('on', active || auditionPending);
+    b.title = active ? `Hearing blend ${playBlendT.toFixed(2)}. Slider changes update at the same playback position when rendered.` : 'Hear the current blend. Move the slider while listening to update the sound.';
+    b.setAttribute('aria-label', active ? `Stop playback. Hearing blend ${playBlendT.toFixed(2)}${playKey !== audioKey() ? ', updating to the current controls' : ''}` : auditionPending ? 'Cancel pending playback' : `Hear blend ${S.t.toFixed(2)}`);
+  }
   $('hear').addEventListener('click', async () => {
-    if (playSrc && playKind === 'blend') { stopAudio(); return; }
+    if ((playSrc && playKind === 'blend') || auditionPending) { stopAudio(); return; }
     ensureAC();
-    const r = await currentRender(); if (!r) return;
-    playBuffer(r.data, r.rate, 'blend');
+    const request = ++auditionRequest; auditionPending = true; syncHear();
+    const r = await currentRender();
+    if (request !== auditionRequest) return;
+    auditionPending = false;
+    if (!r) { syncHear(); return; }
+    playBuffer(r.data, r.rate, 'blend', r.t, r.key);
   });
+
   function atomMorph(t) {    // the desktop renderAtomMorph: each atom a windowed sine, at its transported place
     if (!splat || splat.kind !== 'audio' || !splat.atoms) return null;
     const rate = S.audRate, dur = Math.min(splat.atoms.ea.dur, splat.atoms.eb.dur), L = Math.floor(dur * rate), out = new Float32Array(L), lf0 = Math.log(40), lf1 = Math.log(rate / 2), r = E.mulberry32(4242), A = splat.A, D = splat.disp;
@@ -1019,7 +1112,7 @@ void main(){
   }
   document.body.dataset.view = S.view;
   loadBuiltIn(); syncCloud();
-  { const q = new URLSearchParams(location.search); if (q.get('view') === 'flat') setView('flat'); }
+  { const q = new URLSearchParams(location.search); if (['flat', 'space'].includes(q.get('view'))) setView(q.get('view')); }
   syncHear();
 
   // For the flicker check: the stage's brightness on a small grid, every frame, straight after it is drawn.
@@ -1043,6 +1136,7 @@ void main(){
     S, kit, E, recordLuma, setT, setView, setMethod, loadFile, buildSpace,
     get spaceN() { return spaceN; }, get spaceReady() { return spaceKey === wantKey() && !spaceBusy; }, get flat() { return { w: flatW, h: flatH, spec: flatSpec, ready: flatReady }; },
     get busy() { return !$('busy').hidden; }, get safe() { return safe; }, get playing() { return playSrc ? playKind : ''; }, currentRender,
+    get audition() { return { playing: !!playSrc, pending: auditionPending, t: playBlendT, key: playKey, position: playSrc && AC ? AC.currentTime - playStart : 0, duration: playDur }; },
     pixel() {
       const c = document.createElement('canvas'); c.width = 32; c.height = 18; const g = c.getContext('2d');
       return new Promise((res) => { wantSnap = (blob) => { const im = new Image(); im.onload = () => { g.drawImage(im, 0, 0, 32, 18); const d = g.getImageData(0, 0, 32, 18).data; let sum = 0, min = 1e9, max = 0; const grid = []; for (let i = 0; i < d.length; i += 4) { const l = d[i] * 0.2126 + d[i + 1] * 0.7152 + d[i + 2] * 0.0722; sum += l; min = Math.min(min, l); max = Math.max(max, l); grid.push(l); } res({ mean: sum / (d.length / 4), min, max, grid }); }; im.src = URL.createObjectURL(blob); }; });

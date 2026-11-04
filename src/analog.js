@@ -20,23 +20,23 @@
   const kHz = (v) => `${(v / 1000).toFixed(1)}<small>kHz</small>`;
   const msText = (ms) => (ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`);
   const announce = (t) => { if ($('sr-status').textContent !== t) $('sr-status').textContent = t; };
-  const MODE = { floor: ['Floor', 'amp'], exciter: ['Exciter', 'syn'], transient: ['Transient', 'amp'], sbr: ['SBR', 'syn'] };
+  const MODE = { floor: ['Floor', 'amp'], exciter: ['Exciter', 'syn'], transient: ['Transient', 'amp'], sbr: ['SBR', 'syn'], forge: ['Forge', 'syn'] };
   const MODE_IDS = Object.keys(MODE);
   const MAX_SECONDS = 600;
   const minSpan = (sr) => Math.max(4096 / sr, 0.25);
 
   /* ---------------- state ---------------- */
-  const DEF = { wet: 65, tilt: -6, target: 20, gain: 9, drive: 40, emix: 35, tamt: 60 };
+  const DEF = { amount: 55, cutoff: 0, ceiling: 200, seed: 17, wet: 65, tilt: -6, target: 20, gain: 9, drive: 40, emix: 35, tamt: 60 };
   const S = {
-    mode: 'sbr', prm: { ...DEF }, sel: null, drag: null, src: null, res: null, err: null, prog: null,
+    mode: 'forge', prm: { ...DEF }, sel: null, drag: null, src: null, res: null, err: null, prog: null,
     side: 'A', match: store.get('match', true), loop: store.get('loop', true), vol: store.get('volume', 0.8), runs: 0, wantPlay: false,
   };
 
   /* ---------------- the synthetic test sound ---------------- */
   function mulberry(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-  // plucked chords (Karplus-Strong) and breath noise, then a brick wall at 11 kHz: a dull recording made to order
+  // plucked chords (Karplus-Strong) and breath noise, then a low-pass taper ending at 6 kHz: a dull recording made to order
   function makeSynthetic() {
-    const sr = 44100, n = sr * 8, N = 1 << 19, rng = mulberry(20261103), cut = 11000;
+    const sr = 44100, n = sr * 8, N = 1 << 19, rng = mulberry(20261103), cut = 6000;
     const L = new Float64Array(N), R = new Float64Array(N);
     const CH = [[48, 55, 64, 67, 72], [45, 52, 60, 64, 69], [41, 48, 57, 60, 65], [43, 50, 59, 62, 67]];
     for (let b = 0; b < 16; b++) {
@@ -249,21 +249,21 @@
   const WSRC = `'use strict';
 const DSP = (${DSP.build.toString()})();
 let SRC = null, SR = 0;
-const kdb = (ch) => 10 * Math.log10(DSP.kweightEnergy(ch));
+const kdb = (ch, linked) => 10 * Math.log10(linked ? DSP.linkedK(ch) : DSP.kweightEnergy(ch));
 const thin = (a, n) => { if (!a) return null; const m = Math.min(n, a.length), o = new Float32Array(m), k = a.length / m; for (let i = 0; i < m; i++) { let v = 0; for (let j = Math.floor(i * k), e = Math.max(j + 1, Math.floor((i + 1) * k)); j < e; j++) v = Math.max(v, a[j]); o[i] = v; } return o; };
 onmessage = (e) => {
   const m = e.data;
   try {
-    if (m.type === 'load') { SRC = m.ch; SR = m.sr; const s = DSP.spectrogram(SRC, SR); postMessage({ type: 'loaded', id: m.id, spec: s }, [s.S.buffer]); return; }
+    if (m.type === 'load') { SRC = m.ch; SR = m.sr; const s = DSP.spectrogram(SRC, SR, 1024, 900, true); postMessage({ type: 'loaded', id: m.id, spec: s }, [s.S.buffer]); return; }
     const t0 = performance.now();
     const r = DSP.run(SRC, SR, m.params, (pct, line) => postMessage({ type: 'progress', id: m.id, pct, line }));
     postMessage({ type: 'progress', id: m.id, pct: 90, line: 'drawing the spectrogram' });
-    const s = DSP.spectrogram(r.out, SR), cut = (c) => c.map((x) => x.subarray(r.n0, r.n1)), W = r.metrics;
+    const s = DSP.spectrogram(r.out, SR, 1024, 900, true), cut = (c) => c.map((x) => x.subarray(r.n0, r.n1)), W = r.metrics;
     const out = r.out.map((c, i) => (c.buffer === SRC[i].buffer ? c.slice() : c));
     const metrics = { bw_before: W.bw_before, bw_after: W.bw_after, hb_before: W.hb_before, hb_after: W.hb_after, lsd: W.lsd, nr: W.nr, gain: W.gain,
       wb: { f: W.welch_before.f, p: W.welch_before.pxx }, wa: { f: W.welch_after.f, p: W.welch_after.pxx } };
     postMessage({ type: 'result', id: m.id, out, fc: r.fc, info: r.info, metrics, selective: r.selective, n0: r.n0, n1: r.n1, mode: r.mode,
-      gainCurve: thin(r.gainCurve, 1200), spec: s, kA: kdb(cut(SRC)), kB: kdb(cut(out)), ms: performance.now() - t0 }, [...new Set(out.map((c) => c.buffer)), s.S.buffer]);
+      gainCurve: thin(r.gainCurve, 1200), spec: s, kA: kdb(cut(SRC), r.mode === 'forge'), kB: kdb(cut(out), r.mode === 'forge'), ms: performance.now() - t0 }, [...new Set(out.map((c) => c.buffer)), s.S.buffer]);
   } catch (err) { postMessage({ type: 'error', id: m.id, message: String((err && err.message) || err) }); }
 };`;
   let WK = null, wURL = null, srcSeq = 0, runSeq = 0, resSeq = 0, inflight = null, pending = false, runT = 0;
@@ -277,7 +277,7 @@ onmessage = (e) => {
   }
   function paramsNow() {
     const P = S.prm;
-    return { mode: S.mode, wet: P.wet / 100, tilt: P.tilt, target_hz: P.target * 1000, gain_db: P.gain, drive: P.drive / 10, emix: P.emix / 100, tamt: P.tamt / 100, sel: S.sel ? [...S.sel] : null, measure: 'span' };
+    return { mode: S.mode, amount: P.amount / 100, cutoff_hz: P.cutoff * 100, seed: S.mode === 'forge' ? P.seed : undefined, wet: P.wet / 100, tilt: P.tilt, target_hz: S.mode === 'forge' ? P.ceiling * 100 : P.target * 1000, gain_db: P.gain, drive: P.drive / 10, emix: P.emix / 100, tamt: P.tamt / 100, sel: S.sel ? [...S.sel] : null, measure: 'span' };
   }
   function scheduleRun(ms) {
     clearTimeout(runT);
@@ -349,7 +349,7 @@ onmessage = (e) => {
   function setMode(m, quiet) {
     if (!MODE_IDS.includes(m)) return;
     S.mode = m;
-    document.querySelectorAll('.mode-switch button, .tile-btn.eng').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+    document.querySelectorAll('.mode-switch button[data-mode], .tile-btn.eng').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
     document.querySelectorAll('.knobs[data-for]').forEach((k) => { k.hidden = k.dataset.for !== m; });
     if (!quiet) { engage(); scheduleRun(40); }
     renderEngine(); drawSheets();
@@ -522,7 +522,7 @@ onmessage = (e) => {
     stopNodes();
     const sA = AC.createBufferSource(), sB = AC.createBufferSource(), gA = AC.createGain(), gB = AC.createGain();
     sA.buffer = bufA.b; sB.buffer = bufB.b; sA.loop = sB.loop = S.loop;
-    gA.gain.value = S.side === 'A' ? 1 : 0; gB.gain.value = S.side === 'B' ? bGain() : 0;
+    gA.gain.value = S.side === 'A' ? 1 : S.side === 'D' ? -1 : 0; gB.gain.value = S.side === 'B' ? bGain() : S.side === 'D' ? 1 : 0;
     sA.connect(gA).connect(master); sB.connect(gB).connect(master);
     const t = AC.currentTime + 0.04;
     sA.start(t, off); sB.start(t, off); startAt = t - off;
@@ -554,11 +554,11 @@ onmessage = (e) => {
     S.side = side || (S.side === 'A' ? 'B' : 'A');
     if (nodes) {
       const t = AC.currentTime;
-      nodes.gA.gain.setTargetAtTime(S.side === 'A' ? 1 : 0, t, 0.004);
-      nodes.gB.gain.setTargetAtTime(S.side === 'B' ? bGain() : 0, t, 0.004);
+      nodes.gA.gain.setTargetAtTime(S.side === 'A' ? 1 : S.side === 'D' ? -1 : 0, t, 0.004);
+      nodes.gB.gain.setTargetAtTime(S.side === 'B' ? bGain() : S.side === 'D' ? 1 : 0, t, 0.004);
     }
     engage(); renderSound(); renderGauges(); renderListen(); requestDraw();
-    announce(S.side === 'A' ? 'A, the source' : 'B, the result');
+    announce(S.side === 'A' ? 'A, the source' : S.side === 'D' ? 'Added detail only, at its actual level' : 'B, the result');
   }
   function liveDb() {
     if (!an || !nodes) return null;
@@ -602,7 +602,8 @@ onmessage = (e) => {
     $('sel-full').disabled = !S.sel;
   }
   function chipLine(r) {
-    return { floor: 'Floor · amplified, nothing added', transient: 'Transient · amplified, some new highs', exciter: 'Exciter · harmonics synthesized', sbr: `SBR · synthesized above ${(r.fc / 1000).toFixed(1)} kHz` }[r.mode];
+    if (r.mode === 'forge' && r.info.reason) return r.info.amount === 0 ? 'Forge · zero amount, source unchanged' : r.info.headroom_gain < .01 ? 'Forge · no headroom for added detail' : 'Forge · no room above guard, source unchanged';
+    return { forge: `Forge · synthesized above ${(r.fc / 1000).toFixed(1)} kHz`, floor: 'Floor · amplified, nothing added', transient: 'Transient · amplified, some new highs', exciter: 'Exciter · harmonics synthesized', sbr: `SBR · synthesized above ${(r.fc / 1000).toFixed(1)} kHz` }[r.mode];
   }
   function renderProc() {
     const c = $('chip-proc'), busy = !!(inflight || runT || pending), r = S.res;
@@ -616,7 +617,7 @@ onmessage = (e) => {
   function renderSound() {
     const c = $('chip-sound'), t = $('chip-sound-text');
     if (!(window.AudioContext || window.webkitAudioContext)) { c.dataset.tone = 'bad'; t.textContent = 'Sound · not supported'; }
-    else if (nodes) { c.dataset.tone = 'good'; t.textContent = `Playing ${S.side} · ${S.side === 'A' ? 'the source' : 'the result'}`; }
+    else if (nodes) { c.dataset.tone = 'good'; t.textContent = `Playing ${S.side} · ${S.side === 'A' ? 'the source' : S.side === 'D' ? 'added detail only' : 'the result'}`; }
     else if (S.wantPlay) { c.dataset.tone = 'wait'; t.textContent = 'Sound · waiting for the result'; }
     else { c.dataset.tone = 'idle'; t.textContent = AC ? `Stopped · ${S.side} chosen` : 'Sound · off'; }
     const p = $('listen-play');
@@ -633,11 +634,12 @@ onmessage = (e) => {
     const r = S.res;
     $('g-cutoff').innerHTML = r ? kHz(r.fc) : '-';
     $('g-bw').innerHTML = r ? kHz(r.metrics.bw_after) : '-';
-    $('g-side').textContent = S.side;
-    $('g-side-name').textContent = S.side === 'A' ? 'source' : 'result';
+    $('g-side').textContent = S.side === 'D' ? 'Δ' : S.side;
+    $('g-side-name').textContent = S.side === 'A' ? 'source' : S.side === 'D' ? 'added detail' : 'result';
+    $('detail-button').setAttribute('aria-pressed', String(S.side === 'D'));
     const ab = $('ab-toggle');
     ab.setAttribute('aria-pressed', String(S.side === 'B'));
-    ab.setAttribute('aria-label', S.side === 'A' ? 'Listening: A, source. Press to hear B, the result' : 'Listening: B, result. Press to hear A, the source');   // starts with the visible text, for speech input
+    ab.setAttribute('aria-label', S.side === 'A' ? 'Listening: A, source. Press to hear B, the result' : S.side === 'D' ? 'Listening: added detail. Press to hear A, the source' : 'Listening: B, result. Press to hear A, the source');   // starts with the visible text, for speech input
   }
   function renderMeasured() {
     const r = S.res; if (!r) return;
@@ -647,23 +649,29 @@ onmessage = (e) => {
     set('m-lsd', `${M.lsd.toFixed(2)} dB`, 'log-spectral distance below the cutoff, lower is truer', M.lsd < 3 ? 'good' : 'warn');
     set('m-nr', M.nr.verdict, `flatness ${M.nr.flatness.toFixed(3)} above the cutoff`, M.nr.ok ? 'good' : 'bad');
     set('m-gain', `${M.gain.toFixed(2)}×`, 'BS.1770 gain applied to B');
-    set('m-fc', `${int(r.fc)} Hz`, r.selective ? 'measured on the range' : 'measured on the source');
+    set('m-fc', `${int(r.fc)} Hz`, r.mode === 'forge' && r.info.cutoff_source === 'user' ? 'chosen by you · source estimate ' + int(r.info.estimated_cutoff_hz) + ' Hz' : 'estimated from source spectrum');
+    const fg = r.mode === 'forge';
+    set('m-added', fg ? `${r.info.added_energy_percent.toFixed(2)} %` : '—', fg ? 'difference-layer energy / result energy; not recovered detail' : 'available in Forge');
+    set('m-guard', fg ? `${r.info.guard_error_db.toFixed(0)} dB` : '—', 'added energy below guard / source energy below guard', fg && r.info.guard_error_db < -50 ? 'good' : '');
+    set('m-headroom', fg ? `${(r.info.headroom_gain * 100).toFixed(0)} %` : '—', fg ? 'of invented layer retained; source never turned down' : 'available in Forge');
     $('m-warn').hidden = !(r.mode === 'sbr' && !M.nr.ok);
     const s = S.src;
-    $('m-span').textContent = `${r.selective ? `Measured on ${(r.n0 / s.sr).toFixed(2)} to ${(r.n1 / s.sr).toFixed(2)} s, the range that was processed.` : 'Measured on the whole sound.'} Cutoff and bandwidth are the highest frequency more than 12 dB above the spectrum's floor and within 60 dB of its peak.`;
+    $('m-span').textContent = `${r.selective ? `Measured on ${(r.n0 / s.sr).toFixed(2)} to ${(r.n1 / s.sr).toFixed(2)} s, the range that was processed.` : 'Measured on the whole sound.'} ${r.mode === 'forge' ? 'Spectra combine channel energy; long files are sampled throughout. ' : ''}Cutoff and bandwidth are the highest frequency more than 12 dB above the spectrum's floor and within 60 dB of its peak.`;
   }
   const ENGINE_NOTE = {
+    forge: 'Forge adds a high-frequency layer shaped by your sound’s tones, texture and attacks. The original stays underneath. Use Hear added layer to judge the invention on its own: plausible fine detail, not recovered audio.',
     floor: 'A high shelf from half the measured cutoff: the honest control. It lifts what is there and invents nothing above the cutoff.',
     exciter: 'The band above about 0.45 of the cutoff is waveshaped at four times the sample rate, so the new harmonics do not alias, then high-passed and mixed back. New content, made from what is there.',
     transient: 'A fast envelope runs ahead of a slow one, and the difference raises the gain on attacks. It synthesizes no band on purpose, but a gain that moves this fast spreads some new energy above the cutoff; the Measured sheet shows how much.',
     sbr: 'Spectral band replication: the top octave below the cutoff is folded upward, tilted, matched in level at the seam and given fresh phase. Plausible highs, synthesized, not recovered.',
   };
-  const VIZ_TITLE = { floor: 'Shelf response', exciter: 'Shaper curve', transient: 'Gain over time', sbr: 'Band replication' };
+  const VIZ_TITLE = { forge: 'The source anchor and the invented band', floor: 'Shelf response', exciter: 'Shaper curve', transient: 'Gain over time', sbr: 'Band replication' };
   function renderEngine() {
     $('engine-viz-title').textContent = VIZ_TITLE[S.mode];
     $('engine-note').textContent = ENGINE_NOTE[S.mode];
     const r = S.res && S.res.mode === S.mode ? S.res : null, P = S.prm, fc = S.res ? S.res.fc : null, nyq = S.src ? S.src.sr / 2 : 22050;
     $('engine-viz-note').textContent = !fc ? 'Waiting for the first result.' : {
+      forge: r && r.mode === 'forge' ? `${P.amount} % detail · ${r.info.cutoff_source === 'user' ? 'chosen' : 'estimated'} guard ${int(fc)} Hz · seed ${P.seed}. ${r.info.reason || `${r.info.added_energy_percent.toFixed(2)} % residual energy; low-band leakage ${r.info.guard_error_db.toFixed(0)} dB.`}` : 'Processing the detail layer…',
       floor: `+${P.gain} dB shelf from ${int(fc / 2)} Hz, half the measured cutoff of ${int(fc)} Hz.`,
       exciter: `The band above ${int(clamp(fc * 0.45, 800, S.src.sr * 0.35))} Hz, driven at ${(P.drive / 10).toFixed(1)} and mixed in at ${P.emix} %.`,
       transient: r && r.gainCurve ? `Gain from 1.00 up to at most ${(1 + 2 * P.tamt / 100).toFixed(2)}; this run peaked at ${Math.max(...r.gainCurve).toFixed(2)}.` : 'Processing…',
@@ -673,6 +681,7 @@ onmessage = (e) => {
   function renderListen() {
     $('side-a').setAttribute('aria-pressed', String(S.side === 'A'));
     $('side-b').setAttribute('aria-pressed', String(S.side === 'B'));
+    $('side-d').setAttribute('aria-pressed', String(S.side === 'D'));
     $('side-b-cap').textContent = S.res ? (S.match ? `Matched, ${S.res.metrics.gain.toFixed(2)}×` : 'Not matched, as made') : 'Processing';
     const r = S.res;
     $('level-note').textContent = r ? `A ${r.kA.toFixed(1)} dB, B as made ${r.kB.toFixed(1)} dB, B as you hear it ${(r.kB + 20 * Math.log10(bGain())).toFixed(1)} dB: K-weighted mean square against full scale${r.selective ? ', over the range' : ''}. The white line is the level playing now, unweighted.` : '-';
@@ -719,7 +728,8 @@ onmessage = (e) => {
     let top = -Infinity;
     lines.forEach((l) => l.f.forEach((f, i) => { if (f >= o.lo && f <= o.hi && l.d[i] > top) top = l.d[i]; }));
     top = Math.ceil((top + 4) / 10) * 10; const bot = top - 100, fy = (d) => T + ((top - clamp(d, bot, top)) / (top - bot)) * ph;
-    (o.bands || []).forEach((b) => { x.fillStyle = b.color; x.fillRect(fx(Math.max(b.lo, o.lo)), T, fx(Math.min(b.hi, o.hi)) - fx(Math.max(b.lo, o.lo)), ph); if (b.label) muted(x, b.label, fx(Math.max(b.lo, o.lo)) + 5, T + 12); });
+    x.font = `10px ${SANS}`;
+    (o.bands || []).forEach((b) => { const bx = fx(Math.max(b.lo, o.lo)); x.fillStyle = b.color; x.fillRect(bx, T, fx(Math.min(b.hi, o.hi)) - bx, ph); if (b.label) muted(x, b.label, bx + 5, bx + 5 + x.measureText(b.label).width > L + pw - 100 ? T + 26 : T + 12); });
     x.strokeStyle = 'rgba(191, 194, 236, 0.10)'; x.lineWidth = 1;
     for (let d = top; d >= bot; d -= 20) { const y = Math.round(fy(d)) + 0.5; x.beginPath(); x.moveTo(L, y); x.lineTo(L + pw, y); x.stroke(); muted(x, `${d}`, L - 5, y + 3, 'right'); }
     const step = o.hi - o.lo > 12000 ? 5000 : o.hi - o.lo > 5000 ? 2000 : 1000;
@@ -785,9 +795,9 @@ onmessage = (e) => {
       } else muted(x, 'Processing…', L + pw / 2, T + ph / 2, 'center');
       muted(x, `${n0.toFixed(2)} s`, L, h - 5); muted(x, `${n1.toFixed(2)} s`, L + pw, h - 5, 'right');
     } else {
-      const sbr = r && r.mode === 'sbr', tgt = Math.min(P.target * 1000, nyq);
+      const sbr = r && (r.mode === 'sbr' || r.mode === 'forge'), tgt = Math.min(S.mode === 'forge' ? P.ceiling * 100 : P.target * 1000, nyq);
       plotWelch(v, { lo: Math.max(0, fc * 0.35), hi: nyq, before: r.metrics.wb, after: sbr ? r.metrics.wa : null, fc,
-        bands: [{ lo: fc / 2, hi: fc, color: 'rgba(184, 183, 255, 0.10)', label: 'source octave' }, { lo: fc, hi: tgt, color: 'rgba(241, 207, 142, 0.09)', label: 'synthesized' }] });
+        bands: [{ lo: fc / 2, hi: fc, color: 'rgba(184, 183, 255, 0.10)', label: S.mode === 'forge' ? 'source anchor' : 'source octave' }, { lo: fc, hi: tgt, color: 'rgba(241, 207, 142, 0.09)', label: 'synthesized' }] });
     }
   }
   function drawLevel() {
@@ -824,6 +834,7 @@ onmessage = (e) => {
     return {
       app: 'Detail Forge Analog (browser)', made: new Date().toISOString(),
       source: { name: s.origin === 'synthetic' ? 'synthetic test sound' : s.name, synthetic: s.origin === 'synthetic', sample_rate: s.sr, rate_from: s.rateFrom, channels: s.ch.length, seconds: +s.dur.toFixed(4) },
+      synthesis: r.mode === 'forge' ? r.info : null,
       engine: r.mode, label: MODE[r.mode][1] === 'syn' ? 'synthesized' : 'amplified', settings: r.params,
       range_seconds: r.selective ? [r.n0 / s.sr, r.n1 / s.sr] : null, measured_on: r.selective ? 'the processed range' : 'the whole sound',
       measured: { cutoff_hz: r.fc, bandwidth_before_hz: M.bw_before, bandwidth_after_hz: M.bw_after, high_band_before_db: M.hb_before, high_band_after_db: M.hb_after, lsd_db: M.lsd, flatness: M.nr.flatness, added_band: M.nr.verdict, loudness_gain_b: M.gain, k_weighted_a_db: r.kA, k_weighted_b_db: r.kB },
@@ -845,12 +856,12 @@ onmessage = (e) => {
   }
 
   /* ---------------- controls ---------------- */
-  document.querySelectorAll('.mode-switch button, .tile-btn.eng').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
-  const KN = { wet: ['k-wet', 'v-wet', (v) => `${v} %`], tilt: ['k-tilt', 'v-tilt', (v) => `${v} dB/oct`], target: ['k-target', 'v-target', (v) => `${v} kHz`], gain: ['k-gain', 'v-gain', (v) => `${v} dB`],
+  document.querySelectorAll('.mode-switch button[data-mode], .tile-btn.eng').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  const KN = { amount: ['k-amount', 'v-amount', (v) => `${v} %`], cutoff: ['k-cutoff', 'v-cutoff', (v) => v ? `${(v / 10).toFixed(1)} kHz · chosen` : 'Auto · estimated'], ceiling: ['k-ceiling', 'v-ceiling', (v) => `${(v / 10).toFixed(1)} kHz`], wet: ['k-wet', 'v-wet', (v) => `${v} %`], tilt: ['k-tilt', 'v-tilt', (v) => `${v} dB/oct`], target: ['k-target', 'v-target', (v) => `${v} kHz`], gain: ['k-gain', 'v-gain', (v) => `${v} dB`],
     drive: ['k-drive', 'v-drive', (v) => (v / 10).toFixed(1)], emix: ['k-emix', 'v-emix', (v) => `${v} %`], tamt: ['k-tamt', 'v-tamt', (v) => `${v} %`] };
   const syncKnob = (k) => { const [id, vid, f] = KN[k]; $(id).value = S.prm[k]; $(vid).textContent = f(S.prm[k]); };
   Object.entries(KN).forEach(([k, [id]]) => $(id).addEventListener('input', () => { S.prm[k] = +$(id).value; syncKnob(k); engage(); renderEngine(); drawSheets(); scheduleRun(320); }));
-  const GROUP = { sbr: ['wet', 'tilt', 'target'], floor: ['gain'], exciter: ['drive', 'emix'], transient: ['tamt'] };
+  const GROUP = { forge: ['amount', 'cutoff', 'ceiling'], sbr: ['wet', 'tilt', 'target'], floor: ['gain'], exciter: ['drive', 'emix'], transient: ['tamt'] };
   $('eng-reset').addEventListener('click', () => { GROUP[S.mode].forEach((k) => { S.prm[k] = DEF[k]; syncKnob(k); }); UI.syncAllRanges(); scheduleRun(0); renderEngine(); drawSheets(); });
 
   const fileIn = $('file-input'), pick = () => fileIn.click();
@@ -867,6 +878,12 @@ onmessage = (e) => {
   $('ab-toggle').addEventListener('click', () => flip());
   $('side-a').addEventListener('click', () => flip('A'));
   $('side-b').addEventListener('click', () => flip('B'));
+  $('side-d').addEventListener('click', () => flip('D'));
+  $('detail-button').addEventListener('click', () => { flip(S.side === 'D' ? 'A' : 'D'); if (!nodes) play(); });
+  $('compare-open').addEventListener('click', () => { UI.openSheet('engine'); $('comparison-engines').open = true; $('comparison-engines').scrollIntoView({ block: 'nearest' }); });
+  const updateSeed = (value) => { S.prm.seed = Math.max(0, Math.min(4294967295, Math.trunc(+value || 0))); $('forge-seed').value = S.prm.seed; scheduleRun(0); };
+  $('forge-seed').addEventListener('change', () => updateSeed($('forge-seed').value));
+  $('new-seed').addEventListener('click', () => updateSeed((S.prm.seed + 1) >>> 0));
   function bindSwitch(id, key, after) {
     const b = $(id), sync = () => b.setAttribute('aria-checked', String(S[key]));
     b.addEventListener('click', () => { S[key] = !S[key]; store.set(key, S[key]); sync(); after(); });
@@ -900,7 +917,8 @@ onmessage = (e) => {
     if (e.repeat) return;
     const k = e.key.toLowerCase();
     if (k === 'p') togglePlay();
-    else if (k >= '1' && k <= '4') setMode(MODE_IDS[+k - 1]);
+    else if (k === 'd') flip(S.side === 'D' ? 'A' : 'D');
+    else if (k >= '1' && k <= '5') setMode(MODE_IDS[+k - 1]);
     else if (k === 'o') pick();
     else if (k === 'f') toggleFs();
   });
@@ -947,7 +965,7 @@ onmessage = (e) => {
   Object.keys(KN).forEach(syncKnob);
   UI.syncAllRanges();
   layout();
-  setMode('sbr', true);
+  setMode('forge', true);
   setSource(makeSynthetic());
 
   window.__app = {
@@ -955,8 +973,8 @@ onmessage = (e) => {
     get mode() { return S.mode; }, get side() { return S.side; }, get playing() { return !!nodes; }, get sound() { return AC ? AC.state : 'off'; },
     get busy() { return !!(inflight || runT || pending); }, get runs() { return S.runs; }, get lastDownload() { return LAST_DOWNLOAD; },
     get source() { const s = S.src; return s && { name: s.name, origin: s.origin, sr: s.sr, channels: s.ch.length, frames: s.n, seconds: s.dur, rateFrom: s.rateFrom, format: s.format, channelsInFile: s.channelsInFile }; },
-    get result() { const r = S.res; if (!r) return null; const { wb, wa, ...m } = r.metrics; return { mode: r.mode, fc: r.fc, selective: r.selective, n0: r.n0, n1: r.n1, metrics: m, kA: r.kA, kB: r.kB, ms: r.ms }; },
-    get gainB() { return bGain(); }, get geo() { return geo && { ...geo, dur: S.src.dur }; },
+    get result() { const r = S.res; if (!r) return null; const { wb, wa, ...m } = r.metrics; return { mode: r.mode, fc: r.fc, info: r.info, selective: r.selective, n0: r.n0, n1: r.n1, metrics: m, kA: r.kA, kB: r.kB, ms: r.ms }; },
+    get auditionGains() { return nodes ? [nodes.gA.gain.value, nodes.gB.gain.value] : null; }, get gainB() { return bGain(); }, get geo() { return geo && { ...geo, dur: S.src.dur }; },
     outSlice(c, i0, i1) { return Array.from(S.res.out[c].subarray(i0, i1)); },
     srcSlice(c, i0, i1) { return Array.from(S.src.ch[c].subarray(i0, i1)); },
   };

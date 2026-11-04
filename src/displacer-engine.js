@@ -1,9 +1,9 @@
 /* displacer-engine.js: the blend engine of the desktop Displacer (Displacer_OT_Blender.html), copied by line range.
    1D optimal transport per color channel or per sound frame, spatial OT on sampled pixel clouds, sliced OT in six
-   dimensions, Gabor atoms, Genopatch's differential evolution and the FX rack. The maths is unchanged. Four patches,
+   dimensions, Gabor atoms, Genopatch's differential evolution and the FX rack. The transport maths is retained. Browser adaptations,
    each marked: Genopatch reads its effort from state, the granular effect is seeded so a saved sound repeats exactly,
    the overlap-add no longer divides by a near-zero window at the edges (which left blends about 250 times too quiet),
-   and the two map builders are split so the page can run their sliced OT in a worker. createEngine(S) reads its
+   the two map builders run their sliced OT in a worker, and mixed-rate audio uses an anti-alias filter before downsampling. createEngine(S) reads its
    settings from the page's state object S, as the desktop page did. No drawing happens here. The public page is sound
    only: it calls the sound parts, and the picture functions stay so this file remains a line-range copy of the desktop
    engine. */
@@ -99,10 +99,36 @@ function fft(re,im,inv){ const n=re.length;
       const ur=re[a],ui=im[a], vr=re[b]*cr-im[b]*ci, vi=re[b]*ci+im[b]*cr;
       re[a]=ur+vr;im[a]=ui+vi;re[b]=ur-vr;im[b]=ui-vi; const ncr=cr*wr-ci*wi; ci=cr*wi+ci*wr; cr=ncr; } } }
   if(inv){for(let i=0;i<n;i++){re[i]/=n;im[i]/=n;}} }
-function resampleLinear(data,sr,dr){ if(sr===dr)return data.slice(); const ratio=sr/dr,L=Math.floor(data.length/ratio),out=new Float32Array(L);
+function resampleLinear(data,sr,dr){ if(sr===dr)return data.slice(); const ratio=sr/dr,L=Math.floor(data.length*dr/sr),out=new Float32Array(L);
   for(let i=0;i<L;i++){const x=i*ratio,i0=Math.floor(x),f=x-i0; out[i]=data[i0]*(1-f)+(data[i0+1]||0)*f;} return out; }
+// Mixing sample rates must not fold inaudible source highs into audible low frequencies.
+// A normalized, Blackman-windowed sinc at 90% of the destination Nyquist filters before
+// decimation. Phase tables keep the six-second import bounded; reflected ends avoid a DC step.
+function resampleAudio(data,sr,dr){
+  if(sr<=dr)return resampleLinear(data,sr,dr);
+  const ratio=sr/dr,L=Math.floor(data.length*dr/sr),out=new Float32Array(L);
+  if(!data.length)return out;
+  const radius=Math.ceil(24*ratio),phases=256,cutoff=0.45/ratio,kernels=[];
+  for(let p=0;p<=phases;p++){
+    const h=new Float64Array(2*radius+1);let sum=0;
+    for(let j=-radius;j<=radius;j++){
+      const d=j-p/phases,u=d/radius;
+      const win=Math.abs(u)>1?0:0.42+0.5*Math.cos(Math.PI*u)+0.08*Math.cos(2*Math.PI*u);
+      const v=(Math.abs(d)<1e-10?2*cutoff:Math.sin(2*Math.PI*cutoff*d)/(Math.PI*d))*win;
+      h[j+radius]=v;sum+=v;
+    }
+    for(let j=0;j<h.length;j++)h[j]/=sum;kernels.push(h);
+  }
+  const reflect=(j)=>{if(data.length===1)return 0;const period=2*(data.length-1);j=((j%period)+period)%period;return j<data.length?j:period-j;};
+  for(let i=0;i<L;i++){
+    const x=i*ratio,base=Math.floor(x),h=kernels[Math.round((x-base)*phases)];let v=0;
+    for(let j=-radius;j<=radius;j++){const k=base+j;v+=data[k<0||k>=data.length?reflect(k):k]*h[j+radius];}
+    out[i]=v;
+  }
+  return out;
+}
 function prepAudio(){ if(!S.srcA||!S.srcB)return false; const rate=Math.min(S.srcA.rate,S.srcB.rate); S.audRate=rate;
-  let a=resampleLinear(S.srcA.data,S.srcA.rate,rate), b=resampleLinear(S.srcB.data,S.srcB.rate,rate);
+  let a=resampleAudio(S.srcA.data,S.srcA.rate,rate), b=resampleAudio(S.srcB.data,S.srcB.rate,rate);
   const L=Math.min(a.length,b.length,Math.floor(rate*6)); S.audA=a.subarray(0,L); S.audB=b.subarray(0,L); S.audDirty=true; return true; }
 function invCDFarr(cdf,p,K){ if(p<=cdf[0])return 0; if(p>=1)return K; let lo=0,hi=K; while(lo<hi){const mid=(lo+hi)>>1; if(cdf[mid]<p)lo=mid+1; else hi=mid;} const c0=lo>0?cdf[lo-1]:0,c1=cdf[lo]; const f=c1>c0?(p-c0)/(c1-c0):0; return (lo-1)+f; }
 function buildCDFmag(mag,K){ const cdf=new Float64Array(K+1); let mx=0; for(let k=0;k<=K;k++)if(mag[k]>mx)mx=mag[k]; const fl=mx*1e-4; let s=0;
@@ -442,7 +468,7 @@ function decodeAiff(ab){ const dv=new DataView(ab), tag=o=>String.fromCharCode(d
   return {data:out,rate:Math.round(rate)}; }
 
     return { lerp, clamp, mulberry32, chanCDF, invCDF256, buildLUT, toSpace, fromSpace, cacheImageDists, applySliced, renderImage,
-      renderSpatial, xfadeImage, fft, resampleLinear, prepAudio, renderAudioOT, renderAudioMP, renderAudioXfade, normalize,
+      renderSpatial, xfadeImage, fft, resampleLinear, resampleAudio, prepAudio, renderAudioOT, renderAudioMP, renderAudioXfade, normalize,
       distFromImage, distFromAudio, mean256, cdf256, pushforward, maxv, encodeWav, gpParams, candSpec, specDescriptor, genopatch,
       initWorkers, synthFromPatch, applyFX, liftSplats, slicedOT, extractAtoms, hsl2rgb, atomColor, specCorr,
       slicedClouds, slicedAssemble, buildSlicedMap, spatialClouds, spatialAssemble, buildSpatialMap, packClouds, slicedOTxy, decodeAiff,

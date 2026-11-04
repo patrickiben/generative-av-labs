@@ -354,11 +354,12 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
 
     <section id="analog">
       <h2>Detail Forge Analog</h2>
-      <p>Analog makes a dull, band-limited recording brighter and says how. It cannot recover lost audio: Floor amplifies what is there, Exciter and SBR synthesize new detail above the measured cutoff, and Transient lifts attacks with a moving gain that also spreads some new highs above it. Tested in Chrome on a Mac with test files made by ffmpeg. <b>No outside listener has judged its sound yet.</b></p>
+      <p>Analog adds plausible fine texture while keeping the source as an anchor. Forge analyzes local peaks, noise texture and attacks, builds a separate high-frequency layer and guards the original band before adding it. This is procedural synthesis, not recovered audio or a neural model. Floor, Exciter, Transient and SBR remain comparison controls. <b>No outside listener has judged the new synthesis yet.</b></p>
       <ul>
         <li><b>Files.</b> WAV and AIFF are read straight from the file. FLAC, MP3, M4A and Ogg are decoded by the browser at the rate in the file's own header, so it does not resample them, and the Source sheet says which happened. Up to 10 minutes and two channels.</li>
+        <li><b>Forge.</b> Choose the detail amount, protected-band cutoff, upper synthesis limit and texture seed. Auto cutoff is an estimate; you can override it. The guard has a finite transition above that cutoff. A file with no room below its Nyquist frequency passes through unchanged; this version does not increase its sample rate.</li>
         <li><b>Range.</b> Drag across the spectrograms to enhance one stretch, with 50 ms crossfades at the seams. The numbers are measured on that stretch, which fixes a window the desktop app measured in the wrong place.</li>
-        <li><b>Listening.</b> A and B play from the same instant, and Space flips between them. B is scaled by the BS.1770 loudness gain, so brighter is never mistaken for louder.</li>
+        <li><b>Listening.</b> A and B play from the same instant, and Space flips between them. B uses a BS.1770-style loudness match for comparison. <b>Hear added layer</b> or D auditions result minus source at its actual level, without loudness matching that difference.</li>
         <li><b>Status.</b> The source badge reads synthetic test sound or your file's name. The processing chip names the engine and whether it amplified or synthesized, and the sound chip reads off, playing A, playing B or stopped.</li>
       </ul>
     </section>
@@ -366,6 +367,7 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
       <h2>Displacer</h2>
       <p>Displacer blends two sounds from files, so it needs no kit and listens to no input. Tested in Chrome on a Mac, with MIDI fed through the page's own parser. <b>No real controller has driven it yet.</b></p>
       <ul>
+        <li><b>Audio first.</b> The opening view is a spectrogram with time and frequency axes. Atoms · 3D opens the optional cloud. Hear plays the blend; moving the slider or mod wheel replaces it at the same playback position when the new render completes. The visual sweep holds still when you request a fixed blend; Save a sweep makes the audible journey.</li>
         <li><b>The mod wheel.</b> CC1 moves the slider from A at 0 to B at 127, as in the desktop app. Any MIDI controller with a mod wheel works.</li>
         <li><b>A MIDI keyboard.</b> With a patch grown and its box ticked, the keyboard plays the patch, with middle C as its root.</li>
         <li><b>Files.</b> Decoded in the browser and never uploaded. Chrome opens WAV, MP3, M4A, FLAC and Ogg, and the page reads AIFF itself. CAF is refused with its name. A sound uses its first six seconds.</li>

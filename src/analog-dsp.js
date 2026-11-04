@@ -1,8 +1,7 @@
-/* analog-dsp.js: Detail Forge Analog's signal processing, ported line by line from the desktop app's dsp.py, with the
-   processing run its worker thread did (app.py, Worker.run). Plain functions on planar Float32Array channels and no
-   DOM: the page runs this in a Worker, and tests/analog_numbers.py runs it under Node beside the Python original.
-   FLOOR amplifies what is there; EXCITER and SBR synthesize; TRANSIENT synthesizes no band on purpose, but its moving gain
-   spreads some new energy above the cutoff. Nothing here recovers lost audio. */
+/* analog-dsp.js: source-anchored Forge synthesis and the four legacy comparison processors.
+   Plain functions on planar Float32Array channels, shared by the browser Worker and numerical tests.
+   The comparison processors retain the desktop dsp.py/app.py behavior; Forge adds a guarded residual.
+   None of these algorithms recovers lost audio. */
 (function (root) {
   'use strict';
 
@@ -13,7 +12,7 @@
     const pmod = (a, b) => ((a % b) + b) % b;                       // Python's % for a positive divisor
     // Python's round() and C's lrintf: halves go to the even neighbor
     const roundEven = (v) => { const r = Math.round(v); return Math.abs(v % 1) === 0.5 && r % 2 !== 0 ? r - 1 : r; };
-    const DEFAULTS = { mode: 'sbr', gain_db: 9, drive: 4.0, emix: 0.35, tamt: 0.6, wet: 0.65, tilt: -6, target_hz: 20000 };
+    const DEFAULTS = { mode: 'forge', amount: 0.55, cutoff_hz: 0, gain_db: 9, drive: 4.0, emix: 0.35, tamt: 0.6, wet: 0.65, tilt: -6, target_hz: 20000 };
 
     /* ---------------- FFT: radix 2 in place, real transforms by the half-length trick ---------------- */
     const plans = new Map();
@@ -330,6 +329,128 @@
       return { out: peakGuard(out), info: { fc, target_hz: target, wet, tilt_db_oct: tiltDb } };
     }
 
+    /* ---------------- FORGE: source + guarded, source-conditioned detail ---------------- */
+    // A procedural analogue of Detail Forge's texture injection, not a learned restoration model.
+    // Tonal peaks continue at integer multiples with phase tied to the source. Diffuse texture is
+    // synthesized only in proportion to the source's spectral flatness. Each tile follows the
+    // source envelope; no source samples are replaced, normalized or waveshaped.
+    // The final linear-phase FIR removes residual below the guard (finite transition, not a brick wall).
+    function energyWelch(ch, sr) {
+      // Long recordings are sampled evenly, so a quiet intro cannot hide a later bandwidth change.
+      const all = ch.map((x) => {
+        if (x.length <= 1 << 18) return welch(x, sr);
+        let result;
+        for (let i = 0; i < 64; i++) {
+          const o = Math.floor(i * (x.length - 4096) / 63), part = welch(x.subarray(o, o + 4096), sr);
+          if (!result) result = { f: part.f, pxx: new Float32Array(part.pxx.length) };
+          for (let k = 0; k < part.pxx.length; k++) result.pxx[k] += part.pxx[k] / 64;
+        }
+        return result;
+      }), W = all[0];
+      if (all.length === 1) return W;
+      const pxx = new Float32Array(W.pxx.length);
+      for (const c of all) for (let k = 0; k < pxx.length; k++) pxx[k] += c.pxx[k] / all.length;
+      return { f: W.f, pxx };
+    }
+    function linkedK(ch) { return ch.reduce((s, x) => s + kweightEnergy([x]), 0) / ch.length; }
+    function guardResidual(x, sr, fc) {
+      const taps = 513, delay = (taps - 1) / 2, N = 2048, hop = N - taps + 1;
+      const cutoff = Math.min(sr * 0.49, fc + Math.max(240, sr * 0.006));
+      const h = new Float64Array(N), hr = new Float64Array(N / 2 + 1), hi = new Float64Array(hr.length);
+      for (let i = 0; i < taps; i++) {
+        const t = i - delay, a = 2 * cutoff / sr;
+        const low = t === 0 ? a : Math.sin(Math.PI * a * t) / (Math.PI * t);
+        h[i] = ((t === 0 ? 1 : 0) - low) * (0.42 - 0.5 * Math.cos(2 * Math.PI * i / (taps - 1)) + 0.08 * Math.cos(4 * Math.PI * i / (taps - 1)));
+      }
+      rfft(h, hr, hi);
+      const out = new Float64Array(x.length + taps - 1), frame = new Float64Array(N), re = new Float64Array(hr.length), im = new Float64Array(hr.length);
+      for (let o = 0; o < x.length; o += hop) {
+        frame.fill(0); frame.set(x.subarray(o, Math.min(o + hop, x.length)));
+        rfft(frame, re, im);
+        for (let k = 0; k < re.length; k++) { const r = re[k] * hr[k] - im[k] * hi[k]; im[k] = re[k] * hi[k] + im[k] * hr[k]; re[k] = r; }
+        irfft(re, im, frame);
+        for (let i = 0; i < N && o + i < out.length; i++) out[o + i] += frame[i];
+      }
+      return Float32Array.from(out.subarray(delay, delay + x.length));
+    }
+    function forgeDetail(ch, sr, o = {}) {
+      const fc = o.fc ?? cutoffFromWelch(energyWelch(ch, sr), sr), amount = clip(o.amount ?? 0.55, 0, 1);
+      const target = Math.min(o.target_hz ?? 20000, sr * 0.48), seed = (o.seed ?? 17) >>> 0;
+      const N = 2048, half = N / 2, hop = N / 4, df = sr / N, n = ch[0].length, w = hann(N);
+      const startBin = Math.ceil((fc + Math.max(480, sr * 0.012)) / df), endBin = Math.floor(target / df);
+      const info = { fc, target_hz: target, amount, seed, algorithm: 'guarded-texture-v1', guard_transition_hz: Math.max(480, sr * 0.012), headroom_gain: 1, tiles: 0, texture_mean: 0 };
+      if (!amount || startBin >= endBin) return { out: ch.map((x) => x.slice()), info: { ...info, reason: !amount ? 'zero amount: unchanged source' : 'no room above the guard' } };
+      const residual = ch.map((x) => {
+        // Restart the same random stream for each channel: identical channels remain identical;
+        // opposite-polarity channels retain polarity because phase comes from the source.
+        const rand = mulberry32(seed), phases = new Float64Array(half + 1);
+        for (let k = 0; k <= half; k++) phases[k] = rand() * 2 * Math.PI;
+        const acc = new Float64Array(n + N * 2), norm = new Float64Array(acc.length), frame = new Float64Array(N);
+        const re = new Float64Array(half + 1), im = new Float64Array(half + 1), mag = new Float64Array(half + 1);
+        const rr = new Float64Array(half + 1), ri = new Float64Array(half + 1);
+        const lo = Math.max(4, Math.floor(fc / df / 4)), high = Math.min(half - 2, Math.floor(fc / df * 0.94));
+        let previousEnergy = 0;
+        for (let base = -half, tile = 0; base < n; base += hop, tile++) {
+          let energy = 0;
+          for (let i = 0; i < N; i++) { const j = base + i, v = j >= 0 && j < n ? x[j] : 0; frame[i] = v * w[i]; energy += frame[i] ** 2; }
+          rr.fill(0); ri.fill(0);
+          if (energy > 1e-12) {
+            rfft(frame, re, im);
+            let sum = 0, log = 0, edge = 0;
+            for (let k = 0; k <= half; k++) mag[k] = Math.hypot(re[k], im[k]);
+            for (let k = lo; k <= high; k++) { const p = mag[k] ** 2 + 1e-20; sum += p; log += Math.log(p); if (k > high * 0.65) edge += p; }
+            const flatness = Math.exp(log / Math.max(1, high - lo + 1)) / (sum / Math.max(1, high - lo + 1) + 1e-20);
+            const texture = clip(Math.sqrt(flatness) * 1.4, 0, 1), onset = clip((energy - previousEnergy) / (energy + 1e-12), 0, 1);
+            const appetite = clip(Math.sqrt(edge / (energy * N / 2 + 1e-20)) * 5, 0.08, 1);
+            // Continue resolved peaks. An odd multiplier carries channel polarity as well as phase.
+            for (let k = lo + 1; k < high; k++) {
+              if (mag[k] < mag[k - 1] || mag[k] <= mag[k + 1] || mag[k] ** 2 < sum * 0.001) continue;
+              for (let multiple = 3; multiple <= 9; multiple += 2) {
+                const targetBin = k * multiple;
+                if (targetBin < startBin || targetBin > endBin) continue;
+                const amp = mag[k] * (1 - texture * 0.7) / Math.pow(multiple, 1.15), phase = Math.atan2(im[k], re[k]) * multiple;
+                for (let j = -1; j <= 1; j++) {
+                  const b = targetBin + j; if (b < startBin || b > endBin) continue;
+                  const a = amp * (j === 0 ? 1 : -0.5); rr[b] += a * Math.cos(phase); ri[b] += a * Math.sin(phase);
+                }
+              }
+            }
+            const noiseAmp = Math.sqrt(sum / Math.max(1, high - lo + 1)) * texture * (0.3 + 0.35 * onset);
+            for (let k = startBin; k <= endBin; k++) {
+              const seam = Math.min(1, (k - startBin) / 8, (endBin - k) / 8), tilt = (k * df / fc) ** -1.2;
+              // Time-local envelope and a phase tied to the source, shared across stereo channels.
+              const sourceBin = lo + ((k - startBin) % Math.max(1, high - lo));
+              const p = phases[k] + Math.atan2(im[sourceBin], re[sourceBin]);
+              rr[k] = (rr[k] + noiseAmp * Math.cos(p)) * seam * tilt;
+              ri[k] = (ri[k] + noiseAmp * Math.sin(p)) * seam * tilt;
+            }
+            let addedPower = 0; for (let k = startBin; k <= endBin; k++) addedPower += 2 * (rr[k] ** 2 + ri[k] ** 2) / N;
+            const gain = amount * Math.min(1, Math.sqrt(energy * 0.035 / (addedPower + 1e-20))) * appetite;
+            for (let k = startBin; k <= endBin; k++) { rr[k] *= gain; ri[k] *= gain; }
+            info.texture_mean += texture; info.tiles++;
+          }
+          previousEnergy = energy;
+          irfft(rr, ri, frame);
+          const offset = base + half;
+          for (let i = 0; i < N; i++) { acc[offset + i] += frame[i] * w[i]; norm[offset + i] += w[i] ** 2; }
+        }
+        const raw = new Float32Array(n);
+        for (let i = 0; i < n; i++) raw[i] = acc[i + half] / Math.max(norm[i + half], 1e-10);
+        return guardResidual(raw, sr, fc);
+      });
+      info.texture_mean /= Math.max(1, info.tiles);
+      // Reserve headroom by reducing only the new layer. The source itself is never attenuated.
+      let headroom = 1;
+      for (let c = 0; c < ch.length; c++) for (let i = 0; i < n; i++) {
+        const d = residual[c][i], s = ch[c][i];
+        if (d > 1e-12) headroom = Math.min(headroom, Math.max(0, (Math.max(0.999, s) - s) / d));
+        else if (d < -1e-12) headroom = Math.min(headroom, Math.max(0, (Math.min(-0.999, s) - s) / d));
+      }
+      info.headroom_gain = headroom;
+      if (headroom < 0.01) info.reason = 'Source has no peak headroom: detail is suppressed to preserve it. Use a quieter source to allow a new layer.';
+      return { out: ch.map((x, c) => x.map((v, i) => v + residual[c][i] * headroom)), info };
+    }
+
     /* ---------------- EXCITER: harmonics of what is there ---------------- */
     // the band above about 0.45 of the cutoff is waveshaped at 4x oversampling, so the new harmonics do not alias,
     // then high-passed again and mixed back
@@ -413,7 +534,7 @@
     }
 
     // log-magnitude spectrogram (freq by time, row-major by frequency) in [0, 1], as dsp.spectrogram draws it
-    function spectrogram(ch, sr, nfft = 1024, maxFrames = 900) {
+    function spectrogram(ch, sr, nfft = 1024, maxFrames = 900, channelEnergy = false) {
       const m = toMono(ch), n = m.length, step = nfft >> 1, w = hann(nfft), nb = (nfft >> 1) + 1;
       if (n < nfft) return { S: new Float32Array(0), bins: nb, frames: 0, t: [] };
       const nadd = pmod(-(n - nfft), step) % nfft, nseg = (n + nadd - nfft) / step + 1;
@@ -424,9 +545,19 @@
       const F = idx.length, S = new Float32Array(nb * F), seg = new Float64Array(nfft), re = new Float64Array(nb), im = new Float64Array(nb);
       idx.forEach((s, t) => {
         const o = s * step;
-        for (let i = 0; i < nfft; i++) seg[i] = o + i < n ? m[o + i] * w[i] : 0;
-        rfft(seg, re, im);
-        for (let k = 0; k < nb; k++) { const db = 20 * Math.log10(Math.hypot(re[k], im[k]) / ws + EPS); S[k * F + t] = (clip(db, -100, 0) + 100) / 100; }
+        if (channelEnergy && ch.length > 1) {
+          const power = new Float64Array(nb);
+          for (const channel of ch) {
+            for (let i = 0; i < nfft; i++) seg[i] = o + i < n ? channel[o + i] * w[i] : 0;
+            rfft(seg, re, im);
+            for (let k = 0; k < nb; k++) power[k] += (re[k] ** 2 + im[k] ** 2) / ch.length;
+          }
+          for (let k = 0; k < nb; k++) { const db = 20 * Math.log10(Math.sqrt(power[k]) / ws + EPS); S[k * F + t] = (clip(db, -100, 0) + 100) / 100; }
+        } else {
+          for (let i = 0; i < nfft; i++) seg[i] = o + i < n ? m[o + i] * w[i] : 0;
+          rfft(seg, re, im);
+          for (let k = 0; k < nb; k++) { const db = 20 * Math.log10(Math.hypot(re[k], im[k]) / ws + EPS); S[k * F + t] = (clip(db, -100, 0) + 100) / 100; }
+        }
       });
       return { S, bins: nb, frames: F, t: idx.map((s) => (s * step + nfft / 2) / sr) };
     }
@@ -443,9 +574,11 @@
       const selective = 0 <= n0 && n0 < n1 && n1 <= n && n1 - n0 < n - Math.trunc(0.05 * sr);
       let x = selective ? src.map((c) => c.slice(n0, n1)) : src;
       progress(10, 'measuring the source cutoff');
-      const fc = estimateCutoff(x, sr);
+      const estimated = p.mode === 'forge' ? cutoffFromWelch(energyWelch(x, sr), sr) : estimateCutoff(x, sr);
+      const fc = p.mode === 'forge' && p.cutoff_hz > 0 ? clip(p.cutoff_hz, 500, sr / 2) : estimated;
       let out, info = { fc }, gainCurve = null;
-      if (p.mode === 'floor') { progress(45, 'high shelf, the honest control'); out = floorHighshelf(x, sr, p.gain_db, 0.5 * fc); }
+      if (p.mode === 'forge') { progress(35, 'synthesizing a guarded detail layer'); const r = forgeDetail(x, sr, { ...p, fc }); out = r.out; info = { ...r.info, estimated_cutoff_hz: estimated, cutoff_source: p.cutoff_hz > 0 ? 'user' : 'estimated' }; }
+      else if (p.mode === 'floor') { progress(45, 'high shelf, the honest control'); out = floorHighshelf(x, sr, p.gain_db, 0.5 * fc); }
       else if (p.mode === 'exciter') { progress(40, 'harmonic exciter, 4x oversampled'); out = exciter(x, sr, { fc, drive: p.drive, mix: p.emix }); }
       else if (p.mode === 'transient') { progress(40, 'transient restore, dynamic gain'); const r = transientRestore(x, sr, p.tamt); out = r.out; gainCurve = r.gain; }
       else { progress(35, 'spectral band replication'); const r = sbrEnhance(x, sr, { fc, target_hz: p.target_hz, wet: p.wet, tilt_db_oct: p.tilt, phases: p.phases, seed: p.seed }); out = r.out; info = r.info; }
@@ -455,8 +588,8 @@
         for (let i = 0; i < xf; i++) t[i] = 0.5 - 0.5 * Math.cos((Math.PI * i) / xf);
         out.forEach((seg, c) => {
           const sp = spliced[c];
-          for (let i = 0; i < xf; i++) seg[i] = f32(f32(seg[i] * t[i]) + f32(sp[n0 + i] * f32(1 - t[i])));
-          for (let i = 0; i < xf; i++) { const j = len - xf + i, tr = t[xf - 1 - i]; seg[j] = f32(f32(seg[j] * tr) + f32(sp[n1 - xf + i] * f32(1 - tr))); }
+          for (let i = 0; i < xf; i++) seg[i] = p.mode === 'forge' ? sp[n0 + i] + (seg[i] - sp[n0 + i]) * t[i] : f32(f32(seg[i] * t[i]) + f32(sp[n0 + i] * f32(1 - t[i])));
+          for (let i = 0; i < xf; i++) { const j = len - xf + i, tr = t[xf - 1 - i]; seg[j] = p.mode === 'forge' ? sp[n1 - xf + i] + (seg[j] - sp[n1 - xf + i]) * tr : f32(f32(seg[j] * tr) + f32(sp[n1 - xf + i] * f32(1 - tr))); }
           sp.set(seg.subarray(0, len), n0);
         });
         out = spliced; x = full;
@@ -464,6 +597,16 @@
       progress(80, 'measuring the result');
       const span = selective && p.measure !== 'desktop', cut = (ch) => (span ? ch.map((c) => c.subarray(n0, n1)) : ch);
       const metrics = measure(cut(out), cut(x), fc, sr);
+      if (p.mode === 'forge') {
+        const a = cut(x), b = cut(out), delta = b.map((v, c) => v.map((s, i) => s - a[c][i]));
+        const Wa = energyWelch(a, sr), Wb = energyWelch(b, sr), Wd = energyWelch(delta, sr);
+        let sourcePower = 0, lowError = 0, added = 0, resultPower = 0;
+        for (let c = 0; c < a.length; c++) for (let i = 0; i < a[c].length; i++) { added += delta[c][i] ** 2; resultPower += b[c][i] ** 2; }
+        for (let k = 0; k < Wa.f.length && Wa.f[k] < fc; k++) { sourcePower += Wa.pxx[k]; lowError += Wd.pxx[k]; }
+        Object.assign(metrics, { bw_before: cutoffFromWelch(Wa, sr), bw_after: cutoffFromWelch(Wb, sr), hb_before: highBandFromWelch(Wa, fc, sr), hb_after: highBandFromWelch(Wb, fc, sr), lsd: lsdFromWelch(Wb, Wa, fc), nr: nrFromWelch(Wb, fc, sr), gain: clip(Math.sqrt(linkedK(a) / linkedK(b)), 0.1, 10), welch_before: Wa, welch_after: Wb });
+        metrics.nr.verdict = metrics.nr.flatness > 0.6 ? 'noise-like' : metrics.nr.flatness > 0.02 ? 'mixed' : 'tonal';
+        Object.assign(info, { guard_error_db: 10 * Math.log10(Math.max(1e-16, lowError / Math.max(sourcePower, 1e-20))), added_energy_percent: 100 * added / Math.max(resultPower, 1e-20), source_samples_kept: true });
+      }
       return { out, fc, info, metrics, selective, n0: selective ? n0 : 0, n1: selective ? n1 : n, gainCurve, mode: p.mode };
     }
 
@@ -488,7 +631,7 @@
 
     return {
       DEFAULTS, EPS, toMono, peakGuard, welch, estimateCutoff, cutoffFromWelch, rbjHighShelf, butterHighpassSOS, sosfilt,
-      firwinKaiser, resamplePoly, gaussianFilter1d, floorHighshelf, sbrEnhance, exciter, transientRestore, kweightEnergy,
+      firwinKaiser, resamplePoly, gaussianFilter1d, floorHighshelf, sbrEnhance, forgeDetail, guardResidual, energyWelch, linkedK, exciter, transientRestore, kweightEnergy,
       loudnessGain, bandwidthHz, highBandLevelDb, lsdSharedBand, nrQuality, measure, spectrogram, run, encodeWav24,
       rfft, irfft, hann, roundEven,
     };

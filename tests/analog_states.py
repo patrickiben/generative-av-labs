@@ -3,6 +3,7 @@
 
   boot      : the synthetic test sound is labeled, processed at once, and nothing plays before a click
   listening : Start listening plays A; Space flips to B and back, a held key's repeats are ignored; P stops
+  forge     : seeded guarded synthesis, exact zero amount, chosen cutoff and actual-level delta audition
   engines   : keys 1 to 4 choose Floor, Exciter, Transient and SBR while playing, each labeled amplified or synthesized,
               and Transient's new highs above the cutoff named as new
   range     : a drag late in the sound enhances only that range and measures it there, where the desktop app's
@@ -128,7 +129,7 @@ with sync_playwright() as p:
     b, pg, err, reqs = session(p)
     r = pg.evaluate('__app.result')
     check('the test sound is labeled synthetic, not a recording', pg.get_attribute('#source-badge', 'data-source') == 'synthetic' and 'not a recording' in text(pg, '#source-label'), text(pg, '#source-label'))
-    check('it is processed at once with SBR, and the cutoff is the 11 kHz it was made with', r['mode'] == 'sbr' and abs(r['fc'] - 11000) < 330 and r['metrics']['bw_after'] > 18000,
+    check('it is processed at once with Forge, and the cutoff is the 6 kHz it was made with', r['mode'] == 'forge' and abs(r['fc'] - 6000) < 330 and r['metrics']['bw_after'] > 18000,
           f"{r['fc']:.0f} Hz, bandwidth {r['metrics']['bw_before']:.0f} to {r['metrics']['bw_after']:.0f} Hz")
     check('nothing plays and no audio context exists before a click', pg.evaluate('__app.sound') == 'off' and not pg.evaluate('__app.playing'))
     check('no live input: the page never asks for a microphone or MIDI', pg.evaluate("typeof createKit") == 'undefined' and not pg.query_selector('#connect-button')
@@ -148,6 +149,29 @@ with sync_playwright() as p:
     check('Space flips to B, a held key does not flip it back, and the next press returns to A', (side1, g1, side2, side3) == ('B', 'B', 'B', 'A') and pg.evaluate('__app.playing'), f'{side1} {side2} {side3}')
     gm = pg.evaluate('[__app.gainB, __app.result.metrics.gain, __app.S.match]')
     check('B is played at the measured BS.1770 gain', abs(gm[0] - (gm[1] if gm[2] else 1)) < 1e-9, f'{gm[0]:.3f}× with matching {"on" if gm[2] else "off"}')
+
+    # Forge has its own synthesis controls and a raw difference-layer audition.
+    pg.keyboard.press('d'); pg.wait_for_timeout(100)
+    gains = pg.evaluate('__app.auditionGains')
+    check('D auditions result minus source at actual level, independent of loudness matching', pg.evaluate('__app.side') == 'D' and abs(gains[0] + 1) < .001 and abs(gains[1] - 1) < .001, str(gains))
+    pg.keyboard.press('d')
+    pg.click('#engine-button'); shot(pg, '2-forge-controls')
+    old = pg.evaluate('__app.outSlice(0, 10000, 10500)')
+    pg.click('#new-seed'); pg.wait_for_function(f"{READY} && __app.result.info.seed === 18")
+    new = pg.evaluate('__app.outSlice(0, 10000, 10500)')
+    check('New texture seed changes the invented layer and reports its seed', old != new and pg.evaluate('__app.result.info.guard_error_db') < -60)
+    pg.fill('#forge-seed', '17'); pg.press('#forge-seed', 'Tab'); pg.wait_for_function(f"{READY} && __app.result.info.seed === 17")
+    check('Returning to the seed reproduces the same detail', old == pg.evaluate('__app.outSlice(0, 10000, 10500)'))
+    pg.eval_on_selector('#k-amount', "e => { e.value = 0; e.dispatchEvent(new Event('input', {bubbles:true})); }")
+    pg.wait_for_function(f"{READY} && __app.S.res.params.amount === 0")
+    check('Zero detail preserves the source exactly and explains the no-op', pg.evaluate('__app.outSlice(0,0,4096).every((v,i)=>v === __app.S.src.ch[0][i])') and 'unchanged' in pg.evaluate('__app.result.info.reason'))
+    pg.click('#eng-reset'); pg.wait_for_function(f"{READY} && __app.S.res.params.amount === .55")
+    pg.eval_on_selector('#k-cutoff', "e => { e.value = 120; e.dispatchEvent(new Event('input', {bubbles:true})); }")
+    pg.wait_for_function(f"{READY} && __app.result.fc === 12000")
+    check('Guard override is labeled chosen, with the source estimate kept', pg.evaluate('__app.result.info.cutoff_source') == 'user' and 'chosen by you' in text(pg, '#m-fc-n'))
+    pg.click('#eng-reset'); pg.wait_for_function(f"{READY} && __app.S.res.params.cutoff_hz === 0")
+    pg.click('#engine-sheet [data-close]')
+    pg.locator('#stage').focus()
 
     # 3. engines by key, while playing, each labeled by what it does
     for key, mode, label, hb_label in (('1', 'floor', 'amplified', 'amplified'), ('2', 'exciter', 'synthesized', 'synthesized'),
@@ -265,7 +289,7 @@ with sync_playwright() as p:
         except Exception as e:
             check(f'{engine}: could not launch here', True, str(e)[:80]); continue
         r = pg.evaluate('__app.result')
-        check(f'{engine}: boots and processes the test sound', r['mode'] == 'sbr' and abs(r['fc'] - 11000) < 330, f"{r['fc']:.0f} Hz in {r['ms']:.0f} ms")
+        check(f'{engine}: boots and processes the test sound', r['mode'] == 'forge' and abs(r['fc'] - 6000) < 330, f"{r['fc']:.0f} Hz in {r['ms']:.0f} ms")
         for ext in ('wav', 'aiff', 'flac', 'mp3', 'm4a', 'ogg'):
             open_file(pg, FIX / f'chords.{ext}')
             try:

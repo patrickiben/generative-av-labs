@@ -108,6 +108,8 @@ Not tested: a real MIDI keyboard, Safari itself, Edge, phone hardware and Blueto
 
 Checked on 2026-11-03 in Chrome on a Mac. **No outside listener has used it yet.** It takes a sound file and nothing live: no microphone, no MIDI and no kit.
 
+The current default is **Forge**, with a 6 kHz band-limited demo and a separate synthesized detail layer. The new method, measured limits and reproducible checks are in [FORGE.md](FORGE.md). All 9 numerical integrity checks pass, including silent input, repeatable seeds, protected-band leakage, stereo polarity and selected-range boundaries. The expanded browser suite has 56 checks, including the raw difference audition, chosen cutoff and zero-amount bypass. The measurements below document the earlier comparison-effects implementation; those four processors remain available and retain their numerical parity.
+
 `tests/analog_numbers.py` runs the desktop app's own Python (`legacy/analog/dfa/`) and the page's JavaScript, under Node, on the same sounds. It passed 230 of 230 on 2026-11-03 with numpy 2.5.1 and scipy 1.18, and it runs in CI:
 
 - Floor, Exciter, Transient and SBR with the desktop's phases give samples within 1.8 × 10<sup>-7</sup> of the desktop's, and every measure is equal to four decimals.
@@ -116,7 +118,7 @@ Checked on 2026-11-03 in Chrome on a Mac. **No outside listener has used it yet.
 
 **One desktop defect is fixed only in the page.** With a range selected, the desktop app processes the range but measures the first 2<sup>18</sup> samples of the whole file, so a range that starts past 5.94 s at 44.1 kHz, or 5.46 s at 48 kHz, reads as unchanged. On the test sound, a range from 6.20 to 7.80 s read -94.0 dB above the cutoff before and after under the desktop's window. The page measures the processed range, where it read -96.6 dB before and -58.9 dB after. The desktop app itself is unchanged.
 
-`tests/analog_states.py` passed 51 of 51, by real clicks, keys and mouse drags:
+The earlier comparison-effects version of `tests/analog_states.py` passed 51 of 51, by real clicks, keys and mouse drags (before Forge became the default):
 
 - At load the synthetic test sound is labeled "not a recording" and processed with SBR at once: cutoff 10,982 Hz, bandwidth to 19,983 Hz. Nothing plays and no audio context exists before a click, and the page never asks for a microphone or MIDI.
 - Start listening plays A and hands the keys to the stage. Space flips to B, a held key's repeats do not flip it back, and P stops. B plays at the measured BS.1770 gain.
@@ -141,9 +143,9 @@ Not tested: an outside listener, Safari itself, Edge, phone hardware, a file dro
 
 Checked on 2026-11-03 in Chrome on the same Mac. **No real MIDI controller and no outside visitor has used it yet.**
 
-Displacer is sound only since 2026-11-03: two sounds blend by optimal transport, shown as the blend's spectrogram (Flat) and as Gabor atoms in 3D (Space). The picture mode, its views, options and picture saves were removed; the desktop app keeps them. Displacer takes sound files and a MIDI controller, not a drum kit: the shell's signal view, pad keys and hit strip are switched off, its session recorder is removed, and its drum demo and audio input stay hidden. The mod wheel moves the blend, as in the desktop app, and a MIDI keyboard can play a grown patch.
+Displacer is sound only since 2026-11-03: two sounds blend by optimal transport, opening on the blend’s labeled spectrogram, with Gabor atoms available under Atoms · 3D. The picture mode, its views, options and picture saves were removed; the desktop app keeps them. Displacer takes sound files and a MIDI controller, not a drum kit: the shell's signal view, pad keys and hit strip are switched off, its session recorder is removed, and its drum demo and audio input stay hidden. The mod wheel moves the blend, as in the desktop app, and a MIDI keyboard can play a grown patch.
 
-`tests/displacer_states.py` passed 55 of 55 in real Chrome:
+`tests/displacer_states.py` passed 57 of 57 in real Chrome after the audio-first update:
 
 - No picture mode, picture control or picture file type remains, and a picture dropped on the page is refused with a reason. No drum part shows, and with every sheet open and every section expanded, no drum word appears in any text, label, title or description a visitor can reach. The About sheet credits Displacer's own methods. Before this change it showed Nebula's credits, a flicker note about "hard playing" and a privacy note about a "pad map", and the Save sheet offered "Record a drum session".
 - The page runs with no page or console errors. An earlier build logged one from the shared shell, which still updates a button that lived in the removed session recorder; the page now keeps a hidden stand-in for it.
@@ -158,3 +160,13 @@ Displacer is sound only since 2026-11-03: two sounds blend by optimal transport,
 Flicker. With no drum input, the fast ways to change the stage are the slider and the view. The limit is 25% of a region flashing more than three times a second. Dragging the slider at five full swings a second measured 0% in Flat, where the spectrogram changes only when a render lands (also 0% with the slider slow enough for every render to land), and 12 to 18% in Space over five runs. Flipping between Flat and Space ten times a second measured 13 to 16% over two runs. The sound Space view had not been measured before this change: through the stage's single 0.15 second glide it measured 22 to 26%, at the limit. The stage now follows the slider through two 0.1 second glides, which feel the same on a hand's drag but move the atoms about half as far when scrubbed back and forth.
 
 `tests/smoke.py` checks Displacer by the atom cloud it builds, since it has no drum demo, and passes on all five pages under software rendering.
+
+### Displacer audio-first update
+
+The README and home-page image now show the actual audio controls, sources and spectrogram, rather than a cropped atom cloud. Frequency/time labels align with the rendered spectrum and fit a 390 px phone. The cloud is still prepared for optional exploration and exports.
+
+`tests/displacer_audition.py` passes all 10 checks: changing the blend replaces the audio buffer at the existing playhead with an 18 ms gain crossfade; stale source/settings jobs cannot overwrite it; cancellation, Stop and natural completion prevent delayed restarts; requesting a fixed blend holds the visual sweep. The dedicated sweep export remains available. These are Web Audio buffer/state checks, not speaker listening tests.
+
+`node tests/displacer_resampling.js` verifies that mixed sample rates use a windowed-sinc anti-alias filter before downsampling. Tested 44.1→22.05, 48→22.05 and 96→44.1 kHz pairs retain a 1 kHz tone with RMS error below 0.001 while rejecting an above-Nyquist tone below 0.0001 RMS. DC level, identity copies and the actual two-source preparation path also pass. The filter transitions near the top 10% of the destination band.
+
+The updated full state run measured worst flashing regions of 0% for spectrogram scrubbing, 23% for atom scrubbing and 17% for rapid view changes, each below the 25% threshold; there were no whole-frame flashes. No real controller, physical phone or speaker listening test was performed in this update.
