@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A short check for CI: each page boots, says it is ambient, runs the demo, and the demo really produces hits.
 Chimera is a synth, so its demo is checked by the riff steps it really played instead of drum hits.
-Displacer takes files, not a kit, so it is checked by the blend and the cloud it really built instead."""
+Displacer takes sound files, not a kit, so it is checked by the atom cloud it really built instead."""
 import http.server, sys, threading
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -27,7 +27,7 @@ with sync_playwright() as p:
             n = pg.evaluate('__app.spaceN')
             if pg.is_visible('#demo-button'): bad.append(f'{page}: shows a drum demo')
             if errors: bad.append(f'{page}: {errors[0]}')
-            print(f'{page}: {n} points in the cloud, {len(errors)} page errors')
+            print(f'{page}: {n} atoms in the cloud, {len(errors)} page errors')
             b.close()
             continue
         if pg.get_attribute('#source-badge', 'data-source') != 'ambient': bad.append(f'{page}: not ambient at load')

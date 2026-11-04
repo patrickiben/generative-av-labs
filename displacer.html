@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#101525">
 <title>Displacer</title>
-<meta name="description" content="Blend two pictures or two sounds by optimal transport: the mass moves instead of two files ghosting at once.">
+<meta name="description" content="Blend two sounds by optimal transport: the energy moves along frequency instead of two recordings playing at once.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23101525'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%23b8b7ff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2' fill='%23b8b7ff'/%3E%3C/svg%3E">
 <style>
 :root {
@@ -252,9 +252,6 @@ body.moved .intro { opacity: 0; transform: translateY(-10px); }
 .scope-key .ka::before { background: #86e0d3; } .scope-key .kb::before { background: #f3a6c8; } .scope-key .km::before { background: #b8b7ff; }
 #scope-mini { margin-left: auto; font-variant-numeric: tabular-nums; }
 #scope-mini::before { display: none !important; }
-#flat-labels { position: absolute; display: flex; justify-content: space-between; gap: 12px; transform: translateY(calc(-100% - 8px)); pointer-events: none; }
-#flat-labels span { font: 500 10px/1.4 var(--mono); letter-spacing: 0.5px; text-transform: uppercase; color: #dcdbfa; background: rgba(20, 22, 38, 0.66); border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; }
-#flat-labels span:last-child { color: #f0dcb4; }
 
 /* dropping files: left half A, right half B */
 #drop { position: fixed; inset: 0; z-index: 30; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 24px; background: rgba(6, 10, 22, 0.58); backdrop-filter: blur(5px); pointer-events: none; }
@@ -270,7 +267,6 @@ body.moved .intro { opacity: 0; transform: translateY(-10px); }
 .src-card strong { font-weight: 500; font-size: 13px; }
 .src-card .why { font-size: 11px; color: var(--muted); margin: 3px 0 0; line-height: 1.5; }
 .src-card .pill { justify-self: start; }
-#method-row .pill[hidden] { display: none; }
 .gpkb { display: flex; gap: 2px; height: 56px; margin: 14px 0 4px; }
 .gpkb button { flex: 1; border-radius: 0 0 6px 6px; background: rgba(238, 237, 251, 0.82); border: 1px solid #0007; transition: background 0.08s; }
 .gpkb button.blk { background: #1b2036; }
@@ -284,13 +280,13 @@ body.moved .intro { opacity: 0; transform: translateY(-10px); }
 .fx.off .fx-knobs, .fx.off select { opacity: 0.45; }
 
 /* performance: the stage alone. The source badge stays, so a demo can never read as your kit. */
-body.performance .header, body.performance .mode-switch, body.performance #method-badge, body.performance #busy, body.performance #hud,
-body.performance #hit-strip, body.performance .chip, body.performance .dock, body.performance .truth, body.performance #scope-card,
-body.performance #flat-labels, body.performance .intro, body.performance .vignette { opacity: 0 !important; pointer-events: none !important; }
+body.performance .header, body.performance #method-badge, body.performance #busy, body.performance #hud,
+body.performance .chip, body.performance .dock, body.performance .truth, body.performance #scope-card,
+body.performance .intro, body.performance .vignette { opacity: 0 !important; pointer-events: none !important; }
 
 @media (max-width: 860px) {
-  #method-badge { top: max(112px, calc(env(safe-area-inset-top) + 98px)); font-size: 9px; padding: 6px 11px 6px 24px; }
-  #busy { top: max(150px, calc(env(safe-area-inset-top) + 136px)); }
+  #method-badge { top: max(66px, calc(env(safe-area-inset-top) + 52px)); font-size: 9px; padding: 6px 11px 6px 24px; }
+  #busy { top: max(104px, calc(env(safe-area-inset-top) + 90px)); }
   .ab { flex-wrap: wrap; gap: 10px; }
   .ab-thumb { width: 64px; height: 40px; border-radius: 10px; }
   .ab-mid { flex: 1 1 180px; width: auto; }
@@ -303,15 +299,15 @@ body.performance #flat-labels, body.performance .intro, body.performance .vignet
   body[data-app="displacer"] .dock button { min-width: 0; padding: 9px 7px 8px; }
 }
 
-/* no drum kit on this page: the shell's drum parts are off, MIDI stays as a controller */
-body.no-kit #demo-button, body.no-kit #hit-strip, body.no-kit #source-badge, body.no-kit #chip-audio, body.no-kit #session-button, body.no-kit #signal-button,
+/* no drum kit on this page: the shell's drum parts it still updates stay hidden, and MIDI stays as a controller */
+body.no-kit #demo-button, body.no-kit #source-badge, body.no-kit #chip-audio,
 body.no-kit #connect-both, body.no-kit #audio-card, body.no-kit #audio-controls, body.no-kit #wiring, body.no-kit #map-details, body.no-kit .kit-only { display: none !important; }
 
 </style>
 </head>
 <body>
 <main class="scene" id="scene" aria-label="Displacer">
-<canvas id="stage" role="img" aria-label="Blend two pictures or two sounds by optimal transport: the mass moves instead of two files ghosting at once."></canvas>
+<canvas id="stage" role="img" aria-label="Blend two sounds by optimal transport: the energy moves along frequency instead of two recordings playing at once."></canvas>
 </main>
 <script>
 /* kit.js: live drum input for the browser.
@@ -1865,7 +1861,9 @@ void main(){
    each marked: Genopatch reads its effort from state, the granular effect is seeded so a saved sound repeats exactly,
    the overlap-add no longer divides by a near-zero window at the edges (which left blends about 250 times too quiet),
    and the two map builders are split so the page can run their sliced OT in a worker. createEngine(S) reads its
-   settings from the page's state object S, as the desktop page did. No drawing happens here. */
+   settings from the page's state object S, as the desktop page did. No drawing happens here. The public page is sound
+   only: it calls the sound parts, and the picture functions stay so this file remains a line-range copy of the desktop
+   engine. */
 (function (global) {
   'use strict';
   function createEngine(S) {
@@ -2325,10 +2323,11 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
 
 </script>
 <script>
-/* displacer.js: two pictures or two sounds, blended by moving mass instead of mixing it.
-   The engine is the desktop Displacer's (displacer-engine.js). This page adds the suite's stage: the blend drawn large,
-   its splat cloud in 3D, the transport scope, and the kit as a controller. The desktop app's native parts become browser
-   ones: Chrome decodes the sound (plus a small AIFF reader), saving is a download, and performance mode is full screen.
+/* displacer.js: two sounds, blended by moving their energy instead of mixing it.
+   The engine is the desktop Displacer's (displacer-engine.js). This page uses its sound parts only; the desktop app keeps
+   its picture mode. The page adds the suite's stage: the blend's spectrogram, its Gabor atoms in 3D, the transport
+   scope, and a MIDI controller's mod wheel. The desktop app's native parts become browser ones: Chrome decodes the sound
+   (plus a small AIFF reader), saving is a download, and performance mode is full screen.
    Every link is a stated rule, and there is no model. */
 (function () {
   'use strict';
@@ -2336,24 +2335,22 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
   const $ = (id) => document.getElementById(id);
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const RM = matchMedia('(prefers-reduced-motion: reduce)');
-  const RES = 560, MAX_FULL = 8192, SOUND_S = 6, CW = 0.0035;
-  const TOUCH = navigator.maxTouchPoints > 1;
+  const SOUND_S = 6, CW = 0.0035;
 
   const S = {
-    mode: 'image', view: 'space', t: 0.5, method: 'ot', compare: false,
-    cspace: 'ycocg', quality: 'dither', phasemode: 'dominant', xlaw: 'ep', mpMix: 0.55, spComp: 'sharp', spAdapt: true,
-    imgA: null, imgB: null, srcA: null, srcB: null, audA: null, audB: null, audRate: 0, audDirty: true, lastRender: null,
-    names: { image: { A: 'Dusk', B: 'Tide' }, audio: { A: 'Sung ah', B: 'Glass bells' } },
-    built: { image: { A: true, B: true }, audio: { A: true, B: true } },
-    ver: { image: 0, audio: 0 },
+    view: 'space', t: 0.5, method: 'ot',
+    phasemode: 'dominant', xlaw: 'ep', mpMix: 0.55,
+    srcA: null, srcB: null, audA: null, audB: null, audRate: 0, audDirty: true, lastRender: null,
+    names: { A: 'Sung ah', B: 'Glass bells' },
+    built: { A: true, B: true },
+    ver: 0,
     fx: { sat: { on: false, drive: 0.4, type: 'soft', mix: 0.85 }, trans: { on: false, attack: 0.35, sustain: 0 }, gran: { on: false, density: 18, size: 80, pitch: 0, spray: 0.3, reverse: 0, mix: 0.7 } },
     gp: { source: 'blend', effort: 'std', best: null, bestLoss: 0, target: null, running: false, keys: false },
-    space: { cloud: 'ab', look: 'soft', depth: 0.55, size: 1, sway: true, yaw: 0.32, pitch: 0.16, dist: 2.75, phase: 0, points: 'auto' },
+    space: { cloud: 'ab', depth: 0.55, size: 1, sway: true, yaw: 0.32, pitch: 0.16, dist: 2.75, phase: 0 },
     sweep: false, sweepT: 0, perform: false, scope: innerWidth >= 1100,
-    tView: 0.5,   // what the stage shows: it follows t with a 0.15 s glide, so fast scrubbing cannot flash the screen
+    tMid: 0.5, tView: 0.5,   // what the stage shows: it follows t through two short glides, so fast scrubbing cannot flash the screen
   };
   const E = DisplacerEngine.createEngine(S);
-  const NO_HITS = { kick: 0, snare: 0, hat: 0, hatOpen: 0, tom: 0, tomPos: 0.5, crash: 0, ride: 0, flash: 0 };   // the cloud does not react to drums
 
   /* ---------- the worker: sound blends, atoms and sliced OT, off the main thread ---------- */
   let worker = null, seq = 0;
@@ -2368,45 +2365,8 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
     return new Promise((res) => { pending[id] = res; worker.postMessage({ ...msg, id }, transfer || []); });
   }
 
-  /* ---------- built-in sources: two painted scenes and two sung vowels ---------- */
-  const HI = 3;   // the built-in scenes are painted at three times the working size
-  function paintDusk() {
-    const c = document.createElement('canvas'); c.width = 560 * HI; c.height = 360 * HI; const g = c.getContext('2d'); g.scale(HI, HI);
-    const sky = g.createLinearGradient(0, 0, 0, 260);
-    sky.addColorStop(0, '#120d2e'); sky.addColorStop(0.38, '#3b1d57'); sky.addColorStop(0.72, '#a3416a'); sky.addColorStop(1, '#ffa25e');
-    g.fillStyle = sky; g.fillRect(0, 0, 560, 360);
-    const r = E.mulberry32(11); g.fillStyle = '#fff4e0';
-    for (let i = 0; i < 46; i++) { g.globalAlpha = 0.25 + r() * 0.6; g.fillRect(r() * 560, r() * 120, 1.4, 1.4); }
-    g.globalAlpha = 1;
-    const sun = g.createRadialGradient(190, 236, 4, 190, 236, 120);
-    sun.addColorStop(0, 'rgba(255,236,190,1)'); sun.addColorStop(0.28, 'rgba(255,214,150,.75)'); sun.addColorStop(1, 'rgba(255,160,90,0)');
-    g.fillStyle = sun; g.fillRect(40, 100, 300, 260);
-    g.fillStyle = '#ffe9bf'; g.beginPath(); g.arc(190, 236, 30, 0, 7); g.fill();
-    const hill = (col, base, amp, f, ph) => { g.fillStyle = col; g.beginPath(); g.moveTo(0, 360); for (let x = 0; x <= 560; x += 8) g.lineTo(x, base - amp * (0.6 * Math.sin(x * f + ph) + 0.4 * Math.sin(x * f * 2.3 + ph * 1.7))); g.lineTo(560, 360); g.fill(); };
-    hill('#4a2450', 262, 22, 0.011, 1.2); hill('#2a1536', 292, 26, 0.008, 3.1); hill('#140b20', 326, 18, 0.014, 0.4);
-    return c;
-  }
-  function paintTide() {
-    const c = document.createElement('canvas'); c.width = 560 * HI; c.height = 360 * HI; const g = c.getContext('2d'); g.scale(HI, HI);
-    const sky = g.createLinearGradient(0, 0, 0, 230);
-    sky.addColorStop(0, '#08203d'); sky.addColorStop(0.55, '#1d5f86'); sky.addColorStop(1, '#a6e6e2');
-    g.fillStyle = sky; g.fillRect(0, 0, 560, 230);
-    const halo = g.createRadialGradient(408, 92, 6, 408, 92, 110);
-    halo.addColorStop(0, 'rgba(240,252,255,.95)'); halo.addColorStop(0.25, 'rgba(200,240,250,.35)'); halo.addColorStop(1, 'rgba(160,220,240,0)');
-    g.fillStyle = halo; g.fillRect(290, 0, 240, 220);
-    g.fillStyle = '#f2fbff'; g.beginPath(); g.arc(408, 92, 24, 0, 7); g.fill();
-    g.fillStyle = '#0d3550'; g.beginPath(); g.moveTo(40, 230); g.quadraticCurveTo(110, 196, 190, 230); g.fill();
-    const sea = g.createLinearGradient(0, 230, 0, 360); sea.addColorStop(0, '#2b7f9e'); sea.addColorStop(1, '#04192c');
-    g.fillStyle = sea; g.fillRect(0, 230, 560, 130);
-    const r = E.mulberry32(29);
-    for (let i = 0; i < 70; i++) {
-      const y = 236 + Math.pow(r(), 1.6) * 120, near = (y - 230) / 130, x = 408 + (r() - 0.5) * (40 + near * 220);
-      g.globalAlpha = 0.35 + 0.5 * (1 - near); g.fillStyle = '#d9f6ff'; g.fillRect(x, y, 6 + r() * 26 * (0.4 + near), 1.6);
-    }
-    g.globalAlpha = 1;
-    return c;
-  }
-  // Built-in sounds with some motion, so their spectra and atoms have shape: a sung "ah" on a slow tune, and glass bells.
+  /* ---------- built-in sources: two sounds with some motion, so their spectra and atoms have shape: a sung "ah" on a
+     slow tune, and glass bells ---------- */
   function synthVoice() {
     const rate = 22050, L = rate * 3, out = new Float32Array(L), tune = [110, 131, 147, 165, 147, 123], F = [[700, 110], [1150, 140], [2600, 260]];
     let ph = 0;
@@ -2450,12 +2410,12 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
       <div class="seg" id="view-seg" role="group" aria-label="View"><button data-view="flat" aria-pressed="false">Flat</button><button data-view="space" aria-pressed="true">Space</button></div>
       <button class="ab-thumb" id="slot-A" data-slot="A"><canvas id="thumb-A" width="176" height="110" aria-hidden="true"></canvas><span class="ab-tag">A</span></button>
       <div class="ab-mid">
-        <div class="ab-read"><span class="ab-name" id="name-A">Dusk</span><b class="ab-t" id="t-val">0.50</b><span class="ab-name b" id="name-B">Tide</span></div>
+        <div class="ab-read"><span class="ab-name" id="name-A">Sung ah</span><b class="ab-t" id="t-val">0.50</b><span class="ab-name b" id="name-B">Glass bells</span></div>
         <input type="range" id="t" min="0" max="1000" value="500" aria-label="Blend position from A to B">
         <div class="ab-read sub"><span>A</span><span id="method-line">OT displacement</span><span>B</span></div>
       </div>
       <button class="ab-thumb b" id="slot-B" data-slot="B"><canvas id="thumb-B" width="176" height="110" aria-hidden="true"></canvas><span class="ab-tag">B</span></button>
-      <button class="pill" id="hear" hidden>Hear</button>
+      <button class="pill" id="hear">Hear</button>
     </div>`;
 
   const blendSheet = `
@@ -2464,22 +2424,16 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
         <div class="src-info"><strong>${w} <span id="sheet-name-${w}"></span></strong><p class="why" id="sheet-info-${w}"></p></div>
         <button class="pill" data-pick="${w}">Choose ${w}</button></div>`).join('')}
     </div>
-    <div class="row-actions"><button class="pill" id="swap">Swap A and B</button><button class="pill" id="builtin-image">Built-in pictures</button><button class="pill" id="builtin-audio">Built-in sounds</button></div>
-    <p class="note">Two pictures or two sounds. Drop files anywhere on the page, or paste a picture. A sound uses its first six seconds. Files are decoded in this browser and never uploaded.</p>
+    <div class="row-actions"><button class="pill" id="swap">Swap A and B</button><button class="pill" id="builtin-audio">Built-in sounds</button></div>
+    <p class="note">Two sounds. Drop files anywhere on the page. Each one uses its first six seconds. Files are decoded in this browser and never uploaded.</p>
     <div class="field"><span>Method</span><div class="row-actions" id="method-row" style="margin-top:4px">
-      <button class="pill" data-m="ot">OT displacement</button><button class="pill" data-m="spatial" data-only="image">Spatial OT</button><button class="pill" data-m="mp" data-only="audio">MP hybrid</button><button class="pill" data-m="xfade">Crossfade</button></div></div>
+      <button class="pill" data-m="ot">OT displacement</button><button class="pill" data-m="mp">MP hybrid</button><button class="pill" data-m="xfade">Crossfade</button></div></div>
     <p class="note" id="method-caption"></p>
-    <label class="check" id="compare-row"><input type="checkbox" id="compare"> Split compare: this method beside a crossfade</label>
     <label class="field"><div class="row"><span>From A to B</span><b id="t2-val">0.50</b></div><input type="range" id="t2" min="0" max="1000" value="500"></label>
     <div class="sig-title"><span>Transport scope · the map, drawn</span><span id="scope-means"></span></div>
     <canvas class="sig-canvas" id="scope-big" width="1400" height="440" role="img" aria-label="Distributions of A, B and the blend, with the transport map"></canvas>
     <p class="note">Teal is A, pink is B, violet is the blend. Under transport the violet hump slides from A to B as you move the slider, and its mean slides in a straight line. Under crossfade it is two fixed humps trading height. The thin rays are the map itself.</p>
     <label class="check"><input type="checkbox" id="scope-on"> Show the scope on the stage</label>
-    <details id="img-opts"><summary>Picture options</summary><div class="controls-grid">
-      <label class="field">Color space<select id="cspace"><option value="ycocg">YCoCg, keeps hues apart</option><option value="rgb">Each RGB channel</option></select></label>
-      <label class="field">OT quality<select id="quality"><option value="dither">Dithered map, fast</option><option value="sliced">Sliced OT over 3D color</option></select></label>
-      <label class="field">Splat size<select id="spadapt"><option value="adaptive">Per point, from local contrast</option><option value="global">One size for all</option></select></label>
-    </div></details>
     <details id="aud-opts"><summary>Sound options</summary><div class="controls-grid">
       <label class="field">Phase<select id="phasemode"><option value="dominant">Dominant source, crisp</option><option value="pv">Phase vocoder, smoother</option></select></label>
       <label class="field"><div class="row"><span>MP hybrid: skeleton to field</span><b id="mpmix-v">55%</b></div><input type="range" id="mpmix" min="0" max="100" value="55"></label>
@@ -2489,16 +2443,14 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
   const spaceSheet = `
     <div class="field"><span>Cloud</span><div class="row-actions" id="cloud-row" style="margin-top:4px"><button class="pill on" data-cloud="ab">A to B</button><button class="pill" data-cloud="A">A alone</button><button class="pill" data-cloud="B">B alone</button></div></div>
     <p class="note" id="cloud-note"></p>
-    <div class="field"><span>Look</span><div class="row-actions" id="look-row" style="margin-top:4px"><button class="pill on" data-look="soft">Soft splats</button><button class="pill" data-look="glow">Glow</button></div></div>
     <div class="controls-grid" style="padding:12px 0 6px">
       <label class="field"><div class="row"><span>Depth</span><b id="depth-v"></b></div><input type="range" id="depth" min="0" max="140" value="55"></label>
-      <label class="field"><div class="row"><span>Splat size</span><b id="size-v"></b></div><input type="range" id="size" min="30" max="250" value="100"></label>
-      <label class="field">Points<select id="points"><option value="auto">Automatic</option><option value="12000">About 12,000</option><option value="24000">About 24,000</option><option value="48000">About 48,000</option></select></label>
+      <label class="field"><div class="row"><span>Atom size</span><b id="size-v"></b></div><input type="range" id="size" min="30" max="250" value="100"></label>
       <label class="check" style="margin:0"><input type="checkbox" id="sway" checked> Sway slowly</label>
       <label class="check" style="margin:0"><input type="checkbox" id="sweep"> Slow sweep from A to B and back, 24 seconds</label>
     </div>
-    <div class="row-actions" id="atom-actions" hidden><button class="pill" id="atoms-play">Play the atoms</button></div>
-    <p class="note">Drag the stage to turn the cloud and scroll to move closer. Depth is brightness for pictures and salience for sounds: stated rules, not a learned depth estimate. A controller's mod wheel (CC1) moves the slider.</p>`;
+    <div class="row-actions" id="atom-actions"><button class="pill" id="atoms-play">Play the atoms</button></div>
+    <p class="note">Drag the stage to turn the cloud and scroll to move closer. Depth is each atom's salience: a stated rule, not a learned estimate. A controller's mod wheel (CC1) moves the slider.</p>`;
 
   const patchSheet = `
     <div class="row-actions" style="margin-top:0"><div class="seg small" id="gp-src" role="group" aria-label="What to fit"><button data-s="blend" aria-pressed="true">The blend</button><button data-s="A" aria-pressed="false">A</button><button data-s="B" aria-pressed="false">B</button></div>
@@ -2527,64 +2479,51 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
   const saveSheet = `
     <div class="row-actions" style="margin-top:0"><button class="pill primary" id="save-blend">Save the blend</button><button class="pill" id="save-sweep">Save a sweep</button><button class="pill" id="save-poster">Save a poster</button></div>
     <p class="note" id="save-what"></p>
-    <div class="row-actions"><button class="pill" id="save-cloud">Cloud (.ply)</button><button class="pill" id="save-splats">Splats (.ply)</button><button class="pill" id="save-atoms" hidden>Atoms (.wav)</button></div>
+    <div class="row-actions"><button class="pill" id="save-cloud">Cloud (.ply)</button><button class="pill" id="save-splats">Splats (.ply)</button><button class="pill" id="save-atoms">Atoms (.wav)</button></div>
     <p class="note">Cloud .ply is plain points with color, read by TouchDesigner (Point File In), Blender and CloudCompare. Splats .ply is the 3D Gaussian splat format for SuperSplat or PlayCanvas. Both hold the cloud at the slider's position. macOS Preview shows them as flat squares.</p>
-    <div class="row-actions"><button class="pill" id="save-stage">A picture of the stage</button><button class="pill" id="open-session">Record a drum session</button></div>
+    <div class="row-actions"><button class="pill" id="save-stage">A picture of the stage</button></div>
     <p class="note" id="save-status" role="status">Files are made here and handed to your browser's downloads. The blend holds the exact result; the stage adds glow.</p>`;
 
   const about = `
     <p class="sheet-intro">Displacer moves mass instead of mixing it. Each blend is a stated computation, and there is no model.</p>
     <table class="maptable"><tbody>
-      <tr><th>OT displacement</th><td>Pictures: each color channel's histogram moves toward B's along the intensity axis, so A is recolored and keeps its shapes. Sounds: each frame's spectrum moves along frequency, with its energy kept.</td></tr>
-      <tr><th>Spatial OT</th><td>Pixels move. Both pictures become clouds of position and color, matched by sliced optimal transport. Between the ends, A's full-size pixels move together along that map, averaged over neighbors, and take B's colors by OT displacement; the last stretch settles into B itself.</td></tr>
+      <tr><th>OT displacement</th><td>Each frame's spectrum moves along frequency toward B's, with its energy kept, so a resonance slides instead of fading.</td></tr>
       <tr><th>MP hybrid</th><td>The loudest partials, found by matching pursuit, keep their own clean phase and ride over the transported rest of the sound.</td></tr>
-      <tr><th>Crossfade</th><td>The honest control. It adds the two, so both show or sound at once.</td></tr>
-      <tr><th>Space</th><td>Pictures: x and y from the frame, depth from brightness. Sounds: Gabor atoms placed by time, log frequency and salience. Matched by sliced optimal transport over position and color.</td></tr>
+      <tr><th>Crossfade</th><td>The honest control. It adds the two, so both sound at once.</td></tr>
+      <tr><th>Space</th><td>Gabor atoms placed by time, log frequency and salience, matched by sliced optimal transport over position and color.</td></tr>
       <tr><th>Patch</th><td>Differential evolution fits an FM voice with three formants to a spectrum.</td></tr>
     </tbody></table>
     <details><summary>What is exact, and what is approximate</summary>
-      <p><b>Exact.</b> The 1D inverse-CDF map is the exact W2 optimal-transport map between 1D distributions (McCann's displacement interpolation): a theorem, not an approximation. For pictures it moves each channel's histogram, so the mean slides linearly from A to B. For sounds it moves each frame's magnitude spectrum along frequency, with energy conserved per frame. The crossfade is the naive control: it sums the two and moves nothing.</p>
-      <p><b>Approximate.</b> OT displacement and its sliced variant recolor A and keep A's geometry. Spatial OT moves the sampled pixel cloud exactly, but the picture between the ends moves A's pixels along that map averaged over neighbors, recolors them by OT displacement, and fades into B over the last fifth. The match is geometric, not a semantic correspondence.</p>
-      <p>Sound phase is rebuilt by a heuristic, because a transported magnitude has no exact phase, so attacks can smear near the middle. One 1D transport per channel or frame stands in for the full 2D Sinkhorn coupling, which is not run. Nothing here invents a new texture between A and B: expect clean migration, not a hybrid that a generative model would draw.</p>
+      <p><b>Exact.</b> The 1D inverse-CDF map is the exact W2 optimal-transport map between 1D distributions (McCann's displacement interpolation): a theorem, not an approximation. Here it moves each frame's magnitude spectrum along frequency, with energy conserved per frame. The crossfade is the naive control: it sums the two and moves nothing.</p>
+      <p><b>Approximate.</b> Sound phase is rebuilt by a heuristic, because a transported magnitude has no exact phase, so attacks can smear near the middle. One 1D transport per frame stands in for the full 2D Sinkhorn coupling, which is not run. Nothing here invents a new texture between A and B: expect clean migration, not a hybrid that a generative model would draw.</p>
       <p><b>Fixed from the desktop version.</b> Sound blends there divided by a nearly zero window at the first and last samples, which left them about 250 times too quiet with a click. The granular effect used an unseeded random source, so a saved sound did not repeat. Both are fixed here.</p>
     </details>
     <details><summary>The 1D map, in code</summary><pre class="monitor">// distributions p (from A) and q (from B) as normalized histograms, with CDFs F_p and F_q
 // the exact W2 optimal map:  T(x) = Q_q(F_p(x)),  Q_q the inverse CDF of q
 // displacement interpolation at blend t:
 T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
-// pictures: x is a pixel's channel value (the axis is intensity)
-// sounds: x is a frequency bin (the axis is frequency), moving magnitude</pre></details>
+// x is a frequency bin (the axis is frequency), moving magnitude</pre></details>
     <details><summary>A MIDI controller</summary>
-      <p>The mod wheel (CC1) moves the slider from A to B, as it did in the desktop app. With a patch grown, a MIDI keyboard can play it, with middle C as its root. Nothing here listens to a microphone or a drum kit.</p>
+      <p>The mod wheel (CC1) moves the slider from A to B, as it did in the desktop app. With a patch grown, a MIDI keyboard can play it, with middle C as its root. Nothing here listens to your microphone.</p>
     </details>
     <p class="note">Keys: <b>Left</b> and <b>Right</b> move the slider, with <b>Shift</b> for bigger steps · <b>V</b> flat or space · <b>C</b> connect a controller · <b>F</b> full screen · <b>H</b> hide controls. To move mass between a picture and a sound, use <a href="nebula.html">Nebula</a>'s Form mode.</p>`;
 
-  const TRUTH = {
-    image: 'Optimal transport with stated rules and no model. Your pictures stay in this browser, and saved files hold the exact blend.',
-    audio: 'Optimal transport with stated rules and no model. Your sounds stay in this browser, and saved files hold the exact blend.',
-  };
+  const TRUTH = 'Optimal transport with stated rules and no model. Your sounds stay in this browser, and saved files hold the exact blend.';
+  const PRIVACY = "Sounds you open are decoded in this browser and never uploaded, and MIDI is read here and sent nowhere. The page makes no network requests after it loads. Your MIDI input choice and the reconnect setting stay in this browser's storage.";
+  const CREDITS = "<p>No outside code is included. The engine is the desktop Displacer's, and its methods are named above: McCann's displacement interpolation, sliced optimal transport, matching pursuit for the Gabor atoms and differential evolution for the patch. The splat file follows the 3D Gaussian splat .ply layout that SuperSplat and PlayCanvas read.</p>";
   const BADGE = {
-    'image-ot': 'OT displacement · exact 1D map per color channel · recolors A, keeps its shapes',
-    'image-ot-sliced': 'OT displacement, sliced · joint color transport, approximate · recolors A, keeps its shapes',
-    'image-spatial': 'Spatial OT · A moves along the smoothed transport map and takes B\'s colors · the ends are exact',
-    'image-xfade': 'Crossfade · the naive control · adds both, moves nothing',
     'audio-ot': "OT displacement · exact transport of each frame's spectrum · phase is a heuristic",
     'audio-mp': 'MP hybrid · atoms keep their own phase · the rest is transported',
     'audio-xfade': 'Crossfade · the naive control · you hear both at once',
-    'space-image': 'Splat space · depth from brightness, a stated rule, not learned · sliced OT over position and color',
-    'space-solo': 'Relief · depth from brightness, a stated rule, not learned · the slider raises it from flat',
     'space-audio': 'Gabor atoms · time, log frequency, salience · a sparse decomposition, not the whole sound',
     'space-audio-solo': 'Gabor atoms of one sound · the slider raises salience from flat · not the whole sound',
   };
   const CAPTION = {
-    'image-ot': "OT displacement moves A's color histogram toward B's along the intensity axis (McCann interpolation). It recolors A and keeps A's shapes, so it is a color and tone morph, not a warp. At 1.00 you see A wearing B's palette.",
-    'image-spatial': "Spatial OT moves pixels. Both pictures become clouds of position and color, matched by sliced optimal transport, and the slider carries A's cloud into B's. The transport of the sampled cloud is exact; between the ends, A's full-size pixels move together along that map, averaged over neighbors, take B's colors by OT displacement, and settle into B over the last fifth. The match is geometric, not a learned correspondence.",
-    'image-xfade': 'Crossfade mixes the two pictures. At 0.50 both show at once, a double exposure. It is the naive control the transport methods are built to beat.',
-    'audio-ot': "OT displacement moves each frame's spectral energy from A's frequencies to B's, an exact 1D transport of magnitude. A resonance slides along the axis instead of fading. Phase is rebuilt by a heuristic, the approximate part.",
-    'audio-mp': 'MP hybrid splits each sound. The loudest partials, found by matching pursuit, keep their own clean phase so attacks survive, and ride over the transported rest of the sound. The mix sets skeleton against field.',
-    'audio-xfade': 'Crossfade adds the two recordings. At 0.50 you hear both at once. It is the baseline.',
+    ot: "OT displacement moves each frame's spectral energy from A's frequencies to B's, an exact 1D transport of magnitude. A resonance slides along the axis instead of fading. Phase is rebuilt by a heuristic, the approximate part.",
+    mp: 'MP hybrid splits each sound. The loudest partials, found by matching pursuit, keep their own clean phase so attacks survive, and ride over the transported rest of the sound. The mix sets skeleton against field.',
+    xfade: 'Crossfade adds the two recordings. At 0.50 you hear both at once. It is the baseline.',
   };
-  const METHOD_NAME = { ot: 'OT displacement', spatial: 'Spatial OT', mp: 'MP hybrid', xfade: 'Crossfade' };
+  const METHOD_NAME = { ot: 'OT displacement', mp: 'MP hybrid', xfade: 'Crossfade' };
 
   const kit = createKit();
   // Displacer never listens to a microphone. The shared reconnect setting can come from another page, so this page
@@ -2593,18 +2532,16 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   kit.tryReconnect = async () => { if (!kit.autoconnect.on) return; try { const m = await navigator.permissions.query({ name: 'midi' }); if (m.state === 'granted') kit.connectMidi(); } catch (e) { /* not available everywhere */ } };
   const brand = '<svg viewBox="0 0 24 28" aria-hidden="true"><circle cx="8.5" cy="14" r="5.5"/><circle cx="15.5" cy="14" r="5.5"/><path d="M8.5 14h7"/></svg>';
   const shell = mountShell({
-    id: 'displacer', name: 'Displacer', brand, kit,
-    modes: [{ id: 'image', label: 'Pictures' }, { id: 'audio', label: 'Sounds' }], mode: 'image', modeLabel: 'What you blend',
-    onMode: (m) => setKind(m),
-    intro: { eyebrow: 'Displacer · an optimal-transport blender', title: "Don't crossfade. Move the mass.", subtitle: 'Drag from A to B, or bring two pictures or two sounds of your own. Nothing is uploaded.' },
-    hud, truth: TRUTH.image,
+    id: 'displacer', name: 'Displacer', brand, kit, signal: false, pads: false, hitStrip: false,
+    intro: { eyebrow: 'Displacer · an optimal-transport blender for sound', title: "Don't crossfade. Move the mass.", subtitle: 'Drag from A to B, or bring two sounds of your own. Nothing is uploaded.' },
+    hud, truth: TRUTH, privacy: PRIVACY, credits: CREDITS,
     sheets: [
       { id: 'blend', label: 'Blend', icon: 'sliders', title: 'Choose the two, and how.', html: blendSheet },
       { id: 'space', label: 'Space', icon: 'sliders', title: 'Shape the cloud.', intro: 'These change how the cloud looks. They never change the blend you save.', html: spaceSheet },
       { id: 'patch', label: 'Patch', icon: 'wave', title: 'Grow a voice.', intro: 'Fit a playable synth voice to the blend, to A or to B.', html: patchSheet },
       { id: 'save', label: 'Save', icon: 'play', title: 'Keep what you made.', html: saveSheet },
     ],
-    about, canvas: () => cv, snapshot: (done) => { wantSnap = done; }, quality: () => (S.view === 'space' && spaceN ? `${spaceN.toLocaleString()} points` : `${S.mode === 'image' ? 'picture' : 'sound'} · ${METHOD_NAME[S.method]}`),
+    about, canvas: () => cv, snapshot: (done) => { wantSnap = done; }, quality: () => (S.view === 'space' && spaceN ? `${spaceN.toLocaleString()} atoms` : `sound · ${METHOD_NAME[S.method]}`),
     onKey: (e, key) => {
       if (key === 'arrowleft' || key === 'arrowright') { e.preventDefault(); stopSweep(); setT(S.t + (key === 'arrowright' ? 1 : -1) * (e.shiftKey ? 0.1 : 0.01)); }
       else if (key === 'v') setView(S.view === 'space' ? 'flat' : 'space');
@@ -2619,63 +2556,51 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   };
   Object.entries(ICONS).forEach(([id, d]) => { const s = document.querySelector(`#${id}-button svg`); if (s) s.innerHTML = d; });
   $('blend-sheet').classList.add('wide');
-  // Displacer takes files and a controller, not a drum kit: the shell's drum demo, hit strip, kit wiring and session
-  // recorder come off this page, and the connect sheet keeps MIDI alone, for the mod wheel and a keyboard.
+  // Displacer takes sound files and a controller, not a drum kit. The shell's signal view, pad keys and hit strip are
+  // switched off above. Its session recorder and its notes on drum input are removed here. Its drum demo and audio input
+  // stay in the page but hidden, because the shell still updates them. The connect sheet keeps MIDI alone.
   document.body.classList.add('no-kit');
+  $('session-sheet').remove(); $('session-button').remove();
+  document.body.insertAdjacentHTML('beforeend', '<span id="replay-stop" hidden></span>');   // the shell's state renderer still sets this one
+  [...document.querySelectorAll('#about-sheet summary')].filter((x) => /From MIDI, from audio/.test(x.textContent)).forEach((x) => x.closest('details').remove());
   $('demo-sheet').closest('.device-card').classList.add('kit-only');
   $('demo-audible').closest('label').classList.add('kit-only');
-  [...document.querySelectorAll('#about-sheet summary')].filter((x) => /From MIDI, from audio/.test(x.textContent)).forEach((x) => x.closest('details').classList.add('kit-only'));
+  { const s = [...document.querySelectorAll('#about-sheet summary')].find((x) => /Safety and privacy/.test(x.textContent));
+    if (s) s.nextElementSibling.textContent = "A limiter slows any large change in brightness, and this page measures under the WCAG limit of three flashes a second, even with the slider dragged fast. That is a measured screen, not a medical guarantee. If flashing or moving light affects you, take care, and turn on your system's reduced-motion setting, which tightens the limiter and stills the cloud."; }
   $('connect-title').textContent = 'Connect a controller.';
-  document.querySelector('#connect-sheet .sheet-intro').textContent = "A MIDI controller's mod wheel (CC1) moves the blend from A to B. With a patch grown, a MIDI keyboard can play it. Pictures and sounds come from files.";
-  addEventListener('keydown', (e) => {     // the shell's drum keys and drum demo key do nothing here
+  document.querySelector('#connect-sheet .sheet-intro').textContent = "A MIDI controller's mod wheel (CC1) moves the blend from A to B. With a patch grown, a MIDI keyboard can play it. Sounds come from files.";
+  addEventListener('keydown', (e) => {     // the shell's drum demo key does nothing here
     if (e.metaKey || e.ctrlKey || e.altKey || (e.target.closest && e.target.closest('input, select, textarea, dialog[open]'))) return;
-    if (e.key.length === 1 && 'jkluiop;d'.includes(e.key.toLowerCase())) e.stopImmediatePropagation();
+    if (e.key.toLowerCase() === 'd') e.stopImmediatePropagation();
   }, true);
   // redraw a thumbnail whenever it gets a new size, however its sheet was opened, so it is always as sharp as the screen
   const thumbRO = new ResizeObserver(() => { cancelAnimationFrame(thumbRO.f); thumbRO.f = requestAnimationFrame(drawThumbs); });
   $('patch-sheet').classList.add('wide');
   const sceneEl = $('scene');
-  document.querySelector('.mode-switch').insertAdjacentHTML('afterend', `
-    <div id="method-badge" class="chrome" data-kind="space-image"><span id="method-badge-text"></span></div>
+  document.querySelector('.header').insertAdjacentHTML('afterend', `
+    <div id="method-badge" class="chrome" data-kind="space-audio"><span id="method-badge-text"></span></div>
     <div id="busy" class="chrome" role="status" hidden></div>`);
   sceneEl.insertAdjacentHTML('beforeend', `
     <div id="scope-card" class="chrome" hidden><canvas id="scope" width="560" height="300" role="img" aria-label="Transport scope"></canvas>
       <div class="scope-key"><span class="ka">A</span><span class="kb">B</span><span class="km">blend</span><span id="scope-mini"></span></div></div>
-    <div id="flat-labels" aria-hidden="true"></div>
     <div id="drop" hidden><div data-slot="A"><b>A</b>Drop to replace A</div><div data-slot="B"><b>B</b>Drop to replace B</div></div>`);
   $('fs-button').insertAdjacentHTML('beforebegin', '<button class="top-action" id="perform-button" title="Full screen with only the stage. Esc leaves.">Perform</button>');
-  document.body.insertAdjacentHTML('beforeend', '<input type="file" id="file-A" accept="image/*,audio/*,.aif,.aiff,.aifc" hidden><input type="file" id="file-B" accept="image/*,audio/*,.aif,.aiff,.aifc" hidden>');
+  document.body.insertAdjacentHTML('beforeend', '<input type="file" id="file-A" accept="audio/*,.aif,.aiff,.aifc" hidden><input type="file" id="file-B" accept="audio/*,.aif,.aiff,.aifc" hidden>');
 
   /* ---------- sources ---------- */
-  function setImage(which, img, name, built) {
-    const w = img.width, h = img.height, sc = Math.min(1, RES / Math.max(w, h)), ww = Math.max(2, Math.round(w * sc)), hh = Math.max(2, Math.round(h * sc));
-    const cvw = document.createElement('canvas'); cvw.width = ww; cvw.height = hh;
-    const ctx = cvw.getContext('2d', { willReadFrequently: true }); ctx.drawImage(img, 0, 0, ww, hh);
-    const fs = Math.min(1, MAX_FULL / Math.max(w, h)), fw = Math.round(w * fs), fh = Math.round(h * fs);
-    const full = document.createElement('canvas'); full.width = fw; full.height = fh; full.getContext('2d', { willReadFrequently: true }).drawImage(img, 0, 0, fw, fh);
-    const rec = { cv: cvw, ctx, w: ww, h: hh, full, fw, fh, dataA: ctx.getImageData(0, 0, ww, hh) };
-    if (which === 'A') S.imgA = rec; else S.imgB = rec;
-    S.names.image[which] = name; S.built.image[which] = built;
-    if (S.imgA && S.imgB) E.cacheImageDists();
-    sourcesChanged('image');
-  }
   function setAudio(which, obj, name, built) {
     if (which === 'A') S.srcA = obj; else S.srcB = obj;
-    S.names.audio[which] = name; S.built.audio[which] = built;
+    S.names[which] = name; S.built[which] = built;
     if (S.srcA && S.srcB) E.prepAudio();
     S.lastRender = null; S.audDirty = true;
-    sourcesChanged('audio');
+    sourcesChanged();
   }
-  function loadBuiltIn(kind) {
-    if (kind === 'image') { setImage('A', paintDusk(), 'Dusk', true); setImage('B', paintTide(), 'Tide', true); }
-    else { setAudio('A', synthVoice(), 'Sung ah', true); setAudio('B', synthBells(), 'Glass bells', true); }
-  }
+  function loadBuiltIn() { setAudio('A', synthVoice(), 'Sung ah', true); setAudio('B', synthBells(), 'Glass bells', true); }
   let distCache = { key: '', hA: null, hB: null };
-  function sourcesChanged(kind) {
-    S.ver[kind]++;
+  function sourcesChanged() {
+    S.ver++;
     distCache.key = '';
-    if (kind === S.mode) { flatDirty = true; scopeDirty = true; spaceKey = ''; if (kind === 'audio') scheduleRender(30); }
-    if (kind === 'image' && S.gp) { /* a patch stays until a new one is grown */ }
+    scopeDirty = true; spaceKey = ''; scheduleRender(30);
     drawThumbs();
   }
   async function decodeSound(f) {
@@ -2699,97 +2624,63 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   const isSoundFile = (f) => /^audio\//.test(f.type) || /\.(wav|mp3|m4a|aac|flac|ogg|oga|opus|aiff?|aifc|caf|webm)$/i.test(f.name);
   async function loadFile(f, which) {
     if (!f) return;
-    const kind = isImageFile(f) ? 'image' : isSoundFile(f) ? 'audio' : null;
-    if (!kind) { shell.toast(`${f.name} is not a picture or a sound.`); return; }
-    if (!which) which = S.built[kind].A ? 'A' : 'B';
-    if (S.mode !== kind) shell.setMode(kind);
+    if (!isSoundFile(f)) { shell.toast(isImageFile(f) ? `${f.name} is a picture. Displacer blends two sounds.` : `${f.name} is not a sound.`); return; }
+    if (!which) which = S.built.A ? 'A' : 'B';
     busy(`Reading ${f.name}`);
     try {
-      if (kind === 'image') {
-        let bmp;
-        try { bmp = await createImageBitmap(f); } catch (e) { throw new Error(/tiff?|heic$/i.test(f.name) ? 'Chrome cannot read TIFF or HEIC. Save it as PNG or JPEG' : 'this browser could not read it as a picture'); }
-        setImage(which, bmp, f.name, false);
-      } else setAudio(which, await decodeSound(f), f.name, false);
+      setAudio(which, await decodeSound(f), f.name, false);
       shell.toast(`${which}: ${f.name}`);
     } catch (err) { shell.toast(`${f.name} was not loaded: ${err.message}.`, 5200); }
     busy(null);
   }
 
-  /* thumbnails: the picture, cropped to fill, or the waveform */
+  /* thumbnails: each sound's spectrogram */
   function drawThumb(canvas, which) {
     const r = canvas.getBoundingClientRect(), dpr = Math.min(devicePixelRatio || 1, 3);   // a backing store as sharp as the screen
     if (r.width > 0 && r.height > 0) { const bw = Math.round(r.width * dpr), bh = Math.round(r.height * dpr); if (canvas.width !== bw || canvas.height !== bh) { canvas.width = bw; canvas.height = bh; } }
     else if (canvas.id.startsWith('sheet-') && canvas.width < 720) { canvas.width = 720; canvas.height = 446; }   // still hidden: sharp enough for any screen until it is measured
     const g = canvas.getContext('2d'), w = canvas.width, h = canvas.height;
     g.clearRect(0, 0, w, h);
-    if (S.mode === 'image') {
-      const rec = which === 'A' ? S.imgA : S.imgB; if (!rec) return;
-      const k = Math.max(w / rec.w, h / rec.h), dw = rec.w * k, dh = rec.h * k;
-      g.drawImage(rec.cv, (w - dw) / 2, (h - dh) / 2, dw, dh);
-    } else {
-      const obj = which === 'A' ? S.srcA : S.srcB; if (!obj) return;
-      g.putImageData(specImage(spectrogram(obj.data, obj.rate, w, h), w, h), 0, 0);
-    }
+    const obj = which === 'A' ? S.srcA : S.srcB; if (!obj) return;
+    g.putImageData(specImage(spectrogram(obj.data, obj.rate, w, h), w, h), 0, 0);
   }
   function drawThumbs() {
     ['A', 'B'].forEach((w) => {
       drawThumb($(`thumb-${w}`), w); drawThumb($(`sheet-thumb-${w}`), w);
-      const nm = S.names[S.mode][w], built = S.built[S.mode][w];
+      const nm = S.names[w], built = S.built[w];
       $(`name-${w}`).textContent = nm; $(`sheet-name-${w}`).textContent = built ? `${nm} · built in` : nm;
       $(`slot-${w}`).setAttribute('aria-label', `Source ${w}: ${nm}${built ? ', built in' : ''}. Choose a file`);
       $(`slot-${w}`).classList.toggle('built', built);
-      let info = '';
-      if (S.mode === 'image') { const r = w === 'A' ? S.imgA : S.imgB; if (r) info = `${r.fw} × ${r.fh} px, worked at ${r.w} × ${r.h}`; }
-      else { const o = w === 'A' ? S.srcA : S.srcB; if (o) info = `${(o.data.length / o.rate).toFixed(1)} s at ${(o.rate / 1000).toFixed(1)} kHz, mono`; }
-      $(`sheet-info-${w}`).textContent = info;
+      const o = w === 'A' ? S.srcA : S.srcB;
+      $(`sheet-info-${w}`).textContent = o ? `${(o.data.length / o.rate).toFixed(1)} s at ${(o.rate / 1000).toFixed(1)} kHz, mono` : '';
     });
   }
 
   /* ---------- state changes ---------- */
-  let flatDirty = true, scopeDirty = true, spaceKey = '', spaceN = 0, spaceBusy = '', renderTimer = 0, renderSeq = 0;
-  function setKind(kind) {
-    S.mode = kind;
-    document.body.dataset.kind = kind;
-    if (kind === 'image' && (!S.imgA || !S.imgB)) loadBuiltIn('image');
-    if (kind === 'audio' && (!S.srcA || !S.srcB)) loadBuiltIn('audio');
-    if (kind === 'image' && S.method === 'mp') S.method = 'ot';
-    if (kind === 'audio' && S.method === 'spatial') S.method = 'ot';
-    stopAudio();
-    $('hear').hidden = kind !== 'audio';
-    $('patch-button').hidden = kind !== 'audio';
-    $('save-atoms').hidden = kind !== 'audio';
-    $('atom-actions').hidden = kind !== 'audio';
-    $('compare-row').hidden = kind !== 'image';
-    $('img-opts').hidden = kind !== 'image'; $('aud-opts').hidden = kind !== 'audio';
-    $('truth').textContent = TRUTH[kind];
-    flatDirty = true; scopeDirty = true; spaceKey = '';
-    if (kind === 'audio') scheduleRender(30);
-    syncMethod(); drawThumbs(); syncCloud(); kit.noteLane('kind', kind);
-  }
+  let scopeDirty = true, spaceKey = '', spaceN = 0, spaceBusy = '', renderTimer = 0, renderSeq = 0;
   function setT(v, src) {
     S.t = clamp(v, 0, 1);
     const r = $('t'), r2 = $('t2'), val = Math.round(S.t * 1000);
     if (+r.value !== val) { r.value = val; shell.syncRange(r); }
     if (+r2.value !== val) { r2.value = val; shell.syncRange(r2); }
     $('t-val').textContent = S.t.toFixed(2); $('t2-val').textContent = S.t.toFixed(2); syncHear();
-    flatDirty = true; scopeDirty = true;
-    if (S.mode === 'audio') { S.audDirty = true; if (src !== 'sweep' || !playSrc) scheduleRender(src === 'sweep' ? 900 : 260); }
+    scopeDirty = true;
+    S.audDirty = true; if (src !== 'sweep' || !playSrc) scheduleRender(src === 'sweep' ? 900 : 260);
     if (src !== 'sweep') moved();
   }
   function setMethod(m) {
-    S.method = m; flatDirty = true; scopeDirty = true;
-    if (S.mode === 'audio') { S.audDirty = true; scheduleRender(30); }
+    S.method = m; scopeDirty = true;
+    S.audDirty = true; scheduleRender(30);
     syncMethod();
   }
   function badgeKind() {
-    if (S.view === 'space') return S.mode === 'image' ? (S.space.cloud === 'ab' ? 'space-image' : 'space-solo') : (S.space.cloud === 'ab' ? 'space-audio' : 'space-audio-solo');
-    if (S.mode === 'image' && S.method === 'ot' && S.quality === 'sliced') return 'image-ot-sliced';
-    return `${S.mode}-${S.method}`;
+    if (S.view === 'space') return S.space.cloud === 'ab' ? 'space-audio' : 'space-audio-solo';
+    return `audio-${S.method}`;
   }
   function syncMethod() {
-    document.querySelectorAll('#method-row [data-m]').forEach((b) => { b.hidden = !!b.dataset.only && b.dataset.only !== S.mode; b.classList.toggle('on', b.dataset.m === S.method); b.setAttribute('aria-pressed', String(b.dataset.m === S.method)); });
-    $('method-caption').textContent = CAPTION[`${S.mode}-${S.method}`] || '';
-    $('method-line').textContent = S.view === 'space' ? (S.mode === 'image' ? 'Splat space · sliced OT' : 'Gabor atoms · sliced OT') : METHOD_NAME[S.method] + (S.compare && S.mode === 'image' ? ' · beside a crossfade' : '');
+    document.querySelectorAll('#method-row [data-m]').forEach((b) => { b.classList.toggle('on', b.dataset.m === S.method); b.setAttribute('aria-pressed', String(b.dataset.m === S.method)); });
+    $('method-caption').textContent = CAPTION[S.method] || '';
+    $('method-line').textContent = S.view === 'space' ? 'Gabor atoms · sliced OT' : METHOD_NAME[S.method];
     const k = badgeKind(); $('method-badge').dataset.kind = k; $('method-badge-text').textContent = BADGE[k];
     describeSave();
   }
@@ -2797,173 +2688,15 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     S.view = v;
     document.querySelectorAll('#view-seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
     document.body.dataset.view = v;
-    flatDirty = true; syncMethod(); moved();
+    syncMethod(); moved();
     if (G && Post) resize();
   }
   function moved() { if (!document.body.classList.contains('moved')) document.body.classList.add('moved'); }
   setTimeout(moved, 9000);
   function busy(msg) { const b = $('busy'); if (msg) { b.textContent = msg; b.hidden = false; } else b.hidden = true; }
 
-  /* ---------- the flat view: the blend itself, computed by the engine ---------- */
-  const SP_STEP = 2;   // Spatial OT samples every second pixel of the working copy: about 50,000 points
-  let flatW = 0, flatH = 0, flatSpec = false, flatMean = [0.05, 0.05, 0.08], flatBusy = false;
-  async function ensureSlicedMap() {
-    if (S._slMap || flatBusy) return false;
-    flatBusy = true; const v = S.ver.image;
-    const c = E.slicedClouds(); busy(`Matching ${c.n.toLocaleString()} colors`);
-    const { X, Y } = E.packClouds(c.A, c.B, c.n);
-    const r = await work({ type: 'ot', X, Y, n: c.n }, [X.buffer, Y.buffer]);
-    flatBusy = false; busy(null);
-    if (r.error) { shell.toast(`The sliced map failed: ${r.error}`); return false; }
-    if (v === S.ver.image) { E.slicedAssemble(c.A, r.X, c.n); flatDirty = true; scopeDirty = true; }
-    return true;
-  }
-  async function ensureSpatialMap() {
-    if (S._spMap || flatBusy) return false;
-    flatBusy = true; const v = S.ver.image;
-    const c = E.spatialClouds(SP_STEP); busy(`Matching ${c.n.toLocaleString()} points for Spatial OT`);
-    const { X, Y } = E.packClouds(c.A, c.B, c.n);
-    const r = await work({ type: 'ot', X, Y, n: c.n }, [X.buffer, Y.buffer]);
-    flatBusy = false; busy(null);
-    if (r.error) { shell.toast(`Spatial OT failed: ${r.error}`); return false; }
-    if (v === S.ver.image) { E.spatialAssemble(c.A, c.B, r.X, c.n); flatDirty = true; }
-    return true;
-  }
-  function mapsReady(method) {
-    if (method === 'spatial' && !S._spMap) { ensureSpatialMap(); return false; }
-    if (method === 'ot' && S.quality === 'sliced' && !S._slMap) { ensureSlicedMap(); return false; }
-    return true;
-  }
-  const labels = $('flat-labels');
-  /* The engine's maps come from the 560-pixel working copy, as in the desktop app; here they are applied to every pixel of
-     the full-size pictures on the graphics card. OT displacement looks up the same per-value maps the engine builds.
-     Spatial OT warps both full-size pictures toward each other along the transport field, smoothed over neighboring
-     samples, and blends them, so 0.00 shows A exactly and 1.00 shows B. */
-  const GPU_MAX = 4096;
-  const gpu = { srcKey: '', qKey: '', slKey: '', fieldKey: '', texA: null, texB: null, texQ: null, texSL: null, texDA: null, aW: 0, aH: 0, rt: null, meanA: [0.05, 0.05, 0.08], meanB: [0.05, 0.05, 0.08] };
-  const cloudScale = (rec) => { const ar = rec.w / rec.h; return [Math.min(1.2, ar), Math.max(0.83, ar)]; };
-  function srcTexture(old, rec) {
-    const k = Math.min(1, GPU_MAX / Math.max(rec.fw, rec.fh)), w = Math.max(1, Math.round(rec.fw * k)), h = Math.max(1, Math.round(rec.fh * k));
-    let src = rec.full;
-    if (k < 1) { src = document.createElement('canvas'); src.width = w; src.height = h; const g = src.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(rec.full, 0, 0, w, h); }
-    if (old) gl.deleteTexture(old);
-    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, src);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.generateMipmap(gl.TEXTURE_2D);
-    return { t, w, h };
-  }
-  function meanOf(rec) { const d = rec.dataA.data; let r = 0, g = 0, b = 0, n = 0; for (let i = 0; i < d.length; i += 32) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; } return [r, g, b].map((v) => Math.pow(v / n / 255, 2.2)); }
-  function ensureGpuSources() {
-    const key = `${S.ver.image}`;
-    if (gpu.srcKey === key) return;
-    const a = srcTexture(gpu.texA, S.imgA), b = srcTexture(gpu.texB, S.imgB);
-    gpu.texA = a.t; gpu.texB = b.t; gpu.aW = a.w; gpu.aH = a.h;
-    gpu.meanA = meanOf(S.imgA); gpu.meanB = meanOf(S.imgB);
-    gpu.srcKey = key;
-  }
-  // OT displacement's per-value maps, made exactly as the engine's buildLUT makes them: lut(v) = (1 - t) v + t q(v)
-  function ensureQ() {
-    const key = `${S.ver.image}|${S.cspace}|${S.quality}`;
-    if (gpu.qKey === key) return;
-    const ca = [0, 1, 2].map((k) => E.chanCDF(S._ta, k, 4, S._ta.length / 4)), cb = [0, 1, 2].map((k) => E.chanCDF(S._tb, k, 4, S._tb.length / 4));
-    const r = E.mulberry32(20260625), dith = S.quality === 'dither', Q = new Float32Array(256 * 4);
-    for (let k = 0; k < 3; k++) for (let v = 0; v < 256; v++) { let pp; if (dith) { const lo = v > 0 ? ca[k][v - 1] : 0; pp = lo + r() * (ca[k][v] - lo); } else pp = ca[k][v]; Q[v * 4 + k] = E.invCDF256(cb[k], pp); }
-    if (!gpu.texQ) gpu.texQ = G.tex(256, 1, { internal: gl.RGBA32F, format: gl.RGBA, type: gl.FLOAT }, { nearest: true, data: Q });
-    else { gl.bindTexture(gl.TEXTURE_2D, gpu.texQ); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 256, 1, gl.RGBA, gl.FLOAT, Q); }
-    gpu.qKey = key;
-  }
-  function ensureSL() {
-    const key = `${S.ver.image}`;
-    if (gpu.slKey === key || !S._slMap) return;
-    const N = S._slMap.G, acc = S._slMap.acc, data = new Float32Array(N * N * N * 4);
-    for (let ci = 0; ci < N * N * N; ci++) { data[ci * 4] = acc[ci * 3]; data[ci * 4 + 1] = acc[ci * 3 + 1]; data[ci * 4 + 2] = acc[ci * 3 + 2]; }
-    if (gpu.texSL) gl.deleteTexture(gpu.texSL);
-    gpu.texSL = gl.createTexture(); gl.bindTexture(gl.TEXTURE_3D, gpu.texSL);
-    gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA32F, N, N, N, 0, gl.RGBA, gl.FLOAT, data);
-    [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach((q) => gl.texParameteri(gl.TEXTURE_3D, q, gl.NEAREST));
-    gpu.slKey = key;
-  }
-  // Spatial OT between the ends: a smooth displacement field from the matched samples (Gaussian splats on a grid,
-  // normalized, holes filled), so neighboring pixels move together instead of tearing apart.
-  function smoothField(GW, GH, n, U, V, VX, VY) {
-    const acc = new Float32Array(GW * GH * 2), w = new Float32Array(GW * GH), R = 5, s2 = 2 * 2.2 * 2.2;
-    for (let i = 0; i < n; i++) {
-      const gx = U[i] * GW - 0.5, gy = V[i] * GH - 0.5, x0 = Math.round(gx), y0 = Math.round(gy);
-      for (let y = y0 - R; y <= y0 + R; y++) { if (y < 0 || y >= GH) continue;
-        for (let x = x0 - R; x <= x0 + R; x++) { if (x < 0 || x >= GW) continue;
-          const k = Math.exp(-((x - gx) ** 2 + (y - gy) ** 2) / s2), o = y * GW + x; acc[o * 2] += VX[i] * k; acc[o * 2 + 1] += VY[i] * k; w[o] += k; } }
-    }
-    const out = new Float32Array(GW * GH * 2); let has = new Uint8Array(GW * GH);
-    for (let o = 0; o < GW * GH; o++) if (w[o] > 1e-3) { out[o * 2] = acc[o * 2] / w[o]; out[o * 2 + 1] = acc[o * 2 + 1] / w[o]; has[o] = 1; }
-    for (let pass = 0; pass < 256; pass++) {
-      let missing = 0; const next = has.slice();
-      for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) { const o = y * GW + x; if (has[o]) continue; missing++;
-        let sx = 0, sy = 0, m = 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue; const q = Y * GW + X; if (has[q]) { sx += out[q * 2]; sy += out[q * 2 + 1]; m++; } }
-        if (m) { out[o * 2] = sx / m; out[o * 2 + 1] = sy / m; next[o] = 1; } }
-      has = next; if (!missing) break;
-    }
-    return out;
-  }
-  function ensureField() {
-    const key = `${S.ver.image}`;
-    if (gpu.fieldKey === key || !S._spMap) return;
-    const m = S._spMap, n = m.n, [sxA, syA] = cloudScale(S.imgA), U = new Float32Array(n), V = new Float32Array(n);
-    for (let i = 0; i < n; i++) { U[i] = m.x0[i] / (2 * sxA) + 0.5; V[i] = (m.y0[i] * syA) / 2 + 0.5; }
-    const GW = 96, GH = Math.max(12, Math.round((96 * S.imgA.h) / S.imgA.w));
-    if (gpu.texDA) gl.deleteTexture(gpu.texDA);
-    gpu.texDA = G.tex(GW, GH, { internal: gl.RG16F, format: gl.RG, type: gl.FLOAT }, { data: smoothField(GW, GH, n, U, V, m.dx, m.dy) });
-    gpu.fieldKey = key;
-  }
-  function ensureRT(w, h) {
-    if (gpu.rt && gpu.rt.w === w && gpu.rt.h === h) return gpu.rt;
-    if (gpu.rt) G.freeTarget(gpu.rt);
-    gpu.rt = G.target(w, h, { internal: gl.RGBA8, format: gl.RGBA, type: gl.UNSIGNED_BYTE });
-    gl.bindTexture(gl.TEXTURE_2D, gpu.rt.tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-    return gpu.rt;
-  }
-  const methodId = (m) => (m === 'xfade' ? 3 : m === 'spatial' ? 2 : S.quality === 'sliced' ? 1 : 0);
-  function prepare(method) { ensureGpuSources(); ensureQ(); if (method === 'spatial') ensureField(); if (method === 'ot' && S.quality === 'sliced') ensureSL(); }
-  function drawBlend(fbo, vp, method, t) {
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(vp[0], vp[1], vp[2], vp[3]); gl.disable(gl.BLEND);
-    G.bindTex(0, gpu.texA); G.bindTex(1, gpu.texB); G.bindTex(2, gpu.texQ); G.bindTex(3, gpu.texDA || gpu.texA);
-    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_3D, gpu.texSL || dummy3D);
-    G.use(pBlend, { uA: 0, uB: 1, uQ: 2, uDA: 3, uSL: 5, uMethod: methodId(method), uT: t, uYcocg: S.cspace === 'ycocg' ? 1 : 0, uSA: cloudScale(S.imgA), uSB: cloudScale(S.imgB) });
-    G.draw();
-  }
-  // draws the blend for the stage at the size the stage shows it, never larger than the source
-  function renderFlatImage(pw, ph) {
-    if (!S.imgA || !S.imgB || !G) return false;
-    const main = S.method, left = main === 'xfade' ? 'ot' : main;
-    if (!mapsReady(main) || (S.compare && !mapsReady(left))) return false;
-    prepare(main); if (S.compare) prepare(left);
-    gpu.lastPh = ph;
-    const ar = gpu.aW / gpu.aH, hh = Math.max(16, Math.min(ph, gpu.aH)), P = Math.max(16, Math.round(hh * ar)), gap = S.compare ? Math.round(P * 0.03) : 0, ww = S.compare ? 2 * P + gap : P;
-    if (!flatDirty && gpu.rt && gpu.rt.w === ww && gpu.rt.h === hh) return true;
-    const rt = ensureRT(ww, hh), t = S.tView;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, rt.fbo); gl.viewport(0, 0, ww, hh); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-    if (S.compare) {
-      drawBlend(rt.fbo, [0, 0, P, hh], left, t); drawBlend(rt.fbo, [P + gap, 0, P, hh], 'xfade', t);
-      labels.innerHTML = `<span>${METHOD_NAME[left]} · mass moves</span><span>Crossfade · both at once</span>`;
-    } else { drawBlend(rt.fbo, [0, 0, P, hh], main, t); labels.innerHTML = ''; }
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    G.bindTex(0, rt.tex); gl.generateMipmap(gl.TEXTURE_2D);
-    flatMean = gpu.meanA.map((v, k) => v + (gpu.meanB[k] - v) * t);
-    flatDirty = false; flatReady = 'image';
-    return true;
-  }
-  // the blend at any size, read back for saving: rows come out top first, as ImageData wants them
-  function blendPixels(method, t, w, h) {
-    prepare(method);
-    const T = G.target(w, h, { internal: gl.RGBA8, format: gl.RGBA, type: gl.UNSIGNED_BYTE });
-    drawBlend(T.fbo, [0, 0, w, h], method, t);
-    const px = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null); G.freeTarget(T);
-    return new ImageData(new Uint8ClampedArray(px.buffer), w, h);
-  }
-  const imageCanvas = (im) => { const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; c.getContext('2d').putImageData(im, 0, 0); return c; };
+  /* ---------- the flat view: the blend's spectrogram, computed by the engine ---------- */
+  let flatW = 0, flatH = 0, flatSpec = false, flatMean = [0.05, 0.05, 0.08];
   /* the sound's flat view is its spectrogram: log frequency up, time across, the suite's color law */
   function spectrogram(data, rate, cols, rows) {
     const N = 1024, K = N / 2, re = new Float32Array(N), im = new Float32Array(N), win = new Float32Array(N), out = new Uint8Array(cols * rows), mags = new Float32Array(cols * rows);
@@ -2990,8 +2723,8 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   }
   function showSpectrogram(r) {
     const cols = 640, rows = 256, sp = spectrogram(r.data, r.rate, cols, rows);
-    flatW = cols; flatH = rows; flatSpec = true; labels.innerHTML = '';
-    uploadFlat(sp, true);
+    flatW = cols; flatH = rows; flatSpec = true;
+    uploadFlat(sp);
     flatMean = [0.03, 0.025, 0.07];
   }
   function scheduleRender(ms) { clearTimeout(renderTimer); renderTimer = setTimeout(renderAudioNow, ms); }
@@ -3004,7 +2737,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     busy(null);
     if (r.error) { shell.toast(`The blend could not render: ${r.error}`); return null; }
     S.lastRender = { data: r.data, rate: S.audRate, t, method }; S.audDirty = false;
-    if (S.mode === 'audio') showSpectrogram(S.lastRender);
+    showSpectrogram(S.lastRender);
     return S.lastRender;
   }
   async function currentRender() {
@@ -3017,10 +2750,10 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   /* ---------- the transport scope ---------- */
   const COL = { A: '#86e0d3', B: '#f3a6c8', M: '#b8b7ff' };
   function scopeData() {
-    const key = `${S.mode}|${S.ver[S.mode]}`;
+    const key = `${S.ver}`;
     if (distCache.key !== key) {
-      if (S.mode === 'image') { if (!S.imgA || !S.imgB) return null; distCache = { key, hA: E.distFromImage(S.imgA), hB: E.distFromImage(S.imgB) }; }
-      else { if (!S.audA || !S.audB) return null; distCache = { key, hA: E.distFromAudio(S.audA), hB: E.distFromAudio(S.audB) }; }
+      if (!S.audA || !S.audB) return null;
+      distCache = { key, hA: E.distFromAudio(S.audA), hB: E.distFromAudio(S.audB) };
     }
     const { hA, hB } = distCache, t = S.t;
     let hM;
@@ -3029,7 +2762,6 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     return { hA, hB, hM };
   }
   function axisLabel(v) {
-    if (S.mode === 'image') return String(Math.round(v));
     const K = 1024, k = Math.round(Math.pow(K, v / 255)), hz = (k * (S.audRate || 22050)) / 2048;
     return hz >= 1000 ? `${(hz / 1000).toFixed(1)} kHz` : `${Math.round(hz)} Hz`;
   }
@@ -3057,7 +2789,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     }
     const mA = E.mean256(d.hA), mB = E.mean256(d.hB), mM = E.mean256(d.hM);
     [[mA, COL.A], [mB, COL.B], [mM, COL.M]].forEach(([m, col]) => { c.fillStyle = col; c.beginPath(); c.arc(X(m), base + (big ? 14 : 8), big ? 5 : 3.5, 0, 7); c.fill(); });
-    if (big) { c.fillStyle = 'rgba(238,237,251,.7)'; c.font = '22px ui-sans-serif, -apple-system, sans-serif'; c.fillText(S.mode === 'image' ? 'intensity →' : 'frequency →', 8, h - 6); }
+    if (big) { c.fillStyle = 'rgba(238,237,251,.7)'; c.font = '22px ui-sans-serif, -apple-system, sans-serif'; c.fillText('frequency →', 8, h - 6); }
     return { mA, mB, mM };
   }
   function drawScopes() {
@@ -3072,63 +2804,38 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     }
   }
 
-  /* ---------- the space view: splat clouds, lifted and matched ---------- */
+  /* ---------- the space view: Gabor atoms, found and matched ---------- */
   let splat = null;     // CPU copy for exports and atoms: { A, disp, c0, c1, sz, n, atoms }
-  const pointsWanted = () => (S.space.points === 'auto' ? (TOUCH ? 12000 : 24000) : +S.space.points);
-  const wantKey = () => `${S.mode}|${S.space.cloud}|${S.ver[S.mode]}|${pointsWanted()}|${S.spAdapt}`;
+  const wantKey = () => `${S.space.cloud}|${S.ver}`;
   async function buildSpace() {
     const key = wantKey();
     if (spaceBusy === key) return;
     spaceBusy = key;
     try {
       let n, A3, D3, C0, C1, SZ, atoms = null;
-      if (S.mode === 'image') {
-        if (!S.imgA || !S.imgB) return;
-        if (S.space.cloud === 'ab') {
-          const N = pointsWanted(), A = E.liftSplats(S.imgA, N), B = E.liftSplats(S.imgB, N);
-          n = Math.min(A.length, B.length); A.length = n; B.length = n;
-          busy(`Matching ${n.toLocaleString()} splats`);
-          const { X, Y } = E.packClouds(A, B, n);
-          const r = await work({ type: 'ot', X, Y, n }, [X.buffer, Y.buffer]);
-          if (r.error) throw new Error(r.error);
-          ({ A3, D3, C0, C1, SZ } = alloc(n));
-          for (let i = 0; i < n; i++) {
-            SZ[i] = ((A[i].sz || 1) + (B[i].sz || 1)) / 2;
-            for (let k = 0; k < 3; k++) { A3[i * 3 + k] = A[i].p[k]; D3[i * 3 + k] = r.X[i * 6 + k] - A[i].p[k]; C0[i * 3 + k] = A[i].c[k]; C1[i * 3 + k] = clamp(r.X[i * 6 + 3 + k] / CW, 0, 255); }
-          }
-        } else {
-          const rec = S.space.cloud === 'A' ? S.imgA : S.imgB, pts = E.liftSplats(rec, Math.round(pointsWanted() * 1.5));
-          n = pts.length; ({ A3, D3, C0, C1, SZ } = alloc(n));
-          for (let i = 0; i < n; i++) {
-            SZ[i] = pts[i].sz || 1; A3[i * 3] = pts[i].p[0]; A3[i * 3 + 1] = pts[i].p[1]; D3[i * 3 + 2] = pts[i].p[2] * 1.6;
-            for (let k = 0; k < 3; k++) { C0[i * 3 + k] = pts[i].c[k]; C1[i * 3 + k] = pts[i].c[k]; }
-          }
-        }
+      if (!S.audA || !S.audB) return;
+      busy('Finding Gabor atoms');
+      const KA = 340, rate = S.audRate;
+      const [ra, rb] = await Promise.all([work({ type: 'atoms', data: S.audA.slice(), rate, k: KA }), work({ type: 'atoms', data: S.audB.slice(), rate, k: KA })]);
+      if (ra.error || rb.error) throw new Error(ra.error || rb.error);
+      const ea = ra.result, eb = rb.result, lf0 = Math.log(40), lf1 = Math.log(rate / 2);
+      const mk = (e) => e.atoms.map((a) => { const v = ((Math.log(Math.max(40, a.f)) - lf0) / (lf1 - lf0)) * 2 - 1, c = lawRGB((v + 1) / 2), k = 0.45 + 0.55 * a.amp; return { p: [(a.time / e.dur) * 2 - 1, v, a.amp - 0.5], c: c.map((x) => x * k) }; });
+      if (S.space.cloud === 'ab') {
+        const A = mk(ea), B = mk(eb); n = Math.min(A.length, B.length); A.length = n; B.length = n;
+        busy(`Matching ${n} atoms`);
+        const { X, Y } = E.packClouds(A, B, n);
+        const r = await work({ type: 'ot', X, Y, n }, [X.buffer, Y.buffer]);
+        if (r.error) throw new Error(r.error);
+        ({ A3, D3, C0, C1, SZ } = alloc(n));
+        for (let i = 0; i < n; i++) { SZ[i] = 0.45 + 0.9 * (A[i].p[2] + 0.5); for (let k = 0; k < 3; k++) { A3[i * 3 + k] = A[i].p[k]; D3[i * 3 + k] = r.X[i * 6 + k] - A[i].p[k]; C0[i * 3 + k] = A[i].c[k]; C1[i * 3 + k] = clamp(r.X[i * 6 + 3 + k] / CW, 0, 255); } }
+        atoms = { ea, eb, n };
       } else {
-        if (!S.audA || !S.audB) return;
-        busy('Finding Gabor atoms');
-        const KA = 340, rate = S.audRate;
-        const [ra, rb] = await Promise.all([work({ type: 'atoms', data: S.audA.slice(), rate, k: KA }), work({ type: 'atoms', data: S.audB.slice(), rate, k: KA })]);
-        if (ra.error || rb.error) throw new Error(ra.error || rb.error);
-        const ea = ra.result, eb = rb.result, lf0 = Math.log(40), lf1 = Math.log(rate / 2);
-        const mk = (e) => e.atoms.map((a) => { const v = ((Math.log(Math.max(40, a.f)) - lf0) / (lf1 - lf0)) * 2 - 1, c = lawRGB((v + 1) / 2), k = 0.45 + 0.55 * a.amp; return { p: [(a.time / e.dur) * 2 - 1, v, a.amp - 0.5], c: c.map((x) => x * k) }; });
-        if (S.space.cloud === 'ab') {
-          const A = mk(ea), B = mk(eb); n = Math.min(A.length, B.length); A.length = n; B.length = n;
-          busy(`Matching ${n} atoms`);
-          const { X, Y } = E.packClouds(A, B, n);
-          const r = await work({ type: 'ot', X, Y, n }, [X.buffer, Y.buffer]);
-          if (r.error) throw new Error(r.error);
-          ({ A3, D3, C0, C1, SZ } = alloc(n));
-          for (let i = 0; i < n; i++) { SZ[i] = 0.45 + 0.9 * (A[i].p[2] + 0.5); for (let k = 0; k < 3; k++) { A3[i * 3 + k] = A[i].p[k]; D3[i * 3 + k] = r.X[i * 6 + k] - A[i].p[k]; C0[i * 3 + k] = A[i].c[k]; C1[i * 3 + k] = clamp(r.X[i * 6 + 3 + k] / CW, 0, 255); } }
-          atoms = { ea, eb, n };
-        } else {
-          const e = S.space.cloud === 'A' ? ea : eb, pts = mk(e);
-          n = pts.length; ({ A3, D3, C0, C1, SZ } = alloc(n));
-          for (let i = 0; i < n; i++) { SZ[i] = 0.45 + 0.9 * (pts[i].p[2] + 0.5); A3[i * 3] = pts[i].p[0]; A3[i * 3 + 1] = pts[i].p[1]; D3[i * 3 + 2] = pts[i].p[2] * 1.4; for (let k = 0; k < 3; k++) { C0[i * 3 + k] = pts[i].c[k]; C1[i * 3 + k] = pts[i].c[k]; } }
-        }
+        const e = S.space.cloud === 'A' ? ea : eb, pts = mk(e);
+        n = pts.length; ({ A3, D3, C0, C1, SZ } = alloc(n));
+        for (let i = 0; i < n; i++) { SZ[i] = 0.45 + 0.9 * (pts[i].p[2] + 0.5); A3[i * 3] = pts[i].p[0]; A3[i * 3 + 1] = pts[i].p[1]; D3[i * 3 + 2] = pts[i].p[2] * 1.4; for (let k = 0; k < 3; k++) { C0[i * 3 + k] = pts[i].c[k]; C1[i * 3 + k] = pts[i].c[k]; } }
       }
       if (spaceBusy !== key || key !== wantKey()) return;
-      splat = { A: A3, disp: D3, c0: C0, c1: C1, sz: SZ, n, atoms, kind: S.mode, solo: S.space.cloud !== 'ab' };
+      splat = { A: A3, disp: D3, c0: C0, c1: C1, sz: SZ, n, atoms, kind: 'audio', solo: S.space.cloud !== 'ab' };
       uploadSpace(splat);
       spaceKey = key;
     } catch (err) {
@@ -3141,29 +2848,25 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   function alloc(n) { return { A3: new Float32Array(n * 3), D3: new Float32Array(n * 3), C0: new Float32Array(n * 3), C1: new Float32Array(n * 3), SZ: new Float32Array(n) }; }
   function syncCloud() {
     document.querySelectorAll('#cloud-row [data-cloud]').forEach((b) => { b.classList.toggle('on', b.dataset.cloud === S.space.cloud); b.setAttribute('aria-pressed', String(b.dataset.cloud === S.space.cloud)); });
-    document.querySelectorAll('#look-row [data-look]').forEach((b) => { b.classList.toggle('on', b.dataset.look === S.space.look); b.setAttribute('aria-pressed', String(b.dataset.look === S.space.look)); });
     const solo = S.space.cloud !== 'ab';
-    $('cloud-note').textContent = S.mode === 'image'
-      ? (solo ? `${S.space.cloud} alone: the slider raises ${S.space.cloud}'s relief from a flat print to full depth.` : "Both pictures lift into 3D clouds and are matched by sliced optimal transport over position and color. The slider carries A's splats along their transport paths into B's cloud.")
-      : (solo ? `${S.space.cloud} alone: the slider raises each atom by its salience.` : "Each sound is split into about 340 Gabor atoms, short sine bursts placed by time, log frequency and salience. The slider carries A's atoms into B's, and Play the atoms rebuilds a sound from them alone.");
+    $('cloud-note').textContent = solo ? `${S.space.cloud} alone: the slider raises each atom by its salience.` : "Each sound is split into about 340 Gabor atoms, short sine bursts placed by time, log frequency and salience. The slider carries A's atoms into B's, and Play the atoms rebuilds a sound from them alone.";
     syncMethod();
   }
 
   /* ---------- WebGL ---------- */
   const cv = $('stage');
   const G = createGL(cv);
-  let pBlend, dummy3D;
-  let gl, Post, pFlat, pPts, pResolve, scene, acc, tFlat, ptsVao, ptsBuf, baseVao, rw = 0, rh = 0, wantSnap = null, safe = { top: 0.12, bottom: 0.68 };
+  let gl, Post, pFlat, pPts, scene, tFlat, ptsVao, ptsBuf, baseVao, rw = 0, rh = 0, wantSnap = null, safe = { top: 0.12, bottom: 0.68 };
   const BACK = `
-uniform vec2 uRes; uniform vec3 uMean; uniform vec2 uCenter; uniform float uKick;
+uniform vec2 uRes; uniform vec3 uMean; uniform vec2 uCenter;
 vec3 backdrop(vec2 uv){
   vec3 c=mix(vec3(.010,.012,.030),vec3(.004,.005,.013),uv.y);
   float d=length((uv-uCenter)*vec2(uRes.x/uRes.y,1.));
-  return c+uMean*(.09+.05*uKick)*exp(-d*d*1.8);
+  return c+uMean*.09*exp(-d*d*1.8);
 }
 vec3 invAces(vec3 y){ y=clamp(y,0.,.94); vec3 a=2.43*y-2.51,b=.59*y-.03,c=.14*y; return (-b-sqrt(max(b*b-4.*a*c,vec3(0.))))/(2.*a); }`;
   const FLAT_FS = FS_HEAD + BACK + `
-uniform sampler2D uImg; uniform vec4 uRect; uniform float uHas,uSpec,uPlay,uLod;
+uniform sampler2D uImg; uniform vec4 uRect; uniform float uHas,uPlay,uLod;
 // the color law for sound: low is warm, high is cool, in the suite's own colors
 vec3 law(float y){ vec3 a=vec3(1.,.70,.48),b=vec3(.95,.65,.78),c=vec3(.72,.72,1.),d=vec3(.53,.88,.83); return y<.33?mix(a,b,y/.33):y<.66?mix(b,c,(y-.33)/.33):mix(c,d,(y-.66)/.34); }
 void main(){
@@ -3171,18 +2874,12 @@ void main(){
   if(uHas>.5){
     vec2 p=(vUv-uRect.xy)/(uRect.zw-uRect.xy), cp=clamp(p,0.,1.);
     if(p==cp){
-      if(uSpec>.5){
-        float m=textureLod(uImg,p,uLod).r, a=pow(m,1.8);
-        col=col*(1.-.6*a)+pow(law(p.y),vec3(2.2))*a*.95+vec3(.9,.88,1.)*pow(m,7.)*.22;
-        if(uPlay>=0.){ float dx=(p.x-uPlay)*(uRect.z-uRect.x)*uRes.x; col+=vec3(.85,.85,1.)*.45*exp(-dx*dx*.35); }
-      } else {
-        vec4 s=textureLod(uImg,vec2(p.x,1.-p.y),uLod);
-        col=mix(col,invAces(pow(s.rgb,vec3(2.2))),s.a);
-      }
+      float m=textureLod(uImg,p,uLod).r, a=pow(m,1.8);
+      col=col*(1.-.6*a)+pow(law(p.y),vec3(2.2))*a*.95+vec3(.9,.88,1.)*pow(m,7.)*.22;
+      if(uPlay>=0.){ float dx=(p.x-uPlay)*(uRect.z-uRect.x)*uRes.x; col+=vec3(.85,.85,1.)*.45*exp(-dx*dx*.35); }
     } else {
       float dd=length((p-cp)*(uRect.zw-uRect.xy)*uRes)/uRes.y;
-      vec3 e=uSpec>.5?vec3(.05,.045,.12)*textureLod(uImg,cp,5.).r:pow(textureLod(uImg,vec2(cp.x,1.-cp.y),5.).rgb,vec3(2.2));
-      col+=e*.3*exp(-dd*26.);
+      col+=vec3(.05,.045,.12)*textureLod(uImg,cp,5.).r*.3*exp(-dd*26.);
     }
   }
   o=vec4(col,1.);
@@ -3190,85 +2887,50 @@ void main(){
   const PTS_VS = `#version 300 es
 precision highp float;
 layout(location=0) in vec3 aA; layout(location=1) in vec3 aD; layout(location=2) in vec3 aC0; layout(location=3) in vec3 aC1; layout(location=4) in vec2 aS;
-uniform mat4 uVP; uniform float uT,uDepth,uBase,uPx,uTime,uGlow,uReact,uKick,uSnare,uHat,uHatOpen,uTom,uTomPos,uCrash,uRide,uDist,uFlipY;
-out vec3 vC; out float vW;
+uniform mat4 uVP; uniform float uT,uDepth,uBase,uPx,uTime;
+out vec3 vC;
 void main(){
   vec3 p=aA+uT*aD;
-  vec3 w=vec3(p.x,p.y*uFlipY,p.z*uDepth);
-  float ph=aS.y*6.2831, band=clamp(.5-w.y*.75,0.,1.);
-  w.xy+=vec2(sin(uTime*.7+ph*1.7),cos(uTime*.9+ph*2.3))*(.002+uReact*uSnare*.026);
+  vec3 w=vec3(p.x,p.y,p.z*uDepth);
+  float ph=aS.y*6.2831;
+  w.xy+=vec2(sin(uTime*.7+ph*1.7),cos(uTime*.9+ph*2.3))*.002;
   vec4 c=uVP*vec4(w,1.);
   gl_Position=c;
-  float boost=1.+uReact*(.2*uKick+.55*uKick*step(.55,band)+.45*uTom*max(0.,1.-abs((1.-band)-uTomPos)*2.4));
-  gl_PointSize=clamp(uBase*aS.x*uPx/c.w*boost*(uGlow>.5?2.3:1.),1.5,160.);
-  vec3 col=pow(clamp(mix(aC0,aC1,uT)/255.,0.,1.),vec3(2.2));
-  float lift=1.+uReact*(.22*uCrash+.2*uRide*(.5+.5*sin(uTime*16.+ph*.7)));
-  if(band<.42) lift*=1.+uReact*uHat*(.4+.4*uHatOpen)*(.4+.8*abs(sin(ph*7.31+uTime*21.)));
-  vC=col*lift;
-  vW=exp(-(c.w-uDist)*6.);
+  gl_PointSize=clamp(uBase*aS.x*uPx/c.w*2.3,1.5,160.);
+  vC=pow(clamp(mix(aC0,aC1,uT)/255.,0.,1.),vec3(2.2));
 }`;
   const PTS_FS = `#version 300 es
 precision highp float;
-in vec3 vC; in float vW; out vec4 o; uniform float uGlow,uI;
+in vec3 vC; out vec4 o; uniform float uI;
 void main(){
   vec2 q=gl_PointCoord*2.-1.; float r2=dot(q,q); if(r2>1.)discard;
-  if(uGlow>.5){ float g=exp(-r2*5.)+.3*exp(-r2*1.3); o=vec4(vC*g*uI,1.); }
-  else { float g=exp(-r2*3.); float w=g*g*vW; o=vec4(vC*w,w); }
+  float g=exp(-r2*5.)+.3*exp(-r2*1.3); o=vec4(vC*g*uI,1.);
 }`;
-  // One pass draws the blend, for the stage and for saved files alike. v = 0 is the picture's top row.
-  const BLEND_FS = FS_HEAD + `precision highp sampler3D;
-uniform sampler2D uA,uB,uQ,uDA; uniform sampler3D uSL;
-uniform int uMethod; uniform float uT,uYcocg; uniform vec2 uSA,uSB;
-vec3 toS(vec3 c){ if(uYcocg<.5) return c; float co=c.r-c.b, tmp=c.b+floor(co*.5), cg=c.g-tmp, y=tmp+floor(cg*.5); return clamp(vec3(y,cg+128.,co+128.),0.,255.); }
-vec3 fromS(vec3 d){ if(uYcocg<.5) return d; float y=d.x, cg=d.y-128., co=d.z-128., tmp=y-floor(cg*.5), g=cg+tmp, b=tmp-floor(co*.5), r=b+co; return clamp(vec3(r,g,b),0.,255.); }
-vec3 recolor(vec3 a){ vec3 s=toS(a); ivec3 si=ivec3(s);
-  vec3 q=vec3(texelFetch(uQ,ivec2(si.r,0),0).r,texelFetch(uQ,ivec2(si.g,0),0).g,texelFetch(uQ,ivec2(si.b,0),0).b);
-  return fromS(floor(clamp((1.-uT)*s+uT*q,0.,255.)+.5)); }
-void main(){
-  vec2 uv=vUv;
-  if(uMethod==2){
-    vec2 P=vec2((uv.x-.5)*2.*uSA.x,(uv.y-.5)*2./uSA.y), q=P;
-    for(int k=0;k<8;k++){ vec2 u=vec2(q.x/(2.*uSA.x)+.5,q.y*uSA.y*.5+.5); q=P-uT*texture(uDA,u).xy; }
-    vec2 ua=vec2(q.x/(2.*uSA.x)+.5,q.y*uSA.y*.5+.5), ub=vec2(P.x/(2.*uSB.x)+.5,P.y*uSB.y*.5+.5);
-    vec3 moved=recolor(floor(texture(uA,ua).rgb*255.+.5))/255.;
-    o=vec4(mix(moved,texture(uB,ub).rgb,smoothstep(.8,1.,uT)),1.); return;
-  }
-  vec3 a=floor(texture(uA,uv).rgb*255.+.5);
-  if(uMethod==3){ o=vec4(mix(a,floor(texture(uB,uv).rgb*255.+.5),uT)/255.,1.); return; }
-  if(uMethod==1){ ivec3 ci=ivec3(min(vec3(15.),floor(a/16.))); vec3 d=texelFetch(uSL,ivec3(ci.b,ci.g,ci.r),0).rgb; o=vec4(floor(clamp(a+uT*d,0.,255.)+.5)/255.,1.); return; }
-  o=vec4(recolor(a)/255.,1.);
-}`;
-  const RESOLVE_FS = FS_HEAD + BACK + `
-uniform sampler2D uAcc;
-void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a.a,1e-4); o=vec4(mix(bg,invAces(c),smoothstep(.02,.24,a.a)),1.); }`;
 
-  function uploadFlat(src, spec) {
+  function uploadFlat(spec) {
     if (!G) return;
     gl.bindTexture(gl.TEXTURE_2D, tFlat);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
-    if (spec) gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, flatW, flatH, 0, gl.RED, gl.UNSIGNED_BYTE, src);
-    else if (src instanceof ImageData) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, src.width, src.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, src.data);
-    else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, flatW, flatH, 0, gl.RED, gl.UNSIGNED_BYTE, spec);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
     gl.generateMipmap(gl.TEXTURE_2D);
-    flatSpec = !!spec;
-    flatReady = S.mode;
+    flatReady = true;
   }
-  let flatReady = '';
+  let flatReady = false;
   function uploadSpace(sp) {
     if (!G) return;
     const n = sp.n, F = new Float32Array(n * 14), r = E.mulberry32(4242);
     for (let i = 0; i < n; i++) {
       const o = i * 14;
       for (let k = 0; k < 3; k++) { F[o + k] = sp.A[i * 3 + k]; F[o + 3 + k] = sp.disp[i * 3 + k]; F[o + 6 + k] = sp.c0[i * 3 + k]; F[o + 9 + k] = sp.c1[i * 3 + k]; }
-      F[o + 12] = S.spAdapt ? sp.sz[i] : 1; F[o + 13] = r();
+      F[o + 12] = sp.sz[i]; F[o + 13] = r();
     }
     gl.bindVertexArray(ptsVao);
     gl.bindBuffer(gl.ARRAY_BUFFER, ptsBuf);
     gl.bufferData(gl.ARRAY_BUFFER, F, gl.STATIC_DRAW);
     gl.bindVertexArray(baseVao);
     spaceN = n;
-    // the gap between neighbors, so the splats just cover the picture at size 1
+    // the gap between neighbors, which sizes the atoms in a splat export
     let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
     for (let i = 0; i < n; i++) { const x = sp.A[i * 3], y = sp.A[i * 3 + 1]; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
     sp.spacing = Math.sqrt(Math.max(1e-4, (x1 - x0) * (y1 - y0)) / n);
@@ -3278,7 +2940,7 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
     let mr = 0, mg = 0, mb = 0;
     for (let i = 0; i < n; i += 7) { mr += sp.c0[i * 3] + sp.c1[i * 3]; mg += sp.c0[i * 3 + 1] + sp.c1[i * 3 + 1]; mb += sp.c0[i * 3 + 2] + sp.c1[i * 3 + 2]; }
     const cnt = Math.ceil(n / 7) * 2 * 255;
-    sp.mean = [mr, mg, mb].map((v) => Math.pow(v / cnt, 2.2) * (sp.kind === 'audio' ? 0.3 : 1));
+    sp.mean = [mr, mg, mb].map((v) => Math.pow(v / cnt, 2.2) * 0.3);
   }
   function resize() {
     const dpr = Math.min(devicePixelRatio || 1, 2), W = Math.max(320, Math.round(cv.clientWidth * dpr)), H = Math.max(240, Math.round(cv.clientHeight * dpr));
@@ -3289,8 +2951,8 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
     measureSafe();
     if (w === rw && h === rh) return;
     rw = w; rh = h;
-    [scene, acc].forEach((T) => T && G.freeTarget(T));
-    scene = G.target(rw, rh); acc = G.target(rw, rh);
+    if (scene) G.freeTarget(scene);
+    scene = G.target(rw, rh);
     Post.resize(rw, rh, 5);
   }
   function measureSafe() {
@@ -3319,41 +2981,41 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
       kit.tick(now);
       shell.frame(now);
       if (!G || gl.isContextLost()) return;
-      const dt = dtMs / 1000, env = NO_HITS, react = 0;
+      const dt = dtMs / 1000;
       frameIdx++;
       if (frameIdx % 30 === 0) measureSafe();
       if (S.sweep) { S.sweepT += dt; setT(0.5 - 0.5 * Math.cos((S.sweepT / 24) * Math.PI * 2), 'sweep'); }
-      if (S.tView !== S.t) { const d = S.t - S.tView; S.tView = Math.abs(d) < 1e-4 ? S.t : S.tView + d * (1 - Math.exp(-dt / 0.15)); if (S.mode === 'image') flatDirty = true; }
+      // Two 0.1 s glides in a row: a hand's drag feels as it did through one 0.15 s glide, but scrubbing back and forth
+      // several times a second moves the atoms about half as far, which keeps the cloud under the flash limit.
+      if (S.tView !== S.t || S.tMid !== S.t) {
+        const k = 1 - Math.exp(-dt / 0.1);
+        S.tMid += (S.t - S.tMid) * k; S.tView += (S.tMid - S.tView) * k;
+        if (Math.abs(S.t - S.tMid) < 1e-4 && Math.abs(S.t - S.tView) < 1e-4) { S.tMid = S.t; S.tView = S.t; }
+      }
       if (S.view === 'space' && spaceKey !== wantKey()) buildSpace();
-      if (S.view === 'flat' && S.mode === 'audio' && flatReady !== 'audio' && S.lastRender) showSpectrogram(S.lastRender);
+      if (S.view === 'flat' && !flatReady && S.lastRender) showSpectrogram(S.lastRender);
       if (scopeDirty || $('blend-sheet').open) { scopeDirty = false; drawScopes(); }
       if (S.space.sway && !dragging && !RM.matches) S.space.phase += dt * 0.11;
       const sway = RM.matches ? 0 : Math.sin(S.space.phase) * 0.5;
 
       const W = rw, H = rh, asp = W / H, sh = safe.bottom - safe.top, dy = 1 - (safe.top + safe.bottom);
-      const imgFlat = S.view === 'flat' && S.mode === 'image' && !!(S.imgA && S.imgB);
-      if (imgFlat) { const ar = S.imgA.fw / S.imgA.fh; flatW = 1000 * (S.compare ? 2.03 * ar : ar); flatH = 1000; flatSpec = false; }
-      let showFlat = S.view === 'flat' && (imgFlat || flatReady === S.mode);
-      const showSpace = S.view === 'space' && spaceN > 0 && splat && splat.kind === S.mode;
+      const showFlat = S.view === 'flat' && flatReady;
+      const showSpace = S.view === 'space' && spaceN > 0 && !!splat;
       const center = [0.5, 1 - (safe.top + safe.bottom) / 2]; let rect = [0, 0, 0, 0];
       if (showFlat) {
-        const side = $('scope-card').hidden ? 0.05 : Math.min(0.3, 318 / Math.max(1, innerWidth)), aw = (1 - 2 * side) * W, ah = 0.94 * sh * H, k = Math.min(aw / flatW, ah / (flatSpec ? flatW / 1.9 : flatH)), pw = flatW * k, ph = (flatSpec ? flatW / 1.9 : flatH) * k;
+        const side = $('scope-card').hidden ? 0.05 : Math.min(0.3, 318 / Math.max(1, innerWidth)), aw = (1 - 2 * side) * W, ah = 0.94 * sh * H, k = Math.min(aw / flatW, ah / (flatW / 1.9)), pw = flatW * k, ph = (flatW / 1.9) * k;
         const cx = 0.5, cy = center[1];
         rect = [cx - pw / W / 2, cy - ph / H / 2, cx + pw / W / 2, cy + ph / H / 2];
-        if (imgFlat) showFlat = renderFlatImage(Math.round(pw), Math.round(ph)) || flatReady === 'image';
-        if (labels.childElementCount) { labels.style.left = `${rect[0] * 100}%`; labels.style.width = `${(rect[2] - rect[0]) * 100}%`; labels.style.top = `${(1 - rect[3]) * 100}%`; }
       }
-      labels.hidden = !(showFlat && S.compare && S.mode === 'image');
-      const mean = showSpace ? splat.mean : flatMean;
-      const back = { uRes: [W, H], uMean: mean, uCenter: center, uKick: env.kick * react };
+      const back = { uRes: [W, H], uMean: showSpace ? splat.mean : flatMean, uCenter: center };
 
       gl.disable(gl.BLEND);
+      G.into(scene);
       if (!showSpace) {
-        const pic = S.mode === 'image' && gpu.rt;
-        G.into(scene); G.bindTex(0, pic ? gpu.rt.tex : tFlat);
+        G.bindTex(0, tFlat);
         let play = -1;
         if (playSrc && AC && playKind === 'blend') play = clamp((AC.currentTime - playStart) / playDur, 0, 1);
-        G.use(pFlat, { ...back, uImg: 0, uRect: rect, uHas: showFlat ? 1 : 0, uSpec: flatSpec ? 1 : 0, uPlay: play, uLod: showFlat ? Math.max(0, Math.log2((pic ? gpu.rt.h : flatH) / Math.max(1, (rect[3] - rect[1]) * H))) : 0 });
+        G.use(pFlat, { ...back, uImg: 0, uRect: rect, uHas: showFlat ? 1 : 0, uPlay: play, uLod: showFlat ? Math.max(0, Math.log2(flatH / Math.max(1, (rect[3] - rect[1]) * H))) : 0 });
         G.draw();
       } else {
         const yaw = S.space.yaw + sway, pitch = S.space.pitch, dist = S.space.dist;
@@ -3361,36 +3023,18 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
         const th = Math.tan(0.425), fit = Math.min((0.8 * asp * 2.75 * th) / splat.ex, (0.86 * sh * 2.75 * th) / splat.ey);   // framed at the default distance, so zooming still zooms
         const T = [fit, 0, 0, 0, 0, fit, 0, 0, 0, 0, 1, 0, 0, dy, 0, 1];
         const fov = 0.85, VP = mul(T, mul(perspective(fov, asp, 0.05, 40), lookAt(eye, [0, 0, 0], [0, 1, 0])));
-        const glow = S.space.look === 'glow' || splat.kind === 'audio';
-        const audio = splat.kind === 'audio';
-        const base = (audio ? 0.042 : splat.spacing * 2.4) * S.space.size;
         const uPx = (1 / Math.tan(fov / 2)) * (H / 2) * fit;
-        const u = {
-          uVP: VP, uT: S.tView, uDepth: S.space.depth, uBase: base, uPx, uTime: now / 1000, uGlow: glow ? 1 : 0, uReact: react,
-          uKick: env.kick, uSnare: env.snare, uHat: env.hat, uHatOpen: env.hatOpen, uTom: env.tom, uTomPos: env.tomPos, uCrash: env.crash, uRide: env.ride,
-          uDist: dist, uFlipY: audio ? 1 : -1, uI: audio ? 0.42 : Math.min(0.5, 2.2 / Math.sqrt(spaceN)) * 3.2,
-        };
+        G.use(pFlat, { ...back, uHas: 0, uPlay: -1 }); G.draw();     // the backdrop, then the atoms added on top as glowing points
         gl.bindVertexArray(ptsVao);
-        if (glow) {
-          gl.bindVertexArray(baseVao); G.into(scene); G.use(pFlat, { ...back, uHas: 0, uSpec: 0, uPlay: -1 }); G.draw();
-          gl.bindVertexArray(ptsVao);
-          gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
-          G.use(pPts, u); gl.drawArrays(gl.POINTS, 0, spaceN);
-        } else {
-          G.into(acc); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-          gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
-          G.use(pPts, u); gl.drawArrays(gl.POINTS, 0, spaceN);
-          gl.disable(gl.BLEND);
-          gl.bindVertexArray(baseVao);
-          G.into(scene); G.bindTex(0, acc.tex); G.use(pResolve, { ...back, uAcc: 0 }); G.draw();
-        }
+        gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
+        G.use(pPts, { uVP: VP, uT: S.tView, uDepth: S.space.depth, uBase: 0.042 * S.space.size, uPx, uTime: now / 1000, uI: 0.42 });
+        gl.drawArrays(gl.POINTS, 0, spaceN);
         gl.disable(gl.BLEND);
         gl.bindVertexArray(baseVao);
       }
       const bloom = Post.bloom(scene.tex, showSpace ? 0.75 : 0.85);
       Post.finish(scene.tex, bloom, {
-        uBloomK: showSpace ? (0.3 + env.kick * 0.05 * react + env.crash * 0.1 * react) : 0.08, uExposure: 1,
-        uFlash: RM.matches ? 0 : Math.min(0.06, env.flash * 0.06 * react), uFlashC: [1, 0.95, 0.88], uGrain: showSpace ? 0.012 : 0.004, uT: now / 1000, uVig: showSpace ? 0.38 : 0.14, uSat: 1, rate: RM.matches ? 0.16 : 0.36,
+        uBloomK: showSpace ? 0.3 : 0.08, uExposure: 1, uFlash: 0, uGrain: showSpace ? 0.012 : 0.004, uT: now / 1000, uVig: showSpace ? 0.38 : 0.14, uSat: 1, rate: RM.matches ? 0.16 : 0.36,
       }, dtMs / 1000);
       if (lumaRec) lumaRec(now);
       if (wantSnap) { const done = wantSnap; wantSnap = null; cv.toBlob((blob) => done(blob), 'image/png'); }
@@ -3513,7 +3157,7 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
     ['trans', 'attack', 100, (v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`], ['trans', 'sustain', 100, (v) => `${v > 0 ? '+' : ''}${Math.round(v * 100)}%`],
     ['gran', 'density', 1, (v) => `${Math.round(v)} a second`], ['gran', 'size', 1, (v) => `${Math.round(v)} ms`], ['gran', 'pitch', 1, (v) => `${v > 0 ? '+' : ''}${Math.round(v)} st`],
     ['gran', 'spray', 100, (v) => `${Math.round(v * 100)}%`], ['gran', 'reverse', 100, (v) => `${Math.round(v * 100)}%`], ['gran', 'mix', 100, (v) => `${Math.round(v * 100)}%`]];
-  function fxChanged() { S.audDirty = true; if (S.mode === 'audio') scheduleRender(300); ['sat', 'trans', 'gran'].forEach((m) => $(`fx-${m}`).classList.toggle('off', !S.fx[m].on)); }
+  function fxChanged() { S.audDirty = true; scheduleRender(300); ['sat', 'trans', 'gran'].forEach((m) => $(`fx-${m}`).classList.toggle('off', !S.fx[m].on)); }
   FXK.forEach(([m, k, scale, fmt]) => {
     const r = $(`fx-${m}-${k}`); r.value = Math.round(S.fx[m][k] * scale); $(`fx-${m}-${k}-v`).textContent = fmt(S.fx[m][k]);
     shell.bindRange(`fx-${m}-${k}`, (v) => { S.fx[m][k] = v / scale; $(`fx-${m}-${k}-v`).textContent = fmt(S.fx[m][k]); fxChanged(); });
@@ -3524,41 +3168,21 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
 
   /* ---------- saving: downloads take the desktop app's save dialogs' place ---------- */
   const download = (blob, name) => { const u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); $('save-status').textContent = `Saved ${name}.`; };
-  const tag = () => `${{ ot: 'displace', spatial: 'spatial', mp: 'mphybrid', xfade: 'crossfade' }[S.method]}_AxB_t${Math.round(S.t * 100)}`;
+  const tag = () => `${{ ot: 'displace', mp: 'mphybrid', xfade: 'crossfade' }[S.method]}_AxB_t${Math.round(S.t * 100)}`;
   const toBlob = (c) => new Promise((res) => c.toBlob(res, 'image/png'));
   function describeSave() {
     const el = $('save-what'); if (!el) return;
-    el.textContent = S.mode === 'image'
-      ? `The blend saves as a PNG at A's own size${S.imgA ? `, ${Math.min(S.imgA.fw, Math.round(S.imgA.fw * 4096 / Math.max(S.imgA.fw, S.imgA.fh)))} × ${Math.min(S.imgA.fh, Math.round(S.imgA.fh * 4096 / Math.max(S.imgA.fw, S.imgA.fh)))}` : ''}, up to 4,096 pixels on the long side. A sweep is a strip of seven steps. The poster adds the scope.`
-      : 'The blend saves as a 16-bit WAV at the current position, effects included. A sweep is one WAV that rides from A to B. The poster shows the spectrogram and the scope.';
+    el.textContent = 'The blend saves as a 16-bit WAV at the current position, effects included. A sweep is one WAV that rides from A to B. The poster shows the spectrogram and the scope.';
   }
   async function saveBlend() {
-    if (S.mode === 'audio') { const r = await currentRender(); if (r) download(new Blob([E.encodeWav(r.data, r.rate)], { type: 'audio/wav' }), `${tag()}.wav`); return; }
-    if (!S.imgA || !S.imgB || !G) return;
-    if (!mapsReady(S.method)) { shell.toast('Matching first. Save again in a moment.'); return; }
-    prepare(S.method);
-    download(await toBlob(imageCanvas(blendPixels(S.method, S.t, gpu.aW, gpu.aH))), `${tag()}.png`);
+    const r = await currentRender(); if (r) download(new Blob([E.encodeWav(r.data, r.rate)], { type: 'audio/wav' }), `${tag()}.wav`);
   }
   async function saveSweep() {
-    if (S.mode === 'audio') {
-      if (!S.audA || !S.audB) return;
-      busy('Rendering the sweep');
-      const r = await work({ type: 'audio', sweep: true, A: S.audA.slice(), B: S.audB.slice(), rate: S.audRate, t: 0, method: S.method, phasemode: S.phasemode, mpMix: S.mpMix, xlaw: S.xlaw, fx: S.fx });
-      busy(null);
-      if (!r.error) download(new Blob([E.encodeWav(r.data, S.audRate)], { type: 'audio/wav' }), `${tag().replace(/_t\d+$/, '')}_sweep_A_to_B.wav`);
-      return;
-    }
-    if (!mapsReady(S.method)) { shell.toast('Matching first. Save again in a moment.'); return; }
-    prepare(S.method);
-    const K = 7, th = Math.min(400, gpu.aH), tile = Math.round(th * (gpu.aW / gpu.aH)), c = document.createElement('canvas');
-    c.width = K * (tile + 6) + 6; c.height = th + 40; const g = c.getContext('2d');
-    g.fillStyle = '#101525'; g.fillRect(0, 0, c.width, c.height);
-    g.font = '15px ui-sans-serif, -apple-system, sans-serif'; g.fillStyle = '#b6b9cf';
-    for (let k = 0; k < K; k++) {
-      const tt = k / (K - 1);
-      g.drawImage(imageCanvas(blendPixels(S.method, tt, tile, th)), 6 + k * (tile + 6), 6, tile, th); g.fillText(`t = ${tt.toFixed(2)}`, 10 + k * (tile + 6), th + 30);
-    }
-    download(await toBlob(c), `${tag().replace(/_t\d+$/, '')}_strip.png`);
+    if (!S.audA || !S.audB) return;
+    busy('Rendering the sweep');
+    const r = await work({ type: 'audio', sweep: true, A: S.audA.slice(), B: S.audB.slice(), rate: S.audRate, t: 0, method: S.method, phasemode: S.phasemode, mpMix: S.mpMix, xlaw: S.xlaw, fx: S.fx });
+    busy(null);
+    if (!r.error) download(new Blob([E.encodeWav(r.data, S.audRate)], { type: 'audio/wav' }), `${tag().replace(/_t\d+$/, '')}_sweep_A_to_B.wav`);
   }
   async function savePoster() {
     const w = 1600, h = 900, c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
@@ -3566,30 +3190,29 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
     [[COL.A, 0.18, 0.3], [COL.B, 0.82, 0.32], [COL.M, 0.5, 0.92]].forEach(([col, x, y]) => { const gr = g.createRadialGradient(w * x, h * y, 10, w * x, h * y, w * 0.42); gr.addColorStop(0, `${col}55`); gr.addColorStop(1, `${col}00`); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
     g.fillStyle = '#eeedfb'; g.font = '64px Georgia, "Times New Roman", serif'; g.fillText('Displacer', 70, 118);
     g.fillStyle = '#b6b9cf'; g.font = '24px ui-sans-serif, -apple-system, sans-serif';
-    g.fillText(`${S.mode === 'image' ? 'Two pictures' : 'Two sounds'} · ${METHOD_NAME[S.method]} · t = ${S.t.toFixed(2)} · A: ${S.names[S.mode].A} · B: ${S.names[S.mode].B}`, 72, 162);
+    g.fillText(`Two sounds · ${METHOD_NAME[S.method]} · t = ${S.t.toFixed(2)} · A: ${S.names.A} · B: ${S.names.B}`, 72, 162);
     let inset = null;
-    if (S.mode === 'image') { if (G && mapsReady(S.method)) { prepare(S.method); const ih = Math.min(1120, gpu.aH), iw = Math.round(ih * (gpu.aW / gpu.aH)); inset = imageCanvas(blendPixels(S.method, S.t, iw, ih)); } }
-    else { const r = await currentRender(); if (r) { const cols = 640, rows = 256, sp = spectrogram(r.data, r.rate, cols, rows); inset = document.createElement('canvas'); inset.width = cols; inset.height = rows; const ig = inset.getContext('2d');
-      ig.putImageData(specImage(sp, cols, rows), 0, 0); } }
+    const r = await currentRender();
+    if (r) { const cols = 640, rows = 256, sp = spectrogram(r.data, r.rate, cols, rows); inset = document.createElement('canvas'); inset.width = cols; inset.height = rows; inset.getContext('2d').putImageData(specImage(sp, cols, rows), 0, 0); }
     if (inset) { const k = Math.min(920 / inset.width, 560 / inset.height); g.drawImage(inset, 70, 210, inset.width * k, inset.height * k); }
     const sc = document.createElement('canvas'); sc.width = 1400; sc.height = 440; drawScope(sc, true); g.drawImage(sc, 1030, 230, 500, 157);
     g.fillStyle = '#b6b9cf'; g.font = '15px ui-sans-serif, -apple-system, sans-serif';
     g.fillText('The transport scope: A, B and the blend, with the map drawn.', 1030, 412);
     g.fillText('The 1D inverse-CDF map is the exact W2 displacement map. No model.', 72, h - 44);
     g.fillText('Displacer · Generative AV Labs · patrickiben.github.io/generative-av-labs', 72, h - 20);
-    download(await toBlob(c), `displacer_poster_${S.mode === 'image' ? 'pictures' : 'sounds'}_t${Math.round(S.t * 100)}.png`);
+    download(await toBlob(c), `displacer_poster_sounds_t${Math.round(S.t * 100)}.png`);
   }
   async function needCloud() {
-    if (splat && splat.kind === S.mode && spaceKey === wantKey()) return true;
+    if (splat && spaceKey === wantKey()) return true;
     shell.toast('Building the cloud first.');
     await buildSpace();
-    return !!(splat && splat.kind === S.mode);
+    return !!splat;
   }
-  function cloudPos(i, t) { const sp = splat, f = sp.kind === 'audio' ? 1 : -1; return [sp.A[i * 3] + t * sp.disp[i * 3], f * (sp.A[i * 3 + 1] + t * sp.disp[i * 3 + 1]), (sp.A[i * 3 + 2] + t * sp.disp[i * 3 + 2]) * S.space.depth]; }
+  function cloudPos(i, t) { const sp = splat; return [sp.A[i * 3] + t * sp.disp[i * 3], sp.A[i * 3 + 1] + t * sp.disp[i * 3 + 1], (sp.A[i * 3 + 2] + t * sp.disp[i * 3 + 2]) * S.space.depth]; }
   function cloudCol(i, t) { const sp = splat; return [0, 1, 2].map((k) => clamp(Math.round(sp.c0[i * 3 + k] + (sp.c1[i * 3 + k] - sp.c0[i * 3 + k]) * t), 0, 255)); }
   async function saveCloud() {
     if (!(await needCloud())) return;
-    const n = splat.n, t = S.t, head = `ply\nformat binary_little_endian 1.0\ncomment Displacer point cloud, t=${t.toFixed(2)}, ${splat.kind === 'image' ? 'depth from brightness' : 'Gabor atoms'}: stated mappings, not a learned model\nelement vertex ${n}\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nend_header\n`;
+    const n = splat.n, t = S.t, head = `ply\nformat binary_little_endian 1.0\ncomment Displacer point cloud, t=${t.toFixed(2)}, Gabor atoms: stated mappings, not a learned model\nelement vertex ${n}\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nend_header\n`;
     const hb = new TextEncoder().encode(head), buf = new ArrayBuffer(hb.length + n * 15), dv = new DataView(buf); new Uint8Array(buf).set(hb);
     let o = hb.length;
     for (let i = 0; i < n; i++) { const p = cloudPos(i, t), col = cloudCol(i, t); for (let k = 0; k < 3; k++) { dv.setFloat32(o, p[k], true); o += 4; } for (let k = 0; k < 3; k++) dv.setUint8(o++, col[k]); }
@@ -3603,7 +3226,7 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
     const logit = (x) => Math.log(x / (1 - x)), base = (splat.spacing || 0.012) * 1.2 * S.space.size;
     let o = hb.length;
     for (let i = 0; i < n; i++) {
-      const p = cloudPos(i, t), col = cloudCol(i, t).map((v) => v / 255), sc = Math.log(base * (S.spAdapt ? splat.sz[i] : 1));
+      const p = cloudPos(i, t), col = cloudCol(i, t).map((v) => v / 255), sc = Math.log(base * splat.sz[i]);
       for (const v of [p[0], p[1], p[2], 0, 0, 0, (col[0] - 0.5) / SH, (col[1] - 0.5) / SH, (col[2] - 0.5) / SH, logit(0.88), sc, sc, sc, 1, 0, 0, 0]) { dv.setFloat32(o, v, true); o += 4; }
     }
     download(new Blob([buf], { type: 'application/octet-stream' }), `displacer_splats_${splat.solo ? `${S.space.cloud}_alone` : 'AtoB'}_t${Math.round(t * 100)}.ply`);
@@ -3619,7 +3242,6 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
     const d = atomMorph(S.t); if (d) download(new Blob([E.encodeWav(d, S.audRate)], { type: 'audio/wav' }), `displacer_atoms_t${Math.round(S.t * 100)}.wav`);
   });
   $('save-stage').addEventListener('click', () => { wantSnap = (blob) => download(blob, `displacer_stage_${S.view}_t${Math.round(S.t * 100)}.png`); });
-  $('open-session').addEventListener('click', () => { $('save-sheet').close(); shell.openSheet('session'); });
   $('gp-wav').addEventListener('click', () => { if (!S.gp.best) { shell.toast('Grow a patch first.'); return; } const rate = S.audRate || 44100; download(new Blob([E.encodeWav(E.applyFX(E.synthFromPatch(S.gp.best, 2, rate, 0), rate), rate)], { type: 'audio/wav' }), `genopatch_${S.gp.source}.wav`); });
   $('gp-json').addEventListener('click', () => { if (!S.gp.best) { shell.toast('Grow a patch first.'); return; } download(new Blob([JSON.stringify({ v: 1, app: 'displacer-genopatch', source: S.gp.source, loss: S.gp.bestLoss, genome: Array.from(S.gp.best), params: E.gpParams(S.gp.best) }, null, 2)], { type: 'application/json' }), `genopatch_${S.gp.source}.patch.json`); });
 
@@ -3628,32 +3250,24 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
   shell.bindRange('t2', (v) => { stopSweep(); setT(v / 1000); });
   $('view-seg').addEventListener('click', (e) => { const b = e.target.closest('[data-view]'); if (b) setView(b.dataset.view); });
   $('method-row').addEventListener('click', (e) => { const b = e.target.closest('[data-m]'); if (b && !b.hidden) setMethod(b.dataset.m); });
-  $('compare').addEventListener('change', (e) => { S.compare = e.target.checked; flatDirty = true; if (S.compare && S.view !== 'flat') setView('flat'); syncMethod(); });
   $('scope-on').checked = S.scope;
   $('scope-on').addEventListener('change', (e) => { S.scope = e.target.checked; scopeDirty = true; });
-  $('cspace').addEventListener('change', (e) => { S.cspace = e.target.value; E.cacheImageDists(); flatDirty = true; });
-  $('quality').addEventListener('change', (e) => { S.quality = e.target.value; flatDirty = true; syncMethod(); });
-  $('spadapt').addEventListener('change', (e) => { S.spAdapt = e.target.value === 'adaptive'; flatDirty = true; spaceKey = ''; });
   $('phasemode').addEventListener('change', (e) => { S.phasemode = e.target.value; S.audDirty = true; scheduleRender(60); });
   $('xlaw').addEventListener('change', (e) => { S.xlaw = e.target.value; S.audDirty = true; scheduleRender(60); });
   shell.bindRange('mpmix', (v) => { S.mpMix = v / 100; $('mpmix-v').textContent = `${v}%`; S.audDirty = true; scheduleRender(400); });
   $('cloud-row').addEventListener('click', (e) => { const b = e.target.closest('[data-cloud]'); if (!b) return; S.space.cloud = b.dataset.cloud; syncCloud(); if (S.view !== 'space') setView('space'); });
-  $('look-row').addEventListener('click', (e) => { const b = e.target.closest('[data-look]'); if (!b) return; S.space.look = b.dataset.look; syncCloud(); });
   const bindPct = (id, get, set, fmt) => { const r = $(id); r.value = get(); $(`${id}-v`).textContent = fmt(+r.value); shell.bindRange(id, (v) => { set(v); $(`${id}-v`).textContent = fmt(v); }); };
   bindPct('depth', () => S.space.depth * 100, (v) => { S.space.depth = v / 100; }, (v) => (v / 100).toFixed(2));
   bindPct('size', () => S.space.size * 100, (v) => { S.space.size = v / 100; }, (v) => `${Math.round(v)}%`);
-  $('points').addEventListener('change', (e) => { S.space.points = e.target.value; });
   $('sway').addEventListener('change', (e) => { S.space.sway = e.target.checked; });
   function stopSweep() { if (S.sweep) { S.sweep = false; $('sweep').checked = false; } }
   $('sweep').addEventListener('change', (e) => { S.sweep = e.target.checked; S.sweepT = Math.acos(clamp(1 - 2 * S.t, -1, 1)) / (2 * Math.PI) * 24; });
   $('swap').addEventListener('click', () => {
-    if (S.mode === 'image') { [S.imgA, S.imgB] = [S.imgB, S.imgA]; if (S.imgA && S.imgB) E.cacheImageDists(); }
-    else { [S.srcA, S.srcB] = [S.srcB, S.srcA]; if (S.srcA && S.srcB) E.prepAudio(); S.lastRender = null; S.audDirty = true; }
-    const n = S.names[S.mode], b = S.built[S.mode]; [n.A, n.B] = [n.B, n.A]; [b.A, b.B] = [b.B, b.A];
-    sourcesChanged(S.mode);
+    [S.srcA, S.srcB] = [S.srcB, S.srcA]; if (S.srcA && S.srcB) E.prepAudio(); S.lastRender = null; S.audDirty = true;
+    const n = S.names, b = S.built; [n.A, n.B] = [n.B, n.A]; [b.A, b.B] = [b.B, b.A];
+    sourcesChanged();
   });
-  $('builtin-image').addEventListener('click', () => { if (S.mode !== 'image') shell.setMode('image'); loadBuiltIn('image'); });
-  $('builtin-audio').addEventListener('click', () => { if (S.mode !== 'audio') shell.setMode('audio'); loadBuiltIn('audio'); });
+  $('builtin-audio').addEventListener('click', () => loadBuiltIn());
   ['A', 'B'].forEach((w) => {
     $(`file-${w}`).addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; loadFile(f, w); });
     $(`slot-${w}`).addEventListener('click', () => $(`file-${w}`).click());
@@ -3675,10 +3289,6 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
     if (files.length >= 2) { await loadFile(files[0], 'A'); await loadFile(files[1], 'B'); }
     else await loadFile(files[0], e.clientX > innerWidth / 2 ? 'B' : 'A');
   });
-  addEventListener('paste', (e) => {
-    const items = e.clipboardData && e.clipboardData.items; if (!items) return;
-    for (const it of items) if (it.type.startsWith('image/')) { const f = it.getAsFile(); if (f) { loadFile(new File([f], f.name || 'pasted picture.png', { type: f.type }), S.mode === 'image' && !S.built.image.A ? 'B' : 'A'); return; } }
-  });
 
   /* drag to turn the cloud, scroll to move closer */
   cv.addEventListener('pointerdown', (e) => { if (S.view !== 'space') return; dragging = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); moved(); });
@@ -3692,7 +3302,6 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
   function setPerform(on) {
     S.perform = on; document.body.classList.toggle('performance', on); $('perform-button').textContent = on ? 'Leave' : 'Perform';
     if (on) {
-      if (S.mode === 'image' && S.view !== 'space') setView('space');
       const el = document.documentElement;
       if (!document.fullscreenElement && el.requestFullscreen) el.requestFullscreen().catch(() => shell.toast('Full screen is not available here, so only the controls are hidden. Press Esc to bring them back.'));
       shell.toast('Performing. Esc leaves. The mod wheel and the arrow keys still move the blend.');
@@ -3705,8 +3314,7 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
 
   /* MIDI as a controller: the mod wheel moves the blend, as the desktop app's MIDI bridge did; a keyboard can play a grown patch */
   kit.on('cc', ({ cc, value }) => { if (cc === 1) { stopSweep(); setT(value / 127, 'midi'); } });
-  kit.on('hit', (h) => { if (S.mode === 'audio' && S.gp.keys && S.gp.best && h.src === 'midi' && h.note != null) gpNote(clamp(h.note - 60, -24, 24), Math.max(0.35, Math.min(1, h.vel * 2))); });
-  kit.on('lane', (l) => { if (l.name === 'kind' && l.value !== S.mode) shell.setMode(l.value); });
+  kit.on('hit', (h) => { if (S.gp.keys && S.gp.best && h.src === 'midi' && h.note != null) gpNote(clamp(h.note - 60, -24, 24), Math.max(0.35, Math.min(1, h.vel * 2))); });
 
   /* ---------- boot ---------- */
   if (!G || !(G.floatRT || G.gl.getExtension('EXT_color_buffer_half_float'))) {
@@ -3717,9 +3325,7 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
     gl = G.gl;
     try {
       Post = createPost(G);
-      pFlat = G.program(FLAT_FS); pResolve = G.program(RESOLVE_FS); pPts = G.program(PTS_FS, PTS_VS); pBlend = G.program(BLEND_FS);
-      dummy3D = gl.createTexture(); gl.bindTexture(gl.TEXTURE_3D, dummy3D); gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA32F, 1, 1, 1, 0, gl.RGBA, gl.FLOAT, new Float32Array(4));
-      [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach((q) => gl.texParameteri(gl.TEXTURE_3D, q, gl.NEAREST));
+      pFlat = G.program(FLAT_FS); pPts = G.program(PTS_FS, PTS_VS);
       baseVao = gl.getParameter(gl.VERTEX_ARRAY_BINDING);
       tFlat = G.tex(2, 2, { internal: gl.RGBA8, format: gl.RGBA, type: gl.UNSIGNED_BYTE });
       gl.bindTexture(gl.TEXTURE_2D, tFlat); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
@@ -3729,19 +3335,19 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
       gl.bindVertexArray(baseVao);
       resize();
       addEventListener('resize', resize);
-      cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); shell.glFail('The graphics context was lost. Reload the page to get the picture back.'); });
+      cv.addEventListener('webglcontextlost', (e) => { e.preventDefault(); shell.glFail('The graphics context was lost. Reload the page to get the stage back.'); });
       requestAnimationFrame(render);
     } catch (e) {
       console.error(e);
-      shell.glFail(`The picture could not start on this graphics card: ${String(e.message).slice(0, 140)}`);
+      shell.glFail(`The stage could not start on this graphics card: ${String(e.message).slice(0, 140)}`);
     }
   }
   document.body.dataset.view = S.view;
-  setKind('image');
-  { const q = new URLSearchParams(location.search); if (q.get('kind') === 'audio') shell.setMode('audio'); if (q.get('view') === 'flat') setView('flat'); }
+  loadBuiltIn(); syncCloud();
+  { const q = new URLSearchParams(location.search); if (q.get('view') === 'flat') setView('flat'); }
   syncHear();
 
-  // For the flicker check: the picture's brightness on a small grid, every frame, straight after it is drawn.
+  // For the flicker check: the stage's brightness on a small grid, every frame, straight after it is drawn.
   let lumaRec = null;
   function recordLuma(ms) {
     const c = document.createElement('canvas'); c.width = 64; c.height = 36;
@@ -3761,7 +3367,6 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
   window.__app = {
     S, kit, E, recordLuma, setT, setView, setMethod, loadFile, buildSpace,
     get spaceN() { return spaceN; }, get spaceReady() { return spaceKey === wantKey() && !spaceBusy; }, get flat() { return { w: flatW, h: flatH, spec: flatSpec, ready: flatReady }; },
-    get flatRT() { return gpu.rt ? { w: gpu.rt.w, h: gpu.rt.h, shownH: gpu.lastPh || 0 } : null; },
     get busy() { return !$('busy').hidden; }, get safe() { return safe; }, get playing() { return playSrc ? playKind : ''; }, currentRender,
     pixel() {
       const c = document.createElement('canvas'); c.width = 32; c.height = 18; const g = c.getContext('2d');

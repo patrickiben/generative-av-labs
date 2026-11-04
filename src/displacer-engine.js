@@ -4,7 +4,9 @@
    each marked: Genopatch reads its effort from state, the granular effect is seeded so a saved sound repeats exactly,
    the overlap-add no longer divides by a near-zero window at the edges (which left blends about 250 times too quiet),
    and the two map builders are split so the page can run their sliced OT in a worker. createEngine(S) reads its
-   settings from the page's state object S, as the desktop page did. No drawing happens here. */
+   settings from the page's state object S, as the desktop page did. No drawing happens here. The public page is sound
+   only: it calls the sound parts, and the picture functions stay so this file remains a line-range copy of the desktop
+   engine. */
 (function (global) {
   'use strict';
   function createEngine(S) {

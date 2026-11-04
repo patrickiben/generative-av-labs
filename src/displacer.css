@@ -44,9 +44,6 @@ body.moved .intro { opacity: 0; transform: translateY(-10px); }
 .scope-key .ka::before { background: #86e0d3; } .scope-key .kb::before { background: #f3a6c8; } .scope-key .km::before { background: #b8b7ff; }
 #scope-mini { margin-left: auto; font-variant-numeric: tabular-nums; }
 #scope-mini::before { display: none !important; }
-#flat-labels { position: absolute; display: flex; justify-content: space-between; gap: 12px; transform: translateY(calc(-100% - 8px)); pointer-events: none; }
-#flat-labels span { font: 500 10px/1.4 var(--mono); letter-spacing: 0.5px; text-transform: uppercase; color: #dcdbfa; background: rgba(20, 22, 38, 0.66); border: 1px solid var(--line); border-radius: 8px; padding: 4px 9px; }
-#flat-labels span:last-child { color: #f0dcb4; }
 
 /* dropping files: left half A, right half B */
 #drop { position: fixed; inset: 0; z-index: 30; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; padding: 24px; background: rgba(6, 10, 22, 0.58); backdrop-filter: blur(5px); pointer-events: none; }
@@ -62,7 +59,6 @@ body.moved .intro { opacity: 0; transform: translateY(-10px); }
 .src-card strong { font-weight: 500; font-size: 13px; }
 .src-card .why { font-size: 11px; color: var(--muted); margin: 3px 0 0; line-height: 1.5; }
 .src-card .pill { justify-self: start; }
-#method-row .pill[hidden] { display: none; }
 .gpkb { display: flex; gap: 2px; height: 56px; margin: 14px 0 4px; }
 .gpkb button { flex: 1; border-radius: 0 0 6px 6px; background: rgba(238, 237, 251, 0.82); border: 1px solid #0007; transition: background 0.08s; }
 .gpkb button.blk { background: #1b2036; }
@@ -76,13 +72,13 @@ body.moved .intro { opacity: 0; transform: translateY(-10px); }
 .fx.off .fx-knobs, .fx.off select { opacity: 0.45; }
 
 /* performance: the stage alone. The source badge stays, so a demo can never read as your kit. */
-body.performance .header, body.performance .mode-switch, body.performance #method-badge, body.performance #busy, body.performance #hud,
-body.performance #hit-strip, body.performance .chip, body.performance .dock, body.performance .truth, body.performance #scope-card,
-body.performance #flat-labels, body.performance .intro, body.performance .vignette { opacity: 0 !important; pointer-events: none !important; }
+body.performance .header, body.performance #method-badge, body.performance #busy, body.performance #hud,
+body.performance .chip, body.performance .dock, body.performance .truth, body.performance #scope-card,
+body.performance .intro, body.performance .vignette { opacity: 0 !important; pointer-events: none !important; }
 
 @media (max-width: 860px) {
-  #method-badge { top: max(112px, calc(env(safe-area-inset-top) + 98px)); font-size: 9px; padding: 6px 11px 6px 24px; }
-  #busy { top: max(150px, calc(env(safe-area-inset-top) + 136px)); }
+  #method-badge { top: max(66px, calc(env(safe-area-inset-top) + 52px)); font-size: 9px; padding: 6px 11px 6px 24px; }
+  #busy { top: max(104px, calc(env(safe-area-inset-top) + 90px)); }
   .ab { flex-wrap: wrap; gap: 10px; }
   .ab-thumb { width: 64px; height: 40px; border-radius: 10px; }
   .ab-mid { flex: 1 1 180px; width: auto; }
@@ -95,6 +91,6 @@ body.performance #flat-labels, body.performance .intro, body.performance .vignet
   body[data-app="displacer"] .dock button { min-width: 0; padding: 9px 7px 8px; }
 }
 
-/* no drum kit on this page: the shell's drum parts are off, MIDI stays as a controller */
-body.no-kit #demo-button, body.no-kit #hit-strip, body.no-kit #source-badge, body.no-kit #chip-audio, body.no-kit #session-button, body.no-kit #signal-button,
+/* no drum kit on this page: the shell's drum parts it still updates stay hidden, and MIDI stays as a controller */
+body.no-kit #demo-button, body.no-kit #source-badge, body.no-kit #chip-audio,
 body.no-kit #connect-both, body.no-kit #audio-card, body.no-kit #audio-controls, body.no-kit #wiring, body.no-kit #map-details, body.no-kit .kit-only { display: none !important; }
