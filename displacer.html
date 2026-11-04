@@ -446,6 +446,40 @@ body.no-kit #connect-both, body.no-kit #audio-card, body.no-kit #audio-controls,
   }
 
   function bandFreq(i) { return FMIN * Math.pow(FMAX / FMIN, (i + 0.5) / BANDS); }
+
+  // Check the complete import before it can replace live input or reach the animation loop.
+  function validateSession(s) {
+    const invalid = () => { throw new Error('This session is incomplete or has invalid events. Open an unedited session saved by Nebula.'); };
+    const number = (v, lo, hi = Infinity) => Number.isFinite(v) && v >= lo && v <= hi;
+    if (!s || !/\/session@1$/.test(s.schema || '') || !number(s.durationMs, 0) ||
+        !Array.isArray(s.hits) || !Array.isArray(s.ctrl) ||
+        (s.bands != null && s.bands !== BANDS) ||
+        (s.frameRate != null && !number(s.frameRate, 1, 240))) invalid();
+    const ordered = (events, time, valid) => {
+      let last = -1;
+      for (const e of events) {
+        if (!e) invalid();
+        const t = time(e);
+        if (!number(t, 0, s.durationMs + 1) || t < last || !valid(e)) invalid();
+        last = t;
+      }
+    };
+    ordered(s.hits, h => h.t, h => Object.hasOwn(PAD, h.pad) && h.voice === PAD[h.pad].voice &&
+      number(h.vel, 0, 1) && (h.note == null || (Number.isInteger(h.note) && number(h.note, 0, 127))));
+    ordered(s.ctrl, c => c.t, c => c.k === 'pedal' ? number(c.v, 0, 127) :
+      c.k === 'choke' && (c.v === 'crash' || c.v === 'ride'));
+    if (s.lanes != null && (typeof s.lanes !== 'object' || Array.isArray(s.lanes))) invalid();
+    for (const [name, lane] of Object.entries(s.lanes || {})) {
+      if (!Array.isArray(lane)) invalid();
+      ordered(lane, p => p[0], p => Array.isArray(p) && p.length === 2 &&
+        (name === 'shape' ? p[1] === 0 || p[1] === 1 : name === 'mode' ? ['field', 'form'].includes(p[1]) : true));
+    }
+    if (typeof s.spectrumBase64 !== 'string') invalid();
+    let bin;
+    try { bin = atob(s.spectrumBase64); } catch (_) { invalid(); }
+    if (bin.length % BANDS) invalid();
+    return Uint8Array.from(bin, c => c.charCodeAt(0));
+  }
   function bump(center, widthOct, gain) {
     const out = new Float32Array(BANDS);
     for (let i = 0; i < BANDS; i++) {
@@ -918,10 +952,8 @@ registerProcessor('kit-onset',KitOnset);`;
       return out;
     };
     kit.startReplay = (s) => {
-      if (!s || !/\/session@1$/.test(s.schema || '')) throw new Error('This is not a session file from these pages.');
+      const frames = validateSession(s);
       if (demo) kit.stopDemo();
-      const bin = atob(s.spectrumBase64 || ''), frames = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) frames[i] = bin.charCodeAt(i);
       replay = { s, frames, t0: performance.now(), hi: 0, ci: 0, lanes: Object.entries(s.lanes || {}).map(([k, v]) => ({ k, v, i: 0 })) };
       if (micNode) { try { micNode.disconnect(); } catch (e) { /* not connected */ } }
       notifyState();
@@ -994,7 +1026,7 @@ registerProcessor('kit-onset',KitOnset);`;
         env[k] *= Math.exp(-dt / tau);
       });
       if (replay) stepReplay(now);
-      const analysed = readAnalyser(dt);
+      const analysed = replay ? false : readAnalyser(dt);
       const flowing = replay || (analysed && (demo || now - lastSignal < LIVE_HOLD_MS));
       for (let i = 0; i < BANDS; i++) {
         let v = flowing ? audioSpec[i] : 0;
@@ -1458,29 +1490,60 @@ ${useSignal ? `      <dialog class="sheet wide" id="signal-sheet" aria-labelledb
     renderStates();
 
     /* ---------- recording ---------- */
-    let recorder = null, recChunks = [];
+    let recorder = null;
     const download = (blob, name) => { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); };
     const stamp = () => new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
     $('rec-toggle').addEventListener('click', () => {
       if (!kit.recording) {
         kit.startRecording(cfg.id);
-        if ($('rec-video').checked && cfg.canvas().captureStream && global.MediaRecorder) {
-          const st = cfg.canvas().captureStream(60);
-          const sound = kit.recordingStream();
-          if (sound) sound.getAudioTracks().forEach((t) => st.addTrack(t));
-          const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m));
-          recChunks = [];
-          recorder = new MediaRecorder(st, mime ? { mimeType: mime, videoBitsPerSecond: 14e6 } : {});
-          recorder.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
-          recorder.onstop = () => download(new Blob(recChunks, { type: recorder.mimeType }), `${cfg.id}-${stamp()}.${(recorder.mimeType || '').includes('mp4') ? 'mp4' : 'webm'}`);
-          recorder.start(1000);
+        let videoProblem = '';
+        if ($('rec-video').checked) {
+          let st = null;
+          try {
+            if (!cfg.canvas().captureStream || !global.MediaRecorder) throw new Error('this browser does not support screen recording');
+            st = cfg.canvas().captureStream(60);
+            const sound = kit.recordingStream();
+            // The kit owns a persistent audio destination. Each take owns clones,
+            // so cleaning up this capture cannot silence the next recording.
+            if (sound) sound.getAudioTracks().forEach((t) => st.addTrack(t.clone()));
+            const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m));
+            const activeRecorder = new MediaRecorder(st, mime ? { mimeType: mime, videoBitsPerSecond: 14e6 } : {});
+            const chunks = [], takeStamp = stamp();
+            let failed = false;
+            activeRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+            activeRecorder.onerror = () => {
+              failed = true;
+              toast('Video recording failed. The session data is still available.');
+              if (recorder === activeRecorder) {
+                recorder = null;
+                $('rec-status').textContent = 'Video could not be recorded. Session data is still recording; press Stop and save.';
+              }
+              if (activeRecorder.state !== 'inactive') activeRecorder.stop();
+            };
+            activeRecorder.onstop = () => {
+              try {
+                if (!failed && chunks.length) download(new Blob(chunks, { type: activeRecorder.mimeType }), `${cfg.id}-${takeStamp}.${(activeRecorder.mimeType || '').includes('mp4') ? 'mp4' : 'webm'}`);
+              } finally {
+                st.getTracks().forEach((t) => t.stop());
+                if (recorder === activeRecorder) recorder = null;
+              }
+            };
+            recorder = activeRecorder;
+            activeRecorder.start(1000);
+          } catch (err) {
+            if (st) st.getTracks().forEach((t) => t.stop());
+            recorder = null;
+            videoProblem = ` Video could not start: ${err.message}. Session data is still being recorded.`;
+          }
         }
         $('rec-toggle').textContent = 'Stop and save';
         $('session-button').classList.add('rec');
-        $('rec-status').textContent = 'Recording. Play, then press Stop and save.';
+        $('rec-status').textContent = `Recording. Play, then press Stop and save.${videoProblem}`;
       } else {
         const s = kit.stopRecording();
-        if (recorder) { recorder.stop(); recorder = null; }
+        const stoppedRecorder = recorder;
+        recorder = null;
+        if (stoppedRecorder && stoppedRecorder.state !== 'inactive') stoppedRecorder.stop();
         download(new Blob([JSON.stringify(s)], { type: 'application/json' }), `${cfg.id}-session-${stamp()}.json`);
         $('rec-toggle').textContent = 'Start recording';
         $('session-button').classList.remove('rec');
@@ -2636,6 +2699,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   document.body.insertAdjacentHTML('beforeend', '<input type="file" id="file-A" accept="audio/*,.aif,.aiff,.aifc" hidden><input type="file" id="file-B" accept="audio/*,.aif,.aiff,.aifc" hidden>');
 
   /* ---------- sources ---------- */
+  const sourceRequests = { A: 0, B: 0 };
   function setAudio(which, obj, name, built) {
     if (which === 'A') S.srcA = obj; else S.srcB = obj;
     S.names[which] = name; S.built[which] = built;
@@ -2643,7 +2707,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     S.lastRender = null; S.audDirty = true;
     sourcesChanged();
   }
-  function loadBuiltIn() { setAudio('A', synthVoice(), 'Sung ah', true); setAudio('B', synthBells(), 'Glass bells', true); }
+  function loadBuiltIn() { sourceRequests.A++; sourceRequests.B++; setAudio('A', synthVoice(), 'Sung ah', true); setAudio('B', synthBells(), 'Glass bells', true); }
   let distCache = { key: '', hA: null, hB: null };
   function sourcesChanged() {
     S.ver++;
@@ -2674,11 +2738,14 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     if (!f) return;
     if (!isSoundFile(f)) { shell.toast(isImageFile(f) ? `${f.name} is a picture. Displacer blends two sounds.` : `${f.name} is not a sound.`); return; }
     if (!which) which = S.built.A ? 'A' : 'B';
+    const request = ++sourceRequests[which];
     busy(`Reading ${f.name}`);
     try {
-      setAudio(which, await decodeSound(f), f.name, false);
+      const sound = await decodeSound(f);
+      if (request !== sourceRequests[which]) return;
+      setAudio(which, sound, f.name, false);
       shell.toast(`${which}: ${f.name}`);
-    } catch (err) { shell.toast(`${f.name} was not loaded: ${err.message}.`, 5200); }
+    } catch (err) { if (request !== sourceRequests[which]) return; shell.toast(`${f.name} was not loaded: ${err.message}.`, 5200); }
     busy(null);
   }
 
@@ -3221,8 +3288,9 @@ void main(){
     if (!S.audA || !S.audB) return null;
     if (S.gp.source === 'A') return { data: S.audA, rate: S.audRate };
     if (S.gp.source === 'B') return { data: S.audB, rate: S.audRate };
-    const r = await work({ type: 'audio', A: S.audA.slice(), B: S.audB.slice(), rate: S.audRate, t: S.t, method: 'ot', phasemode: S.phasemode, mpMix: S.mpMix, xlaw: S.xlaw, fx: NOFX });
-    return r.error ? null : { data: r.data, rate: S.audRate };
+    const rate = S.audRate;
+    const r = await work({ type: 'audio', A: S.audA.slice(), B: S.audB.slice(), rate, t: S.t, method: 'ot', phasemode: S.phasemode, mpMix: S.mpMix, xlaw: S.xlaw, fx: NOFX });
+    return r.error ? null : { data: r.data, rate };
   }
   function drawGP(target, resyn, progress) {
     const c = $('gp-spec').getContext('2d'), w = c.canvas.width, h = c.canvas.height, lf0 = Math.log(40), lf1 = Math.log(11025);
@@ -3315,10 +3383,12 @@ void main(){
   }
   async function saveSweep() {
     if (!S.audA || !S.audB) return;
+    const rate = S.audRate, name = `${tag().replace(/_t\d+$/, '')}_sweep_A_to_B.wav`;
     busy('Rendering the sweep');
-    const r = await work({ type: 'audio', sweep: true, A: S.audA.slice(), B: S.audB.slice(), rate: S.audRate, t: 0, method: S.method, phasemode: S.phasemode, mpMix: S.mpMix, xlaw: S.xlaw, fx: S.fx });
+    const r = await work({ type: 'audio', sweep: true, A: S.audA.slice(), B: S.audB.slice(), rate, t: 0, method: S.method, phasemode: S.phasemode, mpMix: S.mpMix, xlaw: S.xlaw, fx: S.fx });
     busy(null);
-    if (!r.error) download(new Blob([E.encodeWav(r.data, S.audRate)], { type: 'audio/wav' }), `${tag().replace(/_t\d+$/, '')}_sweep_A_to_B.wav`);
+    if (!r.error) download(new Blob([E.encodeWav(r.data, rate)], { type: 'audio/wav' }), name);
+    else shell.toast(`The sweep could not render: ${r.error}`);
   }
   async function savePoster() {
     const w = 1600, h = 900, c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
@@ -3422,7 +3492,7 @@ void main(){
     if (!hasFiles(e)) return;
     e.preventDefault(); dragDepth = 0; drop.hidden = true;
     const files = [...e.dataTransfer.files];
-    if (files.length >= 2) { await loadFile(files[0], 'A'); await loadFile(files[1], 'B'); }
+    if (files.length >= 2) await Promise.all([loadFile(files[0], 'A'), loadFile(files[1], 'B')]);
     else await loadFile(files[0], e.clientX > innerWidth / 2 ? 'B' : 'A');
   });
 

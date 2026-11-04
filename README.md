@@ -51,6 +51,7 @@ Edit `src/`, then run `python3 build.py`, which inlines everything into the page
 - [Field guide](field-guide.html): wiring, statuses, what each drum does in Nebula, connecting Chimera Synth, and Detail Forge Analog.
 - [Inputs](docs/INPUTS.md): wiring a kit and browser support, with sources.
 - [Methods](docs/METHODS.md): onset detection, tempo, the fluid field, the feedback loop and transport.
+- [Review](docs/REVIEW.md): follow-up bug fixes and recommended next improvements.
 - [Validation](docs/VALIDATION.md): what was tested, how, and what still needs real gear.
 
 ## Elsewhere

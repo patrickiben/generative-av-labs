@@ -43,7 +43,7 @@
   function renderCorners() {
     document.querySelectorAll('#corners .corner').forEach((b) => {
       const a = ANIMALS[ST.corners[+b.dataset.corner]] || ANIMALS[0];
-      b.innerHTML = `<span aria-hidden="true">${a.emoji}</span>${a.nm}`;
+      b.innerHTML = `<span aria-hidden="true">${a.emoji}</span>${chimeraHtml(a.nm)}`;
       b.setAttribute('aria-label', `Corner ${+b.dataset.corner + 1}, ${a.nm}: press to change the animal`);
     });
     fieldDirty = true;
@@ -734,7 +734,7 @@ void main(){
     renderStates();
   });
   addEventListener('resize', resize);
-  addEventListener('hashchange', () => { if (location.hash.startsWith('#p=')) { loadFromHash(); UI.toast('Patch loaded from the link.'); } });   // a pasted link in an open tab
+  addEventListener('hashchange', () => { if (location.hash.startsWith('#p=')) { if(loadFromHash()) UI.toast(patchLoadMessage()); else UI.toast('That link does not contain a valid Chimera patch.'); } });   // a pasted link in an open tab
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
   G2 = createGL(cv);
   if (G2 && (G2.floatRT || G2.gl.getExtension('EXT_color_buffer_half_float'))) {
@@ -758,7 +758,7 @@ void main(){
   stageEl.setAttribute('aria-keyshortcuts', 'ArrowLeft ArrowRight ArrowUp ArrowDown Enter Escape');
   stageEl.setAttribute('aria-describedby', 'stage-help');
   $('scene').insertAdjacentHTML('beforeend', '<p id="stage-help" class="sr-only">In Garden, left and right arrows choose a bud, up and down lean toward it, Enter grows a seed there and Escape cancels. In Morph, the arrows move the puck. Letter keys play notes.</p>');
-  setMode(store.get('mode', 'garden') === 'morph' ? 'morph' : 'garden');
+  setMode(PATCH_LOADED_MODE || (store.get('mode', 'garden') === 'morph' ? 'morph' : 'garden'));
   renderCorners();
   resize();
   requestAnimationFrame(render);

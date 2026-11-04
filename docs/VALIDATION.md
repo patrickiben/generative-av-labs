@@ -1,6 +1,20 @@
 # Validation
 
-Checked on 2026-11-02 and 2026-11-03 in Chrome 156 on an Apple M4 Max Mac. **No real drum kit has been used with Nebula yet.** The checks a person can do with real gear are listed below. Endless Cockpit moved to [Body Signal Labs](https://github.com/patrickiben/body-signal-labs) on 2026-11-03, and its checks moved with it.
+Checked between 2026-11-02 and 2026-11-04 in Chrome 156 on an Apple M4 Max Mac. **No real drum kit has been used with Nebula yet.** The checks a person can do with real gear are listed below. Endless Cockpit moved to [Body Signal Labs](https://github.com/patrickiben/body-signal-labs) on 2026-11-03, and its checks moved with it.
+
+## Follow-up reliability review, 2026-11-04
+
+The repaired failure cases and next improvements are recorded in [REVIEW.md](REVIEW.md).
+
+- `tests/session_integrity.js`: **19/19**. Invalid event/lane/spectrum data is rejected before replacing a replay; a newly recorded session round-trips; replay reproduces its stored spectrum without live/idle analysis modifying it.
+- `tests/displacer_async.js`: **5/5**. Sweep exports and blended Genopatch targets retain their requested sample rate, and source loading respects the newest choice independently for A and B.
+- `tests/enter_depth_requests.js`: **2/2**. Concurrent depth replies reach their own callers; stopping the processor rejects pending work. Worker transport is simulated, without a model download.
+- `tests/media_import_order.js`: **10/10**. Slow picture/sound decodes and atom extraction cannot overwrite newer Nebula/Enter sources, captures or built-ins. These are deterministic completion-order checks.
+- `tests/chimera_patch_roundtrip.py`: **8/8** actual browser file/link checks, including Garden sound restoration, legacy Morph links, finite built-in presets, Unicode/literal names and malformed genomes.
+- `tests/enter_import_states.py`: **3/3** browser checks for literal filenames, latest-picture completion and returning to the painted scene. Depth estimation is stubbed, not a new model-accuracy test.
+- `tests/session_video.py`: **18/18**. Two back-to-back real Nebula recordings downloaded and decoded as video plus audio (audio RMS 0.179 and 0.161). Completed capture tracks stopped, the original audio source stayed live, and both constructor and asynchronous encoder failures still allowed session JSON export. The failure paths are deliberately simulated.
+
+The deterministic session/import checks now run in CI. These repairs do not validate real MIDI hardware or establish the perceptual quality of invented audio detail.
 
 ## Nebula: input states
 
@@ -86,7 +100,7 @@ Not tested: Safari, Firefox, Edge, phone hardware, a real browser without WebGPU
 
 ## Chimera Synth
 
-Checked on 2026-11-02 and 2026-11-03 in Chrome on the same Apple M4 Max Mac. **No real keyboard and no outside visitor has played it yet.** Since 2026-11-03 it has no drum kit, at the author's word: MIDI notes play as keys on every channel.
+Checked between 2026-11-02 and 2026-11-04 in Chrome on the same Apple M4 Max Mac. **No real keyboard and no outside visitor has played it yet.** Since 2026-11-03 it has no drum kit, at the author's word: MIDI notes play as keys on every channel.
 
 `tests/chimera_states.py` passed 39 of 39, all by real clicks and keys:
 

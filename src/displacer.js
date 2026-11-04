@@ -268,6 +268,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   document.body.insertAdjacentHTML('beforeend', '<input type="file" id="file-A" accept="audio/*,.aif,.aiff,.aifc" hidden><input type="file" id="file-B" accept="audio/*,.aif,.aiff,.aifc" hidden>');
 
   /* ---------- sources ---------- */
+  const sourceRequests = { A: 0, B: 0 };
   function setAudio(which, obj, name, built) {
     if (which === 'A') S.srcA = obj; else S.srcB = obj;
     S.names[which] = name; S.built[which] = built;
@@ -275,7 +276,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     S.lastRender = null; S.audDirty = true;
     sourcesChanged();
   }
-  function loadBuiltIn() { setAudio('A', synthVoice(), 'Sung ah', true); setAudio('B', synthBells(), 'Glass bells', true); }
+  function loadBuiltIn() { sourceRequests.A++; sourceRequests.B++; setAudio('A', synthVoice(), 'Sung ah', true); setAudio('B', synthBells(), 'Glass bells', true); }
   let distCache = { key: '', hA: null, hB: null };
   function sourcesChanged() {
     S.ver++;
@@ -306,11 +307,14 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     if (!f) return;
     if (!isSoundFile(f)) { shell.toast(isImageFile(f) ? `${f.name} is a picture. Displacer blends two sounds.` : `${f.name} is not a sound.`); return; }
     if (!which) which = S.built.A ? 'A' : 'B';
+    const request = ++sourceRequests[which];
     busy(`Reading ${f.name}`);
     try {
-      setAudio(which, await decodeSound(f), f.name, false);
+      const sound = await decodeSound(f);
+      if (request !== sourceRequests[which]) return;
+      setAudio(which, sound, f.name, false);
       shell.toast(`${which}: ${f.name}`);
-    } catch (err) { shell.toast(`${f.name} was not loaded: ${err.message}.`, 5200); }
+    } catch (err) { if (request !== sourceRequests[which]) return; shell.toast(`${f.name} was not loaded: ${err.message}.`, 5200); }
     busy(null);
   }
 
@@ -853,8 +857,9 @@ void main(){
     if (!S.audA || !S.audB) return null;
     if (S.gp.source === 'A') return { data: S.audA, rate: S.audRate };
     if (S.gp.source === 'B') return { data: S.audB, rate: S.audRate };
-    const r = await work({ type: 'audio', A: S.audA.slice(), B: S.audB.slice(), rate: S.audRate, t: S.t, method: 'ot', phasemode: S.phasemode, mpMix: S.mpMix, xlaw: S.xlaw, fx: NOFX });
-    return r.error ? null : { data: r.data, rate: S.audRate };
+    const rate = S.audRate;
+    const r = await work({ type: 'audio', A: S.audA.slice(), B: S.audB.slice(), rate, t: S.t, method: 'ot', phasemode: S.phasemode, mpMix: S.mpMix, xlaw: S.xlaw, fx: NOFX });
+    return r.error ? null : { data: r.data, rate };
   }
   function drawGP(target, resyn, progress) {
     const c = $('gp-spec').getContext('2d'), w = c.canvas.width, h = c.canvas.height, lf0 = Math.log(40), lf1 = Math.log(11025);
@@ -947,10 +952,12 @@ void main(){
   }
   async function saveSweep() {
     if (!S.audA || !S.audB) return;
+    const rate = S.audRate, name = `${tag().replace(/_t\d+$/, '')}_sweep_A_to_B.wav`;
     busy('Rendering the sweep');
-    const r = await work({ type: 'audio', sweep: true, A: S.audA.slice(), B: S.audB.slice(), rate: S.audRate, t: 0, method: S.method, phasemode: S.phasemode, mpMix: S.mpMix, xlaw: S.xlaw, fx: S.fx });
+    const r = await work({ type: 'audio', sweep: true, A: S.audA.slice(), B: S.audB.slice(), rate, t: 0, method: S.method, phasemode: S.phasemode, mpMix: S.mpMix, xlaw: S.xlaw, fx: S.fx });
     busy(null);
-    if (!r.error) download(new Blob([E.encodeWav(r.data, S.audRate)], { type: 'audio/wav' }), `${tag().replace(/_t\d+$/, '')}_sweep_A_to_B.wav`);
+    if (!r.error) download(new Blob([E.encodeWav(r.data, rate)], { type: 'audio/wav' }), name);
+    else shell.toast(`The sweep could not render: ${r.error}`);
   }
   async function savePoster() {
     const w = 1600, h = 900, c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d');
@@ -1054,7 +1061,7 @@ void main(){
     if (!hasFiles(e)) return;
     e.preventDefault(); dragDepth = 0; drop.hidden = true;
     const files = [...e.dataTransfer.files];
-    if (files.length >= 2) { await loadFile(files[0], 'A'); await loadFile(files[1], 'B'); }
+    if (files.length >= 2) await Promise.all([loadFile(files[0], 'A'), loadFile(files[1], 'B')]);
     else await loadFile(files[0], e.clientX > innerWidth / 2 ? 'B' : 'A');
   });
 

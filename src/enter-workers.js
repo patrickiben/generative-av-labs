@@ -13,8 +13,8 @@
   };
 
   const DEPTH_SRC = `
-let ort, session;
-onmessage = async (e) => {
+let ort, session, queue = Promise.resolve();
+onmessage = (e) => { queue = queue.then(async () => {
   const m = e.data;
   try {
     if (m.type === 'load') {
@@ -25,15 +25,15 @@ onmessage = async (e) => {
       ort.env.wasm.numThreads = self.crossOriginIsolated ? Math.min(4, navigator.hardwareConcurrency || 1) : 1;
       ort.env.logLevel = 'error';
       session = await ort.InferenceSession.create(new Uint8Array(m.model), { executionProviders: m.gpu ? ['webgpu'] : ['wasm'] });
-      postMessage({ type: 'ready', ms: performance.now() - t0, threads: ort.env.wasm.numThreads });
+      postMessage({ id: m.id, type: 'ready', ms: performance.now() - t0, threads: ort.env.wasm.numThreads });
     } else if (m.type === 'run') {
       const t0 = performance.now();
       const out = await session.run({ [session.inputNames[0]]: new ort.Tensor('float32', m.data, [1, 3, m.h, m.w]) });
       const d = out[session.outputNames[0]], a = new Float32Array(d.data);
-      postMessage({ type: 'depth', ms: performance.now() - t0, dims: d.dims, data: a }, [a.buffer]);
+      postMessage({ id: m.id, type: 'depth', ms: performance.now() - t0, dims: d.dims, data: a }, [a.buffer]);
     }
-  } catch (err) { postMessage({ type: 'error', msg: String((err && err.message) || err) }); }
-};`;
+  } catch (err) { postMessage({ id: m.id, type: 'error', msg: String((err && err.message) || err) }); }
+}); };`;
 
   const hex = (buf) => [...new Uint8Array(buf)].map((x) => x.toString(16).padStart(2, '0')).join('');
 
@@ -76,18 +76,25 @@ onmessage = async (e) => {
   }
 
   function createDepth(onState) {
-    let worker = null, path = null, loading = null;
+    let worker = null, path = null, loading = null, callSeq = 0;
+    const calls = new Map();
+    const stopWorker = (message) => {
+      if (worker) worker.terminate(); worker = null;
+      for (const p of calls.values()) p.rej(new Error(message || 'Depth processing stopped.'));
+      calls.clear();
+    };
     const call = (msg, transfer) => new Promise((res, rej) => {
-      worker.onmessage = (e) => { if (e.data.type === 'error') rej(new Error(e.data.msg)); else res(e.data); };
-      worker.onerror = (e) => rej(new Error(e.message || 'the worker failed'));
-      worker.postMessage(msg, transfer || []);
+      if (!worker) { rej(new Error('The depth worker is not ready.')); return; }
+      const id = ++callSeq; calls.set(id, { res, rej });
+      try { worker.postMessage({ ...msg, id }, transfer || []); }
+      catch (e) { calls.delete(id); rej(e); }
     });
     let force = null;
     const pick = async () => { const p = await pickPath(); return force ? { ...p, key: 'cpu', ...PATHS.cpu } : p; };
     const api = {
       PATHS, MODEL_BASE, CDN,
       pickPath: pick,
-      forceCpu() { force = 'cpu'; if (worker) { worker.terminate(); worker = null; } },
+      forceCpu() { force = 'cpu'; stopWorker('The depth processor changed.'); },
       async stored() {
         const cache = await openCache(); if (!cache) return null;
         const p = path || await pick();
@@ -95,7 +102,7 @@ onmessage = async (e) => {
       },
       async clear() {
         try { if (global.caches) await global.caches.delete('enter-depth-v1'); } catch (e) { /* nothing stored */ }
-        if (worker) { worker.terminate(); worker = null; }
+        stopWorker('The depth model was removed.');
         loading = null; path = null;
       },
       get path() { return path; },
@@ -116,13 +123,19 @@ onmessage = async (e) => {
             grab(MODEL_BASE + path.model.file, path.model.bytes, path.model.sha, (n) => { gotM = n; tick(); }, stop.signal),
           ]).catch((e) => { dead = true; stop.abort(); throw e; });
           onState({ state: 'loading', cached: wasm.cached && model.cached });
-          worker = new Worker(URL.createObjectURL(new Blob([DEPTH_SRC], { type: 'text/javascript' })));
+          const url = URL.createObjectURL(new Blob([DEPTH_SRC], { type: 'text/javascript' }));
+          worker = new Worker(url); URL.revokeObjectURL(url);
+          worker.onmessage = (e) => {
+            const p = calls.get(e.data.id); if (!p) return; calls.delete(e.data.id);
+            if (e.data.type === 'error') p.rej(new Error(e.data.msg)); else p.res(e.data);
+          };
+          worker.onerror = (e) => stopWorker(e.message || 'The depth worker failed.');
           const r = await call({ type: 'load', cdn: CDN, js: path.runtime.js, gpu: path.key !== 'cpu', wasm: wasm.ab, model: model.ab }, [wasm.ab, model.ab]);
           path.cached = wasm.cached && model.cached;
           path.loadMs = r.ms; path.threads = r.threads;
           loading = null;
           return path;
-        })().catch((e) => { loading = null; if (worker) { worker.terminate(); worker = null; } throw e; });
+        })().catch((e) => { loading = null; stopWorker('Depth loading failed.'); throw e; });
         return loading;
       },
       // Picture to normalized inverse depth, at the picture's own proportions. 1 is near, as on the desktop worker.

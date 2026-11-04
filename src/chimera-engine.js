@@ -23,6 +23,7 @@ const ANIMALS=[
   {key:"dolphin",nm:"Bottlenose Dolphin",emoji:"🐬", f0:880, wave:"sine", ratio:2.0, fm:0.55, noise:0.15, hue:190, F:[[4200,10,1],[7600,12,.55],[11000,12,.25]]}
 ];
 const idx=k=>ANIMALS.findIndex(a=>a.key===k);
+const chimeraHtml = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
 /* ============================== STATE ============================== */
 const ST={ A:0, B:1, t:0, playing:false,
@@ -352,7 +353,7 @@ function applyLive(){
 const animalsEl=document.getElementById('animals');
 let TAP_SETS='A';
 function renderAnimals(){
-  animalsEl.innerHTML=ANIMALS.map((a,i)=>`<button class="anim${i===ST.A?' selA':''}${i===ST.B?' selB':''}" data-i="${i}" aria-pressed="${i===ST.A||i===ST.B}" aria-label="${a.nm}${i===ST.A?', animal A':''}${i===ST.B?', animal B':''}"><span class="emoji" aria-hidden="true">${a.emoji}</span><canvas class="glyph" data-i="${i}" aria-hidden="true"></canvas><span class="nm">${a.nm}</span>${a.sample?'<span class="tag">sample</span>':''}<span class="ab" aria-hidden="true">${i===ST.A?'A':''}${i===ST.B?'B':''}</span></button>`).join('');
+  animalsEl.innerHTML=ANIMALS.map((a,i)=>`<button class="anim${i===ST.A?' selA':''}${i===ST.B?' selB':''}" data-i="${i}" aria-pressed="${i===ST.A||i===ST.B}" aria-label="${chimeraHtml(a.nm)}${i===ST.A?', animal A':''}${i===ST.B?', animal B':''}"><span class="emoji" aria-hidden="true">${a.emoji}</span><canvas class="glyph" data-i="${i}" aria-hidden="true"></canvas><span class="nm">${chimeraHtml(a.nm)}</span>${a.sample?'<span class="tag">sample</span>':''}<span class="ab" aria-hidden="true">${i===ST.A?'A':''}${i===ST.B?'B':''}</span></button>`).join('');
   if(window.drawGlyphs) window.drawGlyphs();
 }
 animalsEl.addEventListener('click',e=>{ const b=e.target.closest('.anim'); if(!b) return; const i=+b.dataset.i;
@@ -517,7 +518,7 @@ function curate(text){
   document.getElementById('k-sublvl').value=best.sub; document.getElementById('v-sub').textContent=((best.sub-100)/3).toFixed(0)+" dB";
   refreshMorphLabels(); renderAnimals();
   if(ST.playing)startGraph(); else applyLive();
-  document.getElementById('vibeout').innerHTML=(bestN?`Matched ${bestN} keyword${bestN===1?'':'s'}: <b>${ANIMALS[ST.A].nm}</b> into <b>${ANIMALS[ST.B].nm}</b> at t = ${best.t}, grit ${best.drive} %.`:`No keyword matched, so it chose the swamp preset: <b>${ANIMALS[ST.A].nm}</b> into <b>${ANIMALS[ST.B].nm}</b>.`)+` A keyword matcher, not a language model.`;
+  document.getElementById('vibeout').innerHTML=(bestN?`Matched ${bestN} keyword${bestN===1?'':'s'}: <b>${chimeraHtml(ANIMALS[ST.A].nm)}</b> into <b>${chimeraHtml(ANIMALS[ST.B].nm)}</b> at t = ${best.t}, grit ${best.drive} %.`:`No keyword matched, so it chose the swamp preset: <b>${chimeraHtml(ANIMALS[ST.A].nm)}</b> into <b>${chimeraHtml(ANIMALS[ST.B].nm)}</b>.`)+` A keyword matcher, not a language model.`;
 }
 document.getElementById('vibe').addEventListener('keydown',e=>{if(e.key==='Enter')curate(e.target.value);});
 document.querySelectorAll('.quickvibes button').forEach(b=>b.onclick=()=>{document.getElementById('vibe').value=b.dataset.v;curate(b.dataset.v);});
@@ -885,7 +886,11 @@ function dlBlob(blob,name){ const u=URL.createObjectURL(blob); const a=document.
 function dl(name,text,type){ dlBlob(new Blob([text],{type:type||'application/octet-stream'}),name); }
 /* ============================== PATCH SAVE / LOAD / SHARE ============================== */
 const clampv=(v,a,b,d)=> (typeof v==='number'&&isFinite(v))?Math.max(a,Math.min(b,v)):d;
-function serializePatch(){ const s=ST; return {v:2,app:'biobass',
+let PATCH_LOADED_MODE = null;
+function serializePatch(){ const s=ST; return {v:3,app:'biobass',
+  mode:s.genomeMode?'garden':'morph',
+  garden:s.genomeMode?{genome:Array.from(GENOME||GARDEN.seed),amount:GARDEN.amount,temp:GARDEN.temp,perNote:!!GARDEN.perNote}:null,
+  sampleRequired:s.sampleMode==='osc',
   A:s.A,B:s.B,Akey:ANIMALS[s.A].key,Bkey:ANIMALS[s.B].key,cornerKeys:s.corners.map(i=>ANIMALS[i].key),t:s.t,oct:s.oct,phase:s.phase,subLvl:s.subLvl,drive:s.drive,ott:s.ott,fizz:s.fizz,wubRate:s.wubRate,wubDepth:s.wubDepth,glide:s.glide,
   env:{a:s.env.a,d:s.env.d,s:s.env.s,r:s.env.r},corners:s.corners.slice(),uv:{u:s.uv.u,v:s.uv.v},pad:s.pad,
   crushOn:s.crushOn,crushBits:s.crushBits,crushDown:s.crushDown,spaceWet:s.spaceWet,verbDecay:s.verbDecay,delayMs:s.delayMs,delayFB:s.delayFB,
@@ -913,7 +918,12 @@ function syncUI(){
 }
 function applyPatch(p){
   if(!p||p.app!=='biobass') return false;
+  const garden=p.mode==='garden'?p.garden:null;
+  if(p.mode==='garden'&&(!garden||!Array.isArray(garden.genome)||garden.genome.length!==GN||garden.genome.some(v=>typeof v!=='number'||!isFinite(v)||v<0||v>1))) return false;
   const s=ST;
+  // A saved oscillator reference cannot silently reuse an unrelated sample already open in this tab.
+  s.sampleMode='off'; s.sampleBuf=null; s.genomeMode=false;
+  $('samp-status').textContent=p.sampleRequired?'This patch used a raw sample oscillator. Load its audio file again; patch files and links contain settings only.':'Patch uses synthesis. No raw sample oscillator is loaded.';
   // reconstruct an imported 'sample' animal from EXTRACTED params only (never audio) before clamping A/B
   if(p.sampleAnimal && Array.isArray(p.sampleAnimal.F)){ const sa=p.sampleAnimal;
     ensureSampleAnimal({key:'sample',nm:String(sa.nm||'Your Sample').slice(0,24),emoji:'🎤',
@@ -940,6 +950,15 @@ function applyPatch(p){
   s.voices=clampv(p.voices,1,5,1)|0; s.detune=clampv(p.detune,0,50,0); s.spread=clampv(p.spread,0,1,0);
   s.chord=(['off','5th','minor','major'].indexOf(p.chord)>=0?p.chord:'off');
   syncUI(); reseed(s.seed); refreshMorphLabels(); renderAnimals(); renderSeq(); updateChips();
+  PATCH_LOADED_MODE=garden?'garden':'morph';
+  if(garden){
+    GARDEN.grow=false; GARDEN.amount=clampv(garden.amount,0,1,.6); GARDEN.temp=clampv(garden.temp,0,1,.35); GARDEN.perNote=!!garden.perNote;
+    plantSeed(garden.genome,true); syncGrow(); setSwitch('g-pernote',GARDEN.perNote);
+    $('g-amount').value=Math.round(GARDEN.amount*100); $('g-amount-v').textContent=$('g-amount').value+'%';
+    $('g-temp').value=Math.round(GARDEN.temp*100); $('g-temp-v').textContent=$('g-temp').value+'%';
+  }
+  if(window.chimeraSetMode) chimeraSetMode(PATCH_LOADED_MODE);
+  enterGenomeMode(!!garden);
   if(ST.playing){ startGraph(); } else applyLive();   // startGraph re-applies crush + rebuilds with new patch
   s.monoValid=false;                                    // validator must re-measure, never trust a loaded value
   return true;
@@ -959,12 +978,15 @@ function mutate(){ const j=(v,amt,a,b)=>Math.max(a,Math.min(b,v+(rng()*2-1)*amt)
 }
 $('patch-save').onclick=()=>dl('chimera_'+ANIMALS[ST.A].key+'-x-'+ANIMALS[ST.B].key+'.patch.json', JSON.stringify(serializePatch(),null,2),'application/json');
 $('patch-load').onclick=()=>$('patch-file').click();
-$('patch-file').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ try{ if(!applyPatch(JSON.parse(r.result))) toast('That file is not a Chimera patch.'); else toast('Patch loaded.'); }catch(err){ toast('Could not read that patch: '+err.message); } }; r.readAsText(f); e.target.value=''; });
-$('patch-link').onclick=()=>{ try{ history.replaceState(null,'','#p='+encodeURIComponent(btoa(JSON.stringify(serializePatch()))));
-  const ok=()=>toast('Share link copied. The whole patch is in it, and nothing was uploaded.'), no=()=>toast('The share link is in the address bar now. Copy it from there.');
+$('patch-file').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ try{ if(!applyPatch(JSON.parse(r.result))) toast('That file is not a Chimera patch.'); else toast(patchLoadMessage()); }catch(err){ toast('Could not read that patch: '+err.message); } }; r.readAsText(f); e.target.value=''; });
+function patchLoadMessage(){ return ST.sampleMode==='off'&&$('samp-status').textContent.startsWith('This patch used')?'Patch settings loaded. Reload the raw sample audio to restore its oscillator.':'Patch loaded.'; }
+function patchToBase64(p){ const bytes=new TextEncoder().encode(JSON.stringify(p)); let bin=''; for(const b of bytes)bin+=String.fromCharCode(b); return btoa(bin); }
+function patchFromBase64(value){ const bin=atob(value), bytes=Uint8Array.from(bin,c=>c.charCodeAt(0)); let text; try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch(e){text=bin;} return JSON.parse(text); }
+$('patch-link').onclick=()=>{ try{ history.replaceState(null,'','#p='+encodeURIComponent(patchToBase64(serializePatch())));
+  const ok=()=>toast('Share link copied. The seed and settings are in it; raw sample audio is not included. Nothing was uploaded.'), no=()=>toast('The share link is in the address bar now. Copy it from there.');
   if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(location.href).then(ok,no); else no(); }catch(e){ toast('Could not make a link: '+e.message); } };
 $('patch-mut').onclick=mutate;
-function loadFromHash(){ if(location.hash.startsWith('#p=')){ try{ const p=JSON.parse(atob(decodeURIComponent(location.hash.slice(3)))); applyPatch(p); }catch(e){} } }
+function loadFromHash(){ if(location.hash.startsWith('#p=')){ try{ const p=patchFromBase64(decodeURIComponent(location.hash.slice(3))); return applyPatch(p); }catch(e){} } }
 /* ============================== BOOT ============================== */
 // Browsers start audio only after a gesture, so the context is made on the first click that needs sound.
 // OUT is the master volume, between every graph and the speakers, and the tap the recorder listens to.

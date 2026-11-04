@@ -117,6 +117,40 @@
   }
 
   function bandFreq(i) { return FMIN * Math.pow(FMAX / FMIN, (i + 0.5) / BANDS); }
+
+  // Check the complete import before it can replace live input or reach the animation loop.
+  function validateSession(s) {
+    const invalid = () => { throw new Error('This session is incomplete or has invalid events. Open an unedited session saved by Nebula.'); };
+    const number = (v, lo, hi = Infinity) => Number.isFinite(v) && v >= lo && v <= hi;
+    if (!s || !/\/session@1$/.test(s.schema || '') || !number(s.durationMs, 0) ||
+        !Array.isArray(s.hits) || !Array.isArray(s.ctrl) ||
+        (s.bands != null && s.bands !== BANDS) ||
+        (s.frameRate != null && !number(s.frameRate, 1, 240))) invalid();
+    const ordered = (events, time, valid) => {
+      let last = -1;
+      for (const e of events) {
+        if (!e) invalid();
+        const t = time(e);
+        if (!number(t, 0, s.durationMs + 1) || t < last || !valid(e)) invalid();
+        last = t;
+      }
+    };
+    ordered(s.hits, h => h.t, h => Object.hasOwn(PAD, h.pad) && h.voice === PAD[h.pad].voice &&
+      number(h.vel, 0, 1) && (h.note == null || (Number.isInteger(h.note) && number(h.note, 0, 127))));
+    ordered(s.ctrl, c => c.t, c => c.k === 'pedal' ? number(c.v, 0, 127) :
+      c.k === 'choke' && (c.v === 'crash' || c.v === 'ride'));
+    if (s.lanes != null && (typeof s.lanes !== 'object' || Array.isArray(s.lanes))) invalid();
+    for (const [name, lane] of Object.entries(s.lanes || {})) {
+      if (!Array.isArray(lane)) invalid();
+      ordered(lane, p => p[0], p => Array.isArray(p) && p.length === 2 &&
+        (name === 'shape' ? p[1] === 0 || p[1] === 1 : name === 'mode' ? ['field', 'form'].includes(p[1]) : true));
+    }
+    if (typeof s.spectrumBase64 !== 'string') invalid();
+    let bin;
+    try { bin = atob(s.spectrumBase64); } catch (_) { invalid(); }
+    if (bin.length % BANDS) invalid();
+    return Uint8Array.from(bin, c => c.charCodeAt(0));
+  }
   function bump(center, widthOct, gain) {
     const out = new Float32Array(BANDS);
     for (let i = 0; i < BANDS; i++) {
@@ -589,10 +623,8 @@ registerProcessor('kit-onset',KitOnset);`;
       return out;
     };
     kit.startReplay = (s) => {
-      if (!s || !/\/session@1$/.test(s.schema || '')) throw new Error('This is not a session file from these pages.');
+      const frames = validateSession(s);
       if (demo) kit.stopDemo();
-      const bin = atob(s.spectrumBase64 || ''), frames = new Uint8Array(bin.length);
-      for (let i = 0; i < bin.length; i++) frames[i] = bin.charCodeAt(i);
       replay = { s, frames, t0: performance.now(), hi: 0, ci: 0, lanes: Object.entries(s.lanes || {}).map(([k, v]) => ({ k, v, i: 0 })) };
       if (micNode) { try { micNode.disconnect(); } catch (e) { /* not connected */ } }
       notifyState();
@@ -665,7 +697,7 @@ registerProcessor('kit-onset',KitOnset);`;
         env[k] *= Math.exp(-dt / tau);
       });
       if (replay) stepReplay(now);
-      const analysed = readAnalyser(dt);
+      const analysed = replay ? false : readAnalyser(dt);
       const flowing = replay || (analysed && (demo || now - lastSignal < LIVE_HOLD_MS));
       for (let i = 0; i < BANDS; i++) {
         let v = flowing ? audioSpec[i] : 0;

@@ -469,30 +469,35 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
   $('morph').addEventListener('input', (e) => { S.perform = false; syncPerform(); setMorph(+e.target.value / 100); });
   function syncPerform() { $('form-perform').textContent = `Slow sweep: ${S.perform ? 'on' : 'off'}`; $('form-perform').classList.toggle('on', S.perform); }
   $('form-perform').addEventListener('click', () => { S.perform = !S.perform; S.performT = 0; syncPerform(); });
+  const formRequests = { picture: 0, sound: 0 };
   $('form-image').addEventListener('click', () => $('form-image-file').click());
   $('form-sound').addEventListener('click', () => $('form-sound-file').click());
   $('form-image-file').addEventListener('change', (e) => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-    const img = new Image();
-    img.onload = () => { F.picture = img; F.pictureName = f.name; liftMatch(); URL.revokeObjectURL(img.src); };
-    img.onerror = () => { $('form-status').textContent = 'That file could not be read as a picture.'; };
-    img.src = URL.createObjectURL(f);
+    const request = ++formRequests.picture, img = new Image(), url = URL.createObjectURL(f);
+    img.onload = () => { URL.revokeObjectURL(url); if (request !== formRequests.picture) return; F.picture = img; F.pictureName = f.name; liftMatch(); };
+    img.onerror = () => { URL.revokeObjectURL(url); if (request === formRequests.picture) $('form-status').textContent = 'That file could not be read as a picture.'; };
+    img.src = url;
   });
   $('form-sound-file').addEventListener('change', async (e) => {
     const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    const request = ++formRequests.sound;
     $('form-status').textContent = `Reading ${f.name}.`;
     try {
       const ac = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 2, 44100);
       const buf = await ac.decodeAudioData(await f.arrayBuffer());
+      if (request !== formRequests.sound) return;
       const mono = new Float32Array(Math.min(buf.length, buf.sampleRate * 20));
       for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < mono.length; i++) mono[i] += d[i] / buf.numberOfChannels; }
       const r = await workerCall({ type: 'atoms', data: mono, rate: buf.sampleRate, k: 600 });
+      if (request !== formRequests.sound) return;
       F.sound = { atoms: r.result.atoms, dur: r.result.dur, rate: buf.sampleRate };
       F.soundName = f.name;
       liftMatch();
-    } catch (err) { $('form-status').textContent = `That file could not be decoded: ${err.message}`; }
+    } catch (err) { if (request === formRequests.sound) $('form-status').textContent = `That file could not be decoded: ${err.message}`; }
   });
   $('form-capture').addEventListener('click', () => {
+    formRequests.sound++;
     const h = historyAtoms();
     if (h.atoms.length < 24) { $('form-status').textContent = 'There is not enough recent sound yet. Play for a few seconds, or run the demo, and try again.'; return; }
     F.sound = { atoms: h.atoms, dur: h.dur, rate: 44100 };

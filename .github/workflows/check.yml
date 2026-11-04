@@ -29,5 +29,11 @@ jobs:
         run: |
           node tests/analog_forge.js
           node tests/displacer_resampling.js
+      - name: Session imports and concurrent audio/depth requests
+        run: |
+          node tests/session_integrity.js
+          node tests/displacer_async.js
+          node tests/enter_depth_requests.js
+          node tests/media_import_order.js
       - run: pip install playwright && playwright install --with-deps chromium
       - run: python3 tests/smoke.py
