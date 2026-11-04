@@ -719,7 +719,13 @@ onmessage = (e) => {
     let top = -Infinity;
     lines.forEach((l) => l.f.forEach((f, i) => { if (f >= o.lo && f <= o.hi && l.d[i] > top) top = l.d[i]; }));
     top = Math.ceil((top + 4) / 10) * 10; const bot = top - 100, fy = (d) => T + ((top - clamp(d, bot, top)) / (top - bot)) * ph;
-    (o.bands || []).forEach((b) => { x.fillStyle = b.color; x.fillRect(fx(Math.max(b.lo, o.lo)), T, fx(Math.min(b.hi, o.hi)) - fx(Math.max(b.lo, o.lo)), ph); if (b.label) muted(x, b.label, fx(Math.max(b.lo, o.lo)) + 5, T + 12); });
+    x.font = `10px ${SANS}`;
+    (o.bands || []).forEach((b) => {
+      const bx = fx(Math.max(b.lo, o.lo));
+      x.fillStyle = b.color; x.fillRect(bx, T, fx(Math.min(b.hi, o.hi)) - bx, ph);
+      // on a narrow chart a band's name would run into the legend, so it drops to a second row
+      if (b.label) muted(x, b.label, bx + 5, bx + 5 + x.measureText(b.label).width > L + pw - 100 ? T + 26 : T + 12);
+    });
     x.strokeStyle = 'rgba(191, 194, 236, 0.10)'; x.lineWidth = 1;
     for (let d = top; d >= bot; d -= 20) { const y = Math.round(fy(d)) + 0.5; x.beginPath(); x.moveTo(L, y); x.lineTo(L + pw, y); x.stroke(); muted(x, `${d}`, L - 5, y + 3, 'right'); }
     const step = o.hi - o.lo > 12000 ? 5000 : o.hi - o.lo > 5000 ? 2000 : 1000;
