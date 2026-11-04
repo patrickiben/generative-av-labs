@@ -10,6 +10,11 @@ body[data-app="analog"] .mode-switch button { padding: 10px 20px; font-size: 11p
 #source-label { max-width: 44vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #chip-proc { max-width: 64vw; }   /* the engine's label fits whole on a phone: "SBR · synthesized above 11.0 kHz" */
 
+/* Play stays on the stage: once a file is open the intro and its Start button are gone, and a phone has no keys */
+#hud-play { pointer-events: auto; align-self: center; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px 0 14px; border-radius: 22px; border: 1px solid rgba(184, 183, 255, 0.28); background: rgba(184, 183, 255, 0.12); color: var(--ink); font: inherit; font-size: 14px; cursor: pointer; }
+#hud-play svg { width: 18px; height: 18px; fill: currentColor; }
+#hud-play[aria-pressed="true"] { background: rgba(246, 223, 176, 0.16); border-color: rgba(246, 223, 176, 0.42); }
+@media (max-width: 520px) { #hud-play { padding: 0 13px; } #hud-play span { display: none; } }
 #ab-toggle { pointer-events: auto; display: grid; justify-items: center; padding: 4px 18px 6px; border-radius: 20px; color: var(--ink); transition: background 0.2s; }
 #ab-toggle:hover { background: rgba(184, 183, 255, 0.08); }
 #ab-toggle .v { font-family: var(--serif); font-weight: 400; min-width: 1.2em; }

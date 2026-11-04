@@ -623,6 +623,10 @@ onmessage = (e) => {
     p.setAttribute('aria-pressed', String(!!nodes));
     p.querySelector('svg').innerHTML = nodes ? '<rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/>' : '<path d="M7 5v14l11-7z"/>';
     $('listen-play-b').textContent = nodes ? 'Stop' : 'Play';
+    const hp = $('hud-play');
+    hp.setAttribute('aria-pressed', String(!!nodes)); hp.setAttribute('aria-label', nodes ? 'Stop' : 'Play');
+    hp.querySelector('svg').innerHTML = p.querySelector('svg').innerHTML;
+    $('hud-play-b').textContent = nodes ? 'Stop' : 'Play';
     $('listen-play-cap').textContent = nodes ? (S.loop ? 'Looping' : 'Playing once') : S.res && S.res.selective ? 'The range' : 'From the start';
   }
   function renderGauges() {
@@ -859,6 +863,7 @@ onmessage = (e) => {
 
   $('start-listen').addEventListener('click', () => { play(); cv.focus({ preventScroll: true }); });   // the button fades, so Space goes on to flip A and B
   $('listen-play').addEventListener('click', togglePlay);
+  $('hud-play').addEventListener('click', togglePlay);
   $('ab-toggle').addEventListener('click', () => flip());
   $('side-a').addEventListener('click', () => flip('A'));
   $('side-b').addEventListener('click', () => flip('B'));

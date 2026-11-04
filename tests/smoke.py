@@ -51,6 +51,25 @@ with sync_playwright() as p:
     pg.click('#start-listen'); pg.wait_for_timeout(600); pg.keyboard.press('Space'); pg.wait_for_timeout(200)
     if pg.evaluate('__app.side') != 'B' or not pg.evaluate('__app.playing'): bad.append('analog.html: A/B did not play and flip')
     if pg.evaluate("typeof createKit") != 'undefined' or pg.query_selector('#connect-button'): bad.append('analog.html: drum input is on the page')
+    # your own file on a phone: open it by tapping, then it must still be playable by tapping, with no keyboard
+    import math, struct, tempfile, wave
+    own = Path(tempfile.mkdtemp()) / 'own.wav'
+    with wave.open(str(own), 'wb') as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(44100)
+        w.writeframes(b''.join(struct.pack('<h', int(8000 * math.sin(2 * math.pi * 220 * n / 44100))) for n in range(44100 * 2)))
+    phone = b.new_context(**p.devices['Pixel 7']).new_page(); phone.set_default_timeout(120000)
+    phone.goto(f'http://127.0.0.1:{srv.server_port}/analog.html', timeout=120000)
+    phone.wait_for_function('window.__app && __app.result && !__app.busy', timeout=120000)
+    with phone.expect_file_chooser() as fc: phone.tap('#open-button')
+    fc.value.set_files(str(own))
+    phone.wait_for_function("__app.source.name === 'own.wav' && __app.result && !__app.busy", timeout=120000)
+    phone.wait_for_timeout(1200)
+    phone.tap('#hud-play', timeout=5000); phone.wait_for_timeout(500)
+    if not phone.evaluate('__app.playing'): bad.append('analog.html: your own file cannot be played by tapping on a phone')
+    phone.tap('#ab-toggle', timeout=5000); phone.wait_for_timeout(200)
+    if phone.evaluate('__app.side') != 'B': bad.append('analog.html: A/B does not flip by tapping on a phone')
+    phone.tap('#hud-play', timeout=5000); phone.wait_for_timeout(300)
+    if phone.evaluate('__app.playing'): bad.append('analog.html: Stop does not stop')
     if errors: bad.append(f'analog.html: {errors[0]}')
     print(f'analog.html: cutoff {r["fc"]:.0f} Hz, bandwidth after {r["metrics"]["bw_after"]:.0f} Hz, {len(errors)} page errors')
     b.close()
