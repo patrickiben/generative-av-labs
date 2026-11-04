@@ -402,6 +402,11 @@ body[data-app="analog"] .mode-switch button { padding: 10px 20px; font-size: 11p
 #source-label { max-width: 44vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #chip-proc { max-width: 64vw; }   /* the engine's label fits whole on a phone: "SBR · synthesized above 11.0 kHz" */
 
+/* Play stays on the stage: once a file is open the intro and its Start button are gone, and a phone has no keys */
+#hud-play { pointer-events: auto; align-self: center; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px 0 14px; border-radius: 22px; border: 1px solid rgba(184, 183, 255, 0.28); background: rgba(184, 183, 255, 0.12); color: var(--ink); font: inherit; font-size: 14px; cursor: pointer; }
+#hud-play svg { width: 18px; height: 18px; fill: currentColor; }
+#hud-play[aria-pressed="true"] { background: rgba(246, 223, 176, 0.16); border-color: rgba(246, 223, 176, 0.42); }
+@media (max-width: 520px) { #hud-play { padding: 0 13px; } #hud-play span { display: none; } }
 #ab-toggle { pointer-events: auto; display: grid; justify-items: center; padding: 4px 18px 6px; border-radius: 20px; color: var(--ink); transition: background 0.2s; }
 #ab-toggle:hover { background: rgba(184, 183, 255, 0.08); }
 #ab-toggle .v { font-family: var(--serif); font-weight: 400; min-width: 1.2em; }
@@ -1014,7 +1019,7 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
     <div class="intro">
       <p class="eyebrow" id="intro-eyebrow">Detail Forge Analog · labeled detail</p>
       <h1 id="intro-title">Brighten a dull recording, honestly.</h1>
-      <p id="intro-sub">A synthetic test sound is loaded. Listen, then flip A and B with the space bar.</p>
+      <p id="intro-sub">A synthetic test sound is loaded. Press Play, then flip A and B by tapping the letter or pressing the space bar.</p>
       <button class="pill primary start" id="start-listen">${svg('play')}Start listening</button>
     </div>
     <div id="toast" role="status"></div>
@@ -1027,6 +1032,7 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
     </div>
     <div class="dock-wrap">
       <div id="hud" class="chrome">
+        <button class="hud-play" id="hud-play" aria-pressed="false" aria-label="Play">${svg('play')}<span id="hud-play-b">Play</span></button>
         <div class="gauge"><span class="k">Cutoff</span><span class="v" id="g-cutoff">-</span></div>
         <button class="gauge hero" id="ab-toggle" aria-pressed="false" aria-label="Listening: A, source. Press to hear B, the result"><span class="k">Listening</span> <span class="v" id="g-side">A</span> <span class="ab-sub" id="g-side-name">source</span></button>
         <div class="gauge"><span class="k">Bandwidth</span><span class="v" id="g-bw">-</span></div>
@@ -1818,6 +1824,10 @@ onmessage = (e) => {
     p.setAttribute('aria-pressed', String(!!nodes));
     p.querySelector('svg').innerHTML = nodes ? '<rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/>' : '<path d="M7 5v14l11-7z"/>';
     $('listen-play-b').textContent = nodes ? 'Stop' : 'Play';
+    const hp = $('hud-play');
+    hp.setAttribute('aria-pressed', String(!!nodes)); hp.setAttribute('aria-label', nodes ? 'Stop' : 'Play');
+    hp.querySelector('svg').innerHTML = p.querySelector('svg').innerHTML;
+    $('hud-play-b').textContent = nodes ? 'Stop' : 'Play';
     $('listen-play-cap').textContent = nodes ? (S.loop ? 'Looping' : 'Playing once') : S.res && S.res.selective ? 'The range' : 'From the start';
   }
   function renderGauges() {
@@ -2054,6 +2064,7 @@ onmessage = (e) => {
 
   $('start-listen').addEventListener('click', () => { play(); cv.focus({ preventScroll: true }); });   // the button fades, so Space goes on to flip A and B
   $('listen-play').addEventListener('click', togglePlay);
+  $('hud-play').addEventListener('click', togglePlay);
   $('ab-toggle').addEventListener('click', () => flip());
   $('side-a').addEventListener('click', () => flip('A'));
   $('side-b').addEventListener('click', () => flip('B'));
