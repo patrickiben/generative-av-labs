@@ -1,7 +1,8 @@
 /* analog-dsp.js: Detail Forge Analog's signal processing, ported line by line from the desktop app's dsp.py, with the
    processing run its worker thread did (app.py, Worker.run). Plain functions on planar Float32Array channels and no
    DOM: the page runs this in a Worker, and tests/analog_numbers.py runs it under Node beside the Python original.
-   FLOOR and TRANSIENT amplify what is there; EXCITER and SBR synthesize. Nothing here recovers lost audio. */
+   FLOOR amplifies what is there; EXCITER and SBR synthesize; TRANSIENT synthesizes no band on purpose, but its moving gain
+   spreads some new energy above the cutoff. Nothing here recovers lost audio. */
 (function (root) {
   'use strict';
 

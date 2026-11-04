@@ -437,7 +437,7 @@ onmessage = (e) => {
     x.restore();
     x.strokeStyle = active ? 'rgba(184, 183, 255, 0.6)' : 'rgba(191, 194, 236, 0.17)'; x.lineWidth = 1;
     rrect(x, px + 0.5, py + 0.5, pw - 1, ph - 1, 14); x.stroke();
-    const wide = pw > 620, label = i ? (r ? `B · after · ${MODE[r.mode][0]}${wide ? `, ${syn ? 'synthesized above the cutoff' : 'amplified, nothing added'}` : ''}` : 'B · after') : `A · before${wide ? ' · the source' : ''}`;
+    const wide = pw > 620, label = i ? (r ? `B · after · ${MODE[r.mode][0]}${wide ? `, ${syn ? 'synthesized above the cutoff' : r.mode === 'transient' ? 'attacks amplified, some new highs' : 'amplified, nothing added'}` : ''}` : 'B · after') : `A · before${wide ? ' · the source' : ''}`;
     tagText(x, label, px + 10, py + 10, active ? '#eeedfb' : '#b6b9cf');
     if (fc) tagText(x, `${wide ? 'cutoff ' : ''}${int(fc)} Hz`, px + pw - 10, py + 10, '#f1cf8e', 'right');
   }
@@ -602,7 +602,7 @@ onmessage = (e) => {
     $('sel-full').disabled = !S.sel;
   }
   function chipLine(r) {
-    return { floor: 'Floor · amplified, nothing added', transient: 'Transient · attacks amplified', exciter: 'Exciter · harmonics synthesized', sbr: `SBR · synthesized above ${(r.fc / 1000).toFixed(1)} kHz` }[r.mode];
+    return { floor: 'Floor · amplified, nothing added', transient: 'Transient · amplified, some new highs', exciter: 'Exciter · harmonics synthesized', sbr: `SBR · synthesized above ${(r.fc / 1000).toFixed(1)} kHz` }[r.mode];
   }
   function renderProc() {
     const c = $('chip-proc'), busy = !!(inflight || runT || pending), r = S.res;
@@ -643,7 +643,7 @@ onmessage = (e) => {
     const r = S.res; if (!r) return;
     const M = r.metrics, syn = MODE[r.mode][1] === 'syn', set = (id, v, n, tone) => { $(id).textContent = v; $(`${id}-n`).textContent = n; $(id).dataset.tone = tone || ''; };
     set('m-bw', `${int(M.bw_before)} → ${int(M.bw_after)} Hz`, `${signed(M.bw_after - M.bw_before)} Hz · measured`);
-    set('m-hb', `${M.hb_before.toFixed(0)} → ${M.hb_after.toFixed(0)} dB`, `${signed(M.hb_after - M.hb_before)} dB ${syn ? 'synthesized' : 'amplified'} · above the cutoff`);
+    set('m-hb', `${M.hb_before.toFixed(0)} → ${M.hb_after.toFixed(0)} dB`, `${signed(M.hb_after - M.hb_before)} dB ${syn ? 'synthesized' : r.mode === 'transient' ? 'new, spread by the moving gain' : 'amplified'} · above the cutoff`);
     set('m-lsd', `${M.lsd.toFixed(2)} dB`, 'log-spectral distance below the cutoff, lower is truer', M.lsd < 3 ? 'good' : 'warn');
     set('m-nr', M.nr.verdict, `flatness ${M.nr.flatness.toFixed(3)} above the cutoff`, M.nr.ok ? 'good' : 'bad');
     set('m-gain', `${M.gain.toFixed(2)}×`, 'BS.1770 gain applied to B');
@@ -655,7 +655,7 @@ onmessage = (e) => {
   const ENGINE_NOTE = {
     floor: 'A high shelf from half the measured cutoff: the honest control. It lifts what is there and invents nothing above the cutoff.',
     exciter: 'The band above about 0.45 of the cutoff is waveshaped at four times the sample rate, so the new harmonics do not alias, then high-passed and mixed back. New content, made from what is there.',
-    transient: 'A fast envelope runs ahead of a slow one, and the difference raises the gain on attacks. It amplifies what is there and adds nothing new.',
+    transient: 'A fast envelope runs ahead of a slow one, and the difference raises the gain on attacks. It synthesizes no band on purpose, but a gain that moves this fast spreads some new energy above the cutoff; the Measured sheet shows how much.',
     sbr: 'Spectral band replication: the top octave below the cutoff is folded upward, tilted, matched in level at the seam and given fresh phase. Plausible highs, synthesized, not recovered.',
   };
   const VIZ_TITLE = { floor: 'Shelf response', exciter: 'Shaper curve', transient: 'Gain over time', sbr: 'Band replication' };
