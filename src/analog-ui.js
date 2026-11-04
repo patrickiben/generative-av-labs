@@ -63,7 +63,7 @@
     <div class="intro">
       <p class="eyebrow" id="intro-eyebrow">Detail Forge Analog · labeled detail</p>
       <h1 id="intro-title">Brighten a dull recording, honestly.</h1>
-      <p id="intro-sub">A synthetic test sound is loaded. Listen, then flip A and B with the space bar.</p>
+      <p id="intro-sub">A synthetic test sound is loaded. Press Play, then flip A and B by tapping the letter or pressing the space bar.</p>
       <button class="pill primary start" id="start-listen">${svg('play')}Start listening</button>
     </div>
     <div id="toast" role="status"></div>
@@ -76,6 +76,7 @@
     </div>
     <div class="dock-wrap">
       <div id="hud" class="chrome">
+        <button class="hud-play" id="hud-play" aria-pressed="false" aria-label="Play">${svg('play')}<span id="hud-play-b">Play</span></button>
         <div class="gauge"><span class="k">Cutoff</span><span class="v" id="g-cutoff">-</span></div>
         <button class="gauge hero" id="ab-toggle" aria-pressed="false" aria-label="Listening: A, source. Press to hear B, the result"><span class="k">Listening</span> <span class="v" id="g-side">A</span> <span class="ab-sub" id="g-side-name">source</span></button>
         <div class="gauge"><span class="k">Bandwidth</span><span class="v" id="g-bw">-</span></div>
