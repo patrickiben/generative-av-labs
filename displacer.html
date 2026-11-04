@@ -2536,7 +2536,7 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
     <p class="sheet-intro">Displacer moves mass instead of mixing it. Each blend is a stated computation, and there is no model.</p>
     <table class="maptable"><tbody>
       <tr><th>OT displacement</th><td>Pictures: each color channel's histogram moves toward B's along the intensity axis, so A is recolored and keeps its shapes. Sounds: each frame's spectrum moves along frequency, with its energy kept.</td></tr>
-      <tr><th>Spatial OT</th><td>Pixels move. Both pictures become clouds of position and color, matched by sliced optimal transport. Between the ends the picture is drawn from those moving points, about 50,000 of them, so it is softer than the originals; the ends show the pictures themselves.</td></tr>
+      <tr><th>Spatial OT</th><td>Pixels move. Both pictures become clouds of position and color, matched by sliced optimal transport. Between the ends, A's full-size pixels move together along that map, averaged over neighbors, and take B's colors by OT displacement; the last stretch settles into B itself.</td></tr>
       <tr><th>MP hybrid</th><td>The loudest partials, found by matching pursuit, keep their own clean phase and ride over the transported rest of the sound.</td></tr>
       <tr><th>Crossfade</th><td>The honest control. It adds the two, so both show or sound at once.</td></tr>
       <tr><th>Space</th><td>Pictures: x and y from the frame, depth from brightness. Sounds: Gabor atoms placed by time, log frequency and salience. Matched by sliced optimal transport over position and color.</td></tr>
@@ -2544,7 +2544,7 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
     </tbody></table>
     <details><summary>What is exact, and what is approximate</summary>
       <p><b>Exact.</b> The 1D inverse-CDF map is the exact W2 optimal-transport map between 1D distributions (McCann's displacement interpolation): a theorem, not an approximation. For pictures it moves each channel's histogram, so the mean slides linearly from A to B. For sounds it moves each frame's magnitude spectrum along frequency, with energy conserved per frame. The crossfade is the naive control: it sums the two and moves nothing.</p>
-      <p><b>Approximate.</b> OT displacement and its sliced variant recolor A and keep A's geometry. Spatial OT moves the sampled pixel cloud exactly, but the picture between the ends is drawn from those points as soft splats, and the match is geometric, not a semantic correspondence.</p>
+      <p><b>Approximate.</b> OT displacement and its sliced variant recolor A and keep A's geometry. Spatial OT moves the sampled pixel cloud exactly, but the picture between the ends moves A's pixels along that map averaged over neighbors, recolors them by OT displacement, and fades into B over the last fifth. The match is geometric, not a semantic correspondence.</p>
       <p>Sound phase is rebuilt by a heuristic, because a transported magnitude has no exact phase, so attacks can smear near the middle. One 1D transport per channel or frame stands in for the full 2D Sinkhorn coupling, which is not run. Nothing here invents a new texture between A and B: expect clean migration, not a hybrid that a generative model would draw.</p>
       <p><b>Fixed from the desktop version.</b> Sound blends there divided by a nearly zero window at the first and last samples, which left them about 250 times too quiet with a click. The granular effect used an unseeded random source, so a saved sound did not repeat. Both are fixed here.</p>
     </details>
@@ -2566,7 +2566,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   const BADGE = {
     'image-ot': 'OT displacement · exact 1D map per color channel · recolors A, keeps its shapes',
     'image-ot-sliced': 'OT displacement, sliced · joint color transport, approximate · recolors A, keeps its shapes',
-    'image-spatial': 'Spatial OT · about 50,000 points move along the transport map · the ends show the pictures themselves',
+    'image-spatial': 'Spatial OT · A moves along the smoothed transport map and takes B\'s colors · the ends are exact',
     'image-xfade': 'Crossfade · the naive control · adds both, moves nothing',
     'audio-ot': "OT displacement · exact transport of each frame's spectrum · phase is a heuristic",
     'audio-mp': 'MP hybrid · atoms keep their own phase · the rest is transported',
@@ -2578,7 +2578,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   };
   const CAPTION = {
     'image-ot': "OT displacement moves A's color histogram toward B's along the intensity axis (McCann interpolation). It recolors A and keeps A's shapes, so it is a color and tone morph, not a warp. At 1.00 you see A wearing B's palette.",
-    'image-spatial': "Spatial OT moves pixels. Both pictures become clouds of position and color, matched by sliced optimal transport, and the slider carries A's cloud into B's. The transport of the sampled cloud is exact; between the ends the picture is drawn from those points as soft splats, softer than the originals, which show at 0.00 and 1.00. The match is geometric, not a learned correspondence.",
+    'image-spatial': "Spatial OT moves pixels. Both pictures become clouds of position and color, matched by sliced optimal transport, and the slider carries A's cloud into B's. The transport of the sampled cloud is exact; between the ends, A's full-size pixels move together along that map, averaged over neighbors, take B's colors by OT displacement, and settle into B over the last fifth. The match is geometric, not a learned correspondence.",
     'image-xfade': 'Crossfade mixes the two pictures. At 0.50 both show at once, a double exposure. It is the naive control the transport methods are built to beat.',
     'audio-ot': "OT displacement moves each frame's spectral energy from A's frequencies to B's, an exact 1D transport of magnitude. A resonance slides along the axis instead of fading. Phase is rebuilt by a heuristic, the approximate part.",
     'audio-mp': 'MP hybrid splits each sound. The loudest partials, found by matching pursuit, keep their own clean phase so attacks survive, and ride over the transported rest of the sound. The mix sets skeleton against field.',
@@ -2840,7 +2840,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
      Spatial OT warps both full-size pictures toward each other along the transport field, smoothed over neighboring
      samples, and blends them, so 0.00 shows A exactly and 1.00 shows B. */
   const GPU_MAX = 4096;
-  const gpu = { srcKey: '', qKey: '', slKey: '', spKey: '', spN: 0, acc: null, texA: null, texB: null, texQ: null, texSL: null, aW: 0, aH: 0, rt: null, meanA: [0.05, 0.05, 0.08], meanB: [0.05, 0.05, 0.08] };
+  const gpu = { srcKey: '', qKey: '', slKey: '', fieldKey: '', texA: null, texB: null, texQ: null, texSL: null, texDA: null, aW: 0, aH: 0, rt: null, meanA: [0.05, 0.05, 0.08], meanB: [0.05, 0.05, 0.08] };
   const cloudScale = (rec) => { const ar = rec.w / rec.h; return [Math.min(1.2, ar), Math.max(0.83, ar)]; };
   function srcTexture(old, rec) {
     const k = Math.min(1, GPU_MAX / Math.max(rec.fw, rec.fh)), w = Math.max(1, Math.round(rec.fw * k)), h = Math.max(1, Math.round(rec.fh * k));
@@ -2886,38 +2886,36 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach((q) => gl.texParameteri(gl.TEXTURE_3D, q, gl.NEAREST));
     gpu.slKey = key;
   }
-  // Spatial OT between the ends: the matched points themselves, each carried along its transport path and drawn as a
-  // soft splat at the size of the target, then normalized. The ends show the pictures themselves.
-  function ensureSpatialPoints() {
-    const key = `${S.ver.image}`;
-    if (gpu.spKey === key || !S._spMap) return;
-    const m = S._spMap, n = m.n, F = new Float32Array(n * 10);
+  // Spatial OT between the ends: a smooth displacement field from the matched samples (Gaussian splats on a grid,
+  // normalized, holes filled), so neighboring pixels move together instead of tearing apart.
+  function smoothField(GW, GH, n, U, V, VX, VY) {
+    const acc = new Float32Array(GW * GH * 2), w = new Float32Array(GW * GH), R = 5, s2 = 2 * 2.2 * 2.2;
     for (let i = 0; i < n; i++) {
-      const o = i * 10;
-      F[o] = m.x0[i]; F[o + 1] = m.y0[i]; F[o + 2] = m.dx[i]; F[o + 3] = m.dy[i];
-      for (let k = 0; k < 3; k++) { F[o + 4 + k] = m.c0[i * 3 + k]; F[o + 7 + k] = m.c1[i * 3 + k]; }
+      const gx = U[i] * GW - 0.5, gy = V[i] * GH - 0.5, x0 = Math.round(gx), y0 = Math.round(gy);
+      for (let y = y0 - R; y <= y0 + R; y++) { if (y < 0 || y >= GH) continue;
+        for (let x = x0 - R; x <= x0 + R; x++) { if (x < 0 || x >= GW) continue;
+          const k = Math.exp(-((x - gx) ** 2 + (y - gy) ** 2) / s2), o = y * GW + x; acc[o * 2] += VX[i] * k; acc[o * 2 + 1] += VY[i] * k; w[o] += k; } }
     }
-    gl.bindVertexArray(spVao); gl.bindBuffer(gl.ARRAY_BUFFER, spBuf); gl.bufferData(gl.ARRAY_BUFFER, F, gl.STATIC_DRAW); gl.bindVertexArray(baseVao);
-    gpu.spN = n; gpu.spKey = key;
+    const out = new Float32Array(GW * GH * 2); let has = new Uint8Array(GW * GH);
+    for (let o = 0; o < GW * GH; o++) if (w[o] > 1e-3) { out[o * 2] = acc[o * 2] / w[o]; out[o * 2 + 1] = acc[o * 2 + 1] / w[o]; has[o] = 1; }
+    for (let pass = 0; pass < 256; pass++) {
+      let missing = 0; const next = has.slice();
+      for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) { const o = y * GW + x; if (has[o]) continue; missing++;
+        let sx = 0, sy = 0, m = 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue; const q = Y * GW + X; if (has[q]) { sx += out[q * 2]; sy += out[q * 2 + 1]; m++; } }
+        if (m) { out[o * 2] = sx / m; out[o * 2 + 1] = sy / m; next[o] = 1; } }
+      has = next; if (!missing) break;
+    }
+    return out;
   }
-  function ensureAcc(w, h) {
-    if (gpu.acc && gpu.acc.w === w && gpu.acc.h === h) return gpu.acc;
-    if (gpu.acc) G.freeTarget(gpu.acc);
-    gpu.acc = G.target(w, h);
-    return gpu.acc;
-  }
-  function drawSpatial(fbo, vp, t) {
-    const w = vp[2], h = vp[3], A = ensureAcc(w, h);
-    G.into(A); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
-    gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE);
-    gl.bindVertexArray(spVao);
-    G.use(pSpf, { uT: t, uPt: Math.min(64, Math.max(2, 2.6 * SP_STEP * (w / S.imgA.w))), uSA: cloudScale(S.imgA) });
-    gl.drawArrays(gl.POINTS, 0, gpu.spN);
-    gl.bindVertexArray(baseVao); gl.disable(gl.BLEND);
-    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(vp[0], vp[1], vp[2], vp[3]);
-    G.bindTex(0, A.tex); G.bindTex(1, gpu.texA); G.bindTex(2, gpu.texB);
-    G.use(pSpr, { uAcc: 0, uA: 1, uB: 2, uT: t, uSA: cloudScale(S.imgA), uSB: cloudScale(S.imgB) });
-    G.draw();
+  function ensureField() {
+    const key = `${S.ver.image}`;
+    if (gpu.fieldKey === key || !S._spMap) return;
+    const m = S._spMap, n = m.n, [sxA, syA] = cloudScale(S.imgA), U = new Float32Array(n), V = new Float32Array(n);
+    for (let i = 0; i < n; i++) { U[i] = m.x0[i] / (2 * sxA) + 0.5; V[i] = (m.y0[i] * syA) / 2 + 0.5; }
+    const GW = 96, GH = Math.max(12, Math.round((96 * S.imgA.h) / S.imgA.w));
+    if (gpu.texDA) gl.deleteTexture(gpu.texDA);
+    gpu.texDA = G.tex(GW, GH, { internal: gl.RG16F, format: gl.RG, type: gl.FLOAT }, { data: smoothField(GW, GH, n, U, V, m.dx, m.dy) });
+    gpu.fieldKey = key;
   }
   function ensureRT(w, h) {
     if (gpu.rt && gpu.rt.w === w && gpu.rt.h === h) return gpu.rt;
@@ -2927,13 +2925,12 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     return gpu.rt;
   }
   const methodId = (m) => (m === 'xfade' ? 3 : m === 'spatial' ? 2 : S.quality === 'sliced' ? 1 : 0);
-  function prepare(method) { ensureGpuSources(); ensureQ(); if (method === 'spatial') ensureSpatialPoints(); if (method === 'ot' && S.quality === 'sliced') ensureSL(); }
+  function prepare(method) { ensureGpuSources(); ensureQ(); if (method === 'spatial') ensureField(); if (method === 'ot' && S.quality === 'sliced') ensureSL(); }
   function drawBlend(fbo, vp, method, t) {
-    if (method === 'spatial') { drawSpatial(fbo, vp, t); return; }
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(vp[0], vp[1], vp[2], vp[3]); gl.disable(gl.BLEND);
-    G.bindTex(0, gpu.texA); G.bindTex(1, gpu.texB); G.bindTex(2, gpu.texQ);
+    G.bindTex(0, gpu.texA); G.bindTex(1, gpu.texB); G.bindTex(2, gpu.texQ); G.bindTex(3, gpu.texDA || gpu.texA);
     gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_3D, gpu.texSL || dummy3D);
-    G.use(pBlend, { uA: 0, uB: 1, uQ: 2, uSL: 5, uMethod: methodId(method), uT: t, uYcocg: S.cspace === 'ycocg' ? 1 : 0, uSA: cloudScale(S.imgA), uSB: cloudScale(S.imgB) });
+    G.use(pBlend, { uA: 0, uB: 1, uQ: 2, uDA: 3, uSL: 5, uMethod: methodId(method), uT: t, uYcocg: S.cspace === 'ycocg' ? 1 : 0, uSA: cloudScale(S.imgA), uSB: cloudScale(S.imgB) });
     G.draw();
   }
   // draws the blend for the stage at the size the stage shows it, never larger than the source
@@ -3155,7 +3152,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   /* ---------- WebGL ---------- */
   const cv = $('stage');
   const G = createGL(cv);
-  let pBlend, pSpf, pSpr, dummy3D, spVao, spBuf;
+  let pBlend, dummy3D;
   let gl, Post, pFlat, pPts, pResolve, scene, acc, tFlat, ptsVao, ptsBuf, baseVao, rw = 0, rh = 0, wantSnap = null, safe = { top: 0.12, bottom: 0.68 };
   const BACK = `
 uniform vec2 uRes; uniform vec3 uMean; uniform vec2 uCenter; uniform float uKick;
@@ -3220,41 +3217,26 @@ void main(){
 }`;
   // One pass draws the blend, for the stage and for saved files alike. v = 0 is the picture's top row.
   const BLEND_FS = FS_HEAD + `precision highp sampler3D;
-uniform sampler2D uA,uB,uQ; uniform sampler3D uSL;
-uniform int uMethod; uniform float uT,uYcocg;
+uniform sampler2D uA,uB,uQ,uDA; uniform sampler3D uSL;
+uniform int uMethod; uniform float uT,uYcocg; uniform vec2 uSA,uSB;
 vec3 toS(vec3 c){ if(uYcocg<.5) return c; float co=c.r-c.b, tmp=c.b+floor(co*.5), cg=c.g-tmp, y=tmp+floor(cg*.5); return clamp(vec3(y,cg+128.,co+128.),0.,255.); }
 vec3 fromS(vec3 d){ if(uYcocg<.5) return d; float y=d.x, cg=d.y-128., co=d.z-128., tmp=y-floor(cg*.5), g=cg+tmp, b=tmp-floor(co*.5), r=b+co; return clamp(vec3(r,g,b),0.,255.); }
+vec3 recolor(vec3 a){ vec3 s=toS(a); ivec3 si=ivec3(s);
+  vec3 q=vec3(texelFetch(uQ,ivec2(si.r,0),0).r,texelFetch(uQ,ivec2(si.g,0),0).g,texelFetch(uQ,ivec2(si.b,0),0).b);
+  return fromS(floor(clamp((1.-uT)*s+uT*q,0.,255.)+.5)); }
 void main(){
   vec2 uv=vUv;
+  if(uMethod==2){
+    vec2 P=vec2((uv.x-.5)*2.*uSA.x,(uv.y-.5)*2./uSA.y), q=P;
+    for(int k=0;k<8;k++){ vec2 u=vec2(q.x/(2.*uSA.x)+.5,q.y*uSA.y*.5+.5); q=P-uT*texture(uDA,u).xy; }
+    vec2 ua=vec2(q.x/(2.*uSA.x)+.5,q.y*uSA.y*.5+.5), ub=vec2(P.x/(2.*uSB.x)+.5,P.y*uSB.y*.5+.5);
+    vec3 moved=recolor(floor(texture(uA,ua).rgb*255.+.5))/255.;
+    o=vec4(mix(moved,texture(uB,ub).rgb,smoothstep(.8,1.,uT)),1.); return;
+  }
   vec3 a=floor(texture(uA,uv).rgb*255.+.5);
   if(uMethod==3){ o=vec4(mix(a,floor(texture(uB,uv).rgb*255.+.5),uT)/255.,1.); return; }
   if(uMethod==1){ ivec3 ci=ivec3(min(vec3(15.),floor(a/16.))); vec3 d=texelFetch(uSL,ivec3(ci.b,ci.g,ci.r),0).rgb; o=vec4(floor(clamp(a+uT*d,0.,255.)+.5)/255.,1.); return; }
-  vec3 s=toS(a); ivec3 si=ivec3(s);
-  vec3 q=vec3(texelFetch(uQ,ivec2(si.r,0),0).r,texelFetch(uQ,ivec2(si.g,0),0).g,texelFetch(uQ,ivec2(si.b,0),0).b);
-  o=vec4(fromS(floor(clamp((1.-uT)*s+uT*q,0.,255.)+.5))/255.,1.);
-}`;
-  const SPF_VS = `#version 300 es
-precision highp float;
-layout(location=0) in vec4 aP; layout(location=1) in vec3 aC0; layout(location=2) in vec3 aC1;
-uniform float uT,uPt; uniform vec2 uSA;
-out vec3 vC;
-void main(){
-  vec2 c=aP.xy+uT*aP.zw, uv=vec2(c.x/(2.*uSA.x)+.5,c.y*uSA.y*.5+.5);
-  gl_Position=vec4(uv*2.-1.,0.,1.); gl_PointSize=uPt; vC=mix(aC0,aC1,uT)/255.;
-}`;
-  const SPF_FS = `#version 300 es
-precision highp float;
-in vec3 vC; out vec4 o;
-void main(){ vec2 q=gl_PointCoord*2.-1.; float r2=dot(q,q); if(r2>1.)discard; float w=exp(-r2*3.5); o=vec4(vC*w,w); }`;
-  const SPR_FS = FS_HEAD + `
-uniform sampler2D uAcc,uA,uB; uniform float uT; uniform vec2 uSA,uSB;
-void main(){
-  vec4 a=texture(uAcc,vUv); vec3 col=a.rgb/max(a.a,1e-4); float al=smoothstep(.02,.3,a.a);
-  vec2 c=vec2((vUv.x-.5)*2.*uSA.x,(vUv.y-.5)*2./uSA.y), ub=vec2(c.x/(2.*uSB.x)+.5,c.y*uSB.y*.5+.5);
-  float wa=1.-smoothstep(0.,.12,uT), wb=smoothstep(.88,1.,uT);
-  col=mix(col,texture(uA,vUv).rgb,wa); al=mix(al,1.,wa);
-  col=mix(col,texture(uB,ub).rgb,wb); al=mix(al,1.,wb);
-  o=vec4(col,al);
+  o=vec4(recolor(a)/255.,1.);
 }`;
   const RESOLVE_FS = FS_HEAD + BACK + `
 uniform sampler2D uAcc;
@@ -3735,7 +3717,7 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
     gl = G.gl;
     try {
       Post = createPost(G);
-      pFlat = G.program(FLAT_FS); pResolve = G.program(RESOLVE_FS); pPts = G.program(PTS_FS, PTS_VS); pBlend = G.program(BLEND_FS); pSpf = G.program(SPF_FS, SPF_VS); pSpr = G.program(SPR_FS);
+      pFlat = G.program(FLAT_FS); pResolve = G.program(RESOLVE_FS); pPts = G.program(PTS_FS, PTS_VS); pBlend = G.program(BLEND_FS);
       dummy3D = gl.createTexture(); gl.bindTexture(gl.TEXTURE_3D, dummy3D); gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA32F, 1, 1, 1, 0, gl.RGBA, gl.FLOAT, new Float32Array(4));
       [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach((q) => gl.texParameteri(gl.TEXTURE_3D, q, gl.NEAREST));
       baseVao = gl.getParameter(gl.VERTEX_ARRAY_BINDING);
@@ -3744,10 +3726,6 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
       ptsVao = gl.createVertexArray(); ptsBuf = gl.createBuffer();
       gl.bindVertexArray(ptsVao); gl.bindBuffer(gl.ARRAY_BUFFER, ptsBuf);
       [[0, 3, 0], [1, 3, 3], [2, 3, 6], [3, 3, 9], [4, 2, 12]].forEach(([loc, size, off]) => { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 56, off * 4); });
-      gl.bindVertexArray(baseVao);
-      spVao = gl.createVertexArray(); spBuf = gl.createBuffer();
-      gl.bindVertexArray(spVao); gl.bindBuffer(gl.ARRAY_BUFFER, spBuf);
-      [[0, 4, 0], [1, 3, 4], [2, 3, 7]].forEach(([loc, size, off]) => { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 40, off * 4); });
       gl.bindVertexArray(baseVao);
       resize();
       addEventListener('resize', resize);

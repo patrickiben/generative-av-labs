@@ -141,11 +141,11 @@ Checked on 2026-11-03 in Chrome on the same Mac. **No real MIDI controller and n
 
 Displacer takes files and a MIDI controller, not a drum kit, so the shell's drum demo, hit strip, kit badge, audio input, session recorder and signal view are off on this page, and the cloud does not react to hits. The mod wheel moves the blend, as in the desktop app, and a MIDI keyboard can play a grown patch.
 
-On 2026-11-03 the Flat view and its saves were pixelated: the blend was computed on the 560-pixel working copy, Spatial OT redrew it from about 23,000 sampled points, and both were stretched full screen. The engine's maps still come from the working copy, as in the desktop app, but the graphics card now applies them to every pixel of the full-size pictures, and Spatial OT draws about 50,000 moving points as smooth splats at screen size, with the pictures themselves at the ends.
+On 2026-11-03 the Flat view and its saves were pixelated: the blend was computed on the 560-pixel working copy, Spatial OT redrew it from about 23,000 sampled points, and both were stretched full screen. The engine's maps still come from the working copy, as in the desktop app, but the graphics card now applies them to every pixel of the full-size pictures, and Spatial OT moves A's full-size pixels together along the transport map, averaged over neighbors, recolors them by OT displacement and settles into B over the last fifth. Drawing the matched points one by one, tried first, tore the picture apart, because neighboring points go to different places.
 
 `tests/displacer_states.py` passed 56 of 56 in real Chrome:
 
-- Full resolution: on a 1600 × 1066 pair, OT displacement, Spatial OT and crossfade saved at 0.00 are A pixel for pixel (mean difference 0.2, 0 and 0 of 255), Spatial OT at 1.00 is B, and on a retina screen the stage draws the blend at 1447 × 964, the size it shows, instead of 560 px.
+- Full resolution: on a 1600 × 1066 pair, OT displacement, Spatial OT and crossfade saved at 0.00 are A pixel for pixel (mean difference 0.2, 0.2 and 0 of 255, the 0.2 being the engine's own color-space rounding), Spatial OT at 1.00 is B, and on a retina screen the stage draws the blend at 1447 × 964, the size it shows, instead of 560 px.
 
 - Both kinds, every method, split compare, both views, and the cloud of each kind. No drum part shows, and the shell's drum keys and drum demo key do nothing. The page never opens the microphone, even when another page on the site has set the shared reconnect option and permission is granted; on Nebula the same setup opens it, as it should there.
 - Files: PNG and JPEG pictures, and WAV, AIFF and M4A sounds. Chrome cannot read AIFF, so the page reads it. A text file and a CAF file are refused, with their reasons. A long WAV is cut to its first six seconds.
@@ -155,6 +155,6 @@ On 2026-11-03 the Flat view and its saves were pixelated: the blend was computed
 - CC1 at 127 and at 0 put the blend at B and at A. Right arrow and V work. Perform hides the controls and Esc brings them back.
 - At 390 wide nothing runs off the side. With reduced motion the cloud holds still.
 
-Flicker. With no drum input, the one way to change the picture fast is the slider. Dragging it at five full swings a second between the dark and the bright built-in picture measured 0% of a region flashing more than three times a second in Flat with OT displacement, 5% in Flat with Spatial OT, and 9 to 12% in Space, against a limit of 25%. Before the stage's 0.15 second glide, Space measured 26%, because a bright sun moving onto the near-black backdrop drops faster than the shared limiter can hold.
+Flicker. With no drum input, the one way to change the picture fast is the slider. Dragging it at five full swings a second between the dark and the bright built-in picture measured 0% of a region flashing more than three times a second in Flat with OT displacement, 3% in Flat with Spatial OT, and 9 to 12% in Space, against a limit of 25%. Before the stage's 0.15 second glide, Space measured 26%, because a bright sun moving onto the near-black backdrop drops faster than the shared limiter can hold.
 
 `tests/smoke.py` checks Displacer by the cloud it builds, since it has no drum demo, and passes on all five pages under software rendering.
