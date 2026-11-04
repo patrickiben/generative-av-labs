@@ -34,6 +34,18 @@ write_wav(TMP / 'low.wav', 220); write_wav(TMP / 'high.wav', 1760, 3.0)
 for fmt, ext, data in (('AIFF', 'aif', 'BEI16'), ('m4af', 'm4a', 'aac'), ('caff', 'caf', 'LEI16')):
     subprocess.run(['afconvert', '-f', fmt, '-d', data, str(TMP / 'high.wav'), str(TMP / f'high.{ext}')], check=True, capture_output=True)
 (TMP / 'notes.txt').write_text('not media')
+def detailed(path, seed, warm):   # a busy 1600 x 1066 picture: fine lines, small squares and text, so softness shows
+    import random
+    from PIL import ImageDraw
+    r = random.Random(seed); im = Image.new('RGB', (1600, 1066)); d = ImageDraw.Draw(im)
+    for y in range(1066): d.line([(0, y), (1599, y)], fill=(int(40 + 140 * warm * y / 1066), int(30 + (y * 7) % 90), int(60 + 150 * (1 - warm) * (1 - y / 1066))))
+    for _ in range(1400): x, y, k = r.randrange(1600), r.randrange(1066), r.randrange(2, 10); d.rectangle([x, y, x + k, y + k], fill=tuple(r.randrange(256) for _ in range(3)))
+    for _ in range(60): d.text((r.randrange(1500), r.randrange(1040)), 'DISPLACER 0123', fill=(255, 255, 255))
+    im.save(path)
+detailed(TMP / 'detail_a.png', 1, 1.0); detailed(TMP / 'detail_b.png', 2, 0.0)
+def mad(a, b):   # mean absolute difference per channel, 0 to 255
+    from PIL import ImageChops, ImageStat
+    return sum(ImageStat.Stat(ImageChops.difference(a.convert('RGB'), b.convert('RGB'))).mean) / 3
 
 # ---- the flash measure, the same definition as tests/flash_check.py ----
 W, H = 64, 36
@@ -111,6 +123,21 @@ with sync_playwright() as p:
     check('cloud .ply: a header and the right length', head.startswith('ply\n') and len(b) == head.index('end_header\n') + 11 + n * 15, (name, n))
     name, b = save(pg, 'save-splats'); head = b[:900].decode('latin1')
     n = int(head.split('element vertex ')[1].split('\n')[0]); check('splats .ply: 17 floats a splat', len(b) == head.index('end_header\n') + 11 + n * 68, (name, n))
+    # full resolution: a 1600 px pair, saved at 0.00 by every method, must be A pixel for pixel, and Spatial OT at 1.00 must be B
+    pg.set_input_files('#file-A', str(TMP / 'detail_a.png')); pg.wait_for_timeout(900)
+    pg.set_input_files('#file-B', str(TMP / 'detail_b.png')); pg.wait_for_timeout(900)
+    A('__app.setView("flat")')
+    da, db = Image.open(TMP / 'detail_a.png'), Image.open(TMP / 'detail_b.png')
+    for m in ('ot', 'spatial', 'xfade'):
+        A(f'__app.setMethod("{m}"); __app.setT(0)'); pg.wait_for_timeout(300); pg.wait_for_function('!__app.busy', timeout=30000); pg.wait_for_timeout(600)
+        name, b = save(pg, 'save-blend'); im = Image.open(__import__('io').BytesIO(b))
+        check(f'{m} saved at 0.00 is A itself, at full size', im.size == (1600, 1066) and mad(im, da) < 1.0, (name, im.size, round(mad(im, da), 3)))
+    A('__app.setMethod("spatial"); __app.setT(1)'); pg.wait_for_timeout(300)
+    name, b = save(pg, 'save-blend'); im = Image.open(__import__('io').BytesIO(b))
+    check('Spatial OT saved at 1.00 is B itself', im.size == (1600, 1066) and mad(im, db) < 1.0, (name, round(mad(im, db), 3)))
+    A('__app.setT(0.5)'); pg.wait_for_timeout(1500)
+    r = A('__app.flatRT')
+    check('the stage draws the blend at the size it shows it', r and r['h'] >= 0.95 * min(1066, r['shownH']), r)
     A("document.querySelector('#builtin-image').click()"); pg.wait_for_timeout(600)
 
     # sounds
@@ -165,11 +192,11 @@ with sync_playwright() as p:
 
     # flicker while scrubbing fast between a dark picture and a bright one, both views, as hard as a hand can go
     A("document.querySelector('.mode-switch button[data-mode=\"image\"]').click()"); A("document.querySelector('#builtin-image').click()"); pg.wait_for_timeout(1500)
-    for view in ('flat', 'space'):
-        A(f'__app.setView("{view}")'); pg.wait_for_function('!__app.busy && (__app.S.view!=="space" || __app.spaceReady)', timeout=30000); pg.wait_for_timeout(1200)
+    for view, meth in (('flat', 'ot'), ('flat', 'spatial'), ('space', 'ot')):
+        A(f'__app.setMethod("{meth}"); __app.setView("{view}")'); pg.wait_for_function('!__app.busy && (__app.S.view!=="space" || __app.spaceReady)', timeout=30000); pg.wait_for_timeout(1200)
         A("window.__scrub=setInterval(()=>__app.setT(__app.S.t>.5?0:1),100)")
         worst, whole = flash(A('__app.recordLuma(6000)')); A('clearInterval(window.__scrub)')
-        check(f'flicker, scrubbing at five swings a second, {view}: under the WCAG limit', worst <= 0.25 and whole <= 3, f'worst region {worst:.0%}, whole frame {whole}/s')
+        check(f'flicker, scrubbing at five swings a second, {view} {meth}: under the WCAG limit', worst <= 0.25 and whole <= 3, f'worst region {worst:.0%}, whole frame {whole}/s')
 
     # a phone
     ph = br.new_context(viewport={'width': 390, 'height': 844}, device_scale_factor=2, is_mobile=True, has_touch=True)
@@ -185,6 +212,12 @@ with sync_playwright() as p:
     mp.click('#connect-button'); mp.keyboard.press('c'); mp.wait_for_timeout(500)
     check('never opens the microphone, even with reconnect set by another page and permission granted', mp.evaluate('window.__gum') == 0 and mp.evaluate("__app.kit.audio.state") != 'live', (mp.evaluate('window.__gum'), mp.evaluate("__app.kit.audio.state")))
     mic.close()
+    hi = br.new_context(viewport={'width': 1440, 'height': 900}, device_scale_factor=2); hp = hi.new_page()
+    hp.goto(URL); hp.wait_for_function('window.__app && __app.spaceReady', timeout=30000)
+    hp.set_input_files('#file-A', str(TMP / 'detail_a.png')); hp.set_input_files('#file-B', str(TMP / 'detail_b.png')); hp.wait_for_timeout(1500)
+    hp.evaluate('__app.setView("flat")'); hp.wait_for_timeout(1500); r = hp.evaluate('__app.flatRT')
+    check('on a retina screen the stage draws more than the 560 px working copy', r and r['h'] > 800 and r['h'] >= 0.95 * min(1066, r['shownH']), r)
+    hi.close()
     rm = br.new_context(viewport={'width': 1200, 'height': 800}, reduced_motion='reduce'); rp = rm.new_page()
     rp.goto(URL); rp.wait_for_function('window.__app && __app.spaceReady', timeout=30000); a0 = rp.evaluate('__app.S.space.phase'); rp.wait_for_timeout(1500)
     check('reduced motion: the cloud holds still', rp.evaluate('__app.S.space.phase') == a0)
