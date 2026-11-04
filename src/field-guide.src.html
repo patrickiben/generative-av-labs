@@ -2,7 +2,7 @@
 <div class="site-wrap">
   <header class="site-head">
     <a class="site-brand" href="./"><svg viewBox="0 0 24 28" aria-hidden="true"><circle cx="12" cy="14" r="9"/><circle cx="12" cy="14" r="3"/></svg>__SITE_NAME__</a>
-    <nav class="site-nav" aria-label="Pages"><a href="nebula.html">Nebula</a><a href="chimera.html">Chimera Synth</a><a href="displacer.html">Displacer</a></nav>
+    <nav class="site-nav" aria-label="Pages"><a href="nebula.html">Nebula</a><a href="chimera.html">Chimera Synth</a><a href="analog.html">Analog</a><a href="displacer.html">Displacer</a></nav>
   </header>
   <main class="guide">
     <div class="hero-title">
@@ -90,6 +90,16 @@
       </ul>
     </section>
 
+    <section id="analog">
+      <h2>Detail Forge Analog</h2>
+      <p>Analog makes a dull, band-limited recording brighter and says how. It cannot recover lost audio: Floor and Transient amplify what is there, and Exciter and SBR synthesize new detail above the measured cutoff. Tested in Chrome on a Mac with test files made by ffmpeg. <b>No outside listener has judged its sound yet.</b></p>
+      <ul>
+        <li><b>Files.</b> WAV and AIFF are read straight from the file. FLAC, MP3, M4A and Ogg are decoded by the browser at the rate in the file's own header, so it does not resample them, and the Source sheet says which happened. Up to 10 minutes and two channels.</li>
+        <li><b>Range.</b> Drag across the spectrograms to enhance one stretch, with 50 ms crossfades at the seams. The numbers are measured on that stretch, which fixes a window the desktop app measured in the wrong place.</li>
+        <li><b>Listening.</b> A and B play from the same instant, and Space flips between them. B is scaled by the BS.1770 loudness gain, so brighter is never mistaken for louder.</li>
+        <li><b>Status.</b> The source badge reads synthetic test sound or your file's name. The processing chip names the engine and whether it amplified or synthesized, and the sound chip reads off, playing A, playing B or stopped.</li>
+      </ul>
+    </section>
     <section id="displacer">
       <h2>Displacer</h2>
       <p>Displacer blends two pictures or two sounds from files, so it needs no kit and listens to no input. Tested in Chrome on a Mac, with MIDI fed through the page's own parser. <b>No real controller has driven it yet.</b></p>

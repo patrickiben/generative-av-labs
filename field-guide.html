@@ -214,12 +214,13 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
 .site-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 42px; }
 .site-brand { display: flex; align-items: center; gap: 11px; font-size: 15px; font-weight: 500; letter-spacing: -0.3px; color: var(--ink); text-decoration: none; }
 .site-brand svg { width: 22px; height: 26px; stroke: var(--accent); fill: none; stroke-width: 1.2; }
-.site-nav { display: flex; gap: 8px; }
+.site-nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .site-nav a { font-size: 12px; color: var(--ink); text-decoration: none; border: 1px solid var(--line); background: var(--glass); border-radius: 999px; padding: 9px 14px; }
 .site-nav a:hover { background: var(--soft); }
 .hero-title { text-align: center; margin: 0 0 36px; }
 .hero-title .eyebrow { margin-bottom: 14px; }
-.hero-title h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(36px, 5vw, 64px); letter-spacing: -1.5px; line-height: 1.1; margin: 0; }
+.hero-title h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(36px, 5vw, 64px); letter-spacing: -1.5px; line-height: 1.1; margin: 0; text-wrap: balance; }
+.hero-title h1 span { white-space: nowrap; }   /* break between the phrases, never inside one */
 .hero-title p:last-child { color: var(--muted); font-size: 15px; margin: 14px auto 0; max-width: 560px; line-height: 1.55; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
 .app-card { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: var(--glass); backdrop-filter: blur(14px); text-decoration: none; color: inherit; box-shadow: 0 18px 70px var(--shadow); transition: transform 0.35s ease, border-color 0.35s ease; }
@@ -263,7 +264,7 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
 <div class="site-wrap">
   <header class="site-head">
     <a class="site-brand" href="./"><svg viewBox="0 0 24 28" aria-hidden="true"><circle cx="12" cy="14" r="9"/><circle cx="12" cy="14" r="3"/></svg>Generative AV Labs</a>
-    <nav class="site-nav" aria-label="Pages"><a href="nebula.html">Nebula</a><a href="chimera.html">Chimera Synth</a><a href="displacer.html">Displacer</a></nav>
+    <nav class="site-nav" aria-label="Pages"><a href="nebula.html">Nebula</a><a href="chimera.html">Chimera Synth</a><a href="analog.html">Analog</a><a href="displacer.html">Displacer</a></nav>
   </header>
   <main class="guide">
     <div class="hero-title">
@@ -351,6 +352,16 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
       </ul>
     </section>
 
+    <section id="analog">
+      <h2>Detail Forge Analog</h2>
+      <p>Analog makes a dull, band-limited recording brighter and says how. It cannot recover lost audio: Floor and Transient amplify what is there, and Exciter and SBR synthesize new detail above the measured cutoff. Tested in Chrome on a Mac with test files made by ffmpeg. <b>No outside listener has judged its sound yet.</b></p>
+      <ul>
+        <li><b>Files.</b> WAV and AIFF are read straight from the file. FLAC, MP3, M4A and Ogg are decoded by the browser at the rate in the file's own header, so it does not resample them, and the Source sheet says which happened. Up to 10 minutes and two channels.</li>
+        <li><b>Range.</b> Drag across the spectrograms to enhance one stretch, with 50 ms crossfades at the seams. The numbers are measured on that stretch, which fixes a window the desktop app measured in the wrong place.</li>
+        <li><b>Listening.</b> A and B play from the same instant, and Space flips between them. B is scaled by the BS.1770 loudness gain, so brighter is never mistaken for louder.</li>
+        <li><b>Status.</b> The source badge reads synthetic test sound or your file's name. The processing chip names the engine and whether it amplified or synthesized, and the sound chip reads off, playing A, playing B or stopped.</li>
+      </ul>
+    </section>
     <section id="displacer">
       <h2>Displacer</h2>
       <p>Displacer blends two pictures or two sounds from files, so it needs no kit and listens to no input. Tested in Chrome on a Mac, with MIDI fed through the page's own parser. <b>No real controller has driven it yet.</b></p>

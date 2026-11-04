@@ -1,8 +1,8 @@
 # Generative AV Labs
 
-**[Open the home page](https://patrickiben.github.io/generative-av-labs/)** · [Nebula](https://patrickiben.github.io/generative-av-labs/nebula.html) · [Enter](https://patrickiben.github.io/generative-av-labs/enter.html) · [Chimera Synth](https://patrickiben.github.io/generative-av-labs/chimera.html) · [Displacer](https://patrickiben.github.io/generative-av-labs/displacer.html) · [Field guide](https://patrickiben.github.io/generative-av-labs/field-guide.html)
+**[Open the home page](https://patrickiben.github.io/generative-av-labs/)** · [Nebula](https://patrickiben.github.io/generative-av-labs/nebula.html) · [Enter](https://patrickiben.github.io/generative-av-labs/enter.html) · [Chimera Synth](https://patrickiben.github.io/generative-av-labs/chimera.html) · [Detail Forge Analog](https://patrickiben.github.io/generative-av-labs/analog.html) · [Displacer](https://patrickiben.github.io/generative-av-labs/displacer.html) · [Field guide](https://patrickiben.github.io/generative-av-labs/field-guide.html)
 
-Browser instruments for light and sound. Each page runs in your browser. There is no helper app and no server, and your audio, MIDI and pictures never leave the browser. Nebula, Chimera Synth and Displacer use no model. Enter uses one, a depth estimate for your own picture, which downloads only when you ask.
+Browser instruments for light and sound. Each page runs in your browser. There is no helper app and no server, and your audio, MIDI and pictures never leave the browser. Nebula, Chimera Synth, Detail Forge Analog and Displacer use no model. Enter uses one, a depth estimate for your own picture, which downloads only when you ask.
 
 ![Nebula during the demo](docs/nebula.jpg)
 
@@ -19,6 +19,10 @@ Browser instruments for light and sound. Each page runs in your browser. There i
 ![Displacer's two built-in pictures halfway through moving into each other](docs/displacer.jpg)
 
 **Displacer** blends two pictures or two sounds without a crossfade. It moves the mass along an optimal-transport map: colors slide toward the other picture's palette, pixels travel to new places, and a sound's energy moves along frequency. The Space view lifts the pair into a 3D cloud of splats that you can turn while the slider carries one into the other. Genopatch grows a playable FM voice that fits a sound, and every blend saves as a PNG, a WAV or a point cloud. The mod wheel moves the blend. It came from the desktop Displacer, whose page is kept unchanged in `legacy/`; two defects there, sound blends about 250 times too quiet and a granular effect that did not repeat, are fixed here.
+
+![Detail Forge Analog's before and after spectrograms](docs/analog.jpg)
+
+**Detail Forge Analog** brightens a dull, band-limited recording and labels what it did. It measures the cutoff, then runs one of four engines: Floor, a high shelf that invents nothing, Transient, which lifts attacks, and two that synthesize detail above the cutoff, a 4x oversampled Exciter and spectral band replication (SBR). Before and after spectrograms show the change, a loudness-matched A/B lets you hear it, and every number is measured on the output. The processing is the desktop app's, ported line by line and checked against it number for number by `tests/analog_numbers.py`; the desktop original is kept in `legacy/analog/` with one comment reworded. Files are read and decoded in the browser at their own sample rate, and the result saves as a 24-bit WAV.
 
 ## Wire a drum kit for Nebula
 
@@ -44,7 +48,7 @@ Edit `src/`, then run `python3 build.py`, which inlines everything into the page
 
 ## Read more
 
-- [Field guide](field-guide.html): wiring, statuses, what each drum does in Nebula, and connecting Chimera Synth.
+- [Field guide](field-guide.html): wiring, statuses, what each drum does in Nebula, connecting Chimera Synth, and Detail Forge Analog.
 - [Inputs](docs/INPUTS.md): wiring a kit and browser support, with sources.
 - [Methods](docs/METHODS.md): onset detection, tempo, the fluid field, the feedback loop and transport.
 - [Validation](docs/VALIDATION.md): what was tested, how, and what still needs real gear.

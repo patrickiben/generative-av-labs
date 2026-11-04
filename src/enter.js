@@ -258,7 +258,7 @@ void main(){
       <div class="row-actions">
         <button class="pill primary" id="snd-choose">Choose a sound</button>
         <button class="pill" id="snd-builtin">Use the built-in sound</button>
-        <input type="file" id="snd-file" accept="audio/*" hidden>
+        <input type="file" id="snd-file" class="visually-hidden" accept="audio/*" tabindex="-1" aria-hidden="true">
       </div>
       <p class="world-readout" id="snd-status" role="status"></p>
       <label class="check" style="margin:0"><input type="checkbox" id="snd-hear"> Hear the field. An artistic mix of this sound, placed in space. It is not where the sound came from.</label>
@@ -269,7 +269,7 @@ void main(){
         <button class="pill primary" id="pic-choose">Choose a picture</button>
         <button class="pill" id="pic-sample">Estimate depth on the painting</button>
         <button class="pill" id="pic-painted" hidden>Back to the painted scene</button>
-        <input type="file" id="pic-file" accept="image/*" hidden>
+        <input type="file" id="pic-file" class="visually-hidden" accept="image/*" tabindex="-1" aria-hidden="true">
       </div>
       <p class="world-readout" id="pic-status" role="status"></p>
       <div class="model-card" id="model-card" data-tone="idle">
@@ -326,7 +326,7 @@ void main(){
     </tbody></table>
     <p class="note">Keys: <b>W A S D</b> move · <b>Q E</b> fall and rise · <b>Shift</b> run · <b>arrows</b> look · <b>R</b> reset · <b>1 2 3</b> worlds · <b>V</b> free look · <b>B</b> bake an angle · <b>G</b> hear the sculpture · <b>F</b> full screen · <b>H</b> hide controls. Drag to look, scroll to dolly.</p>
     <details><summary>Safety and privacy</summary>
-      <p>Nothing on this page flashes. When nobody is steering, the camera drifts slowly, and your system's reduced-motion setting stops that.</p>
+      <p>Measured under the WCAG limit of three flashes a second in all three worlds, at rest and while the camera drifts: no region of the screen flashed. That is a measured screen, not a medical guarantee. When nobody is steering, the camera drifts slowly, and your system's reduced-motion setting stops that.</p>
       <p>Your picture and your sound stay on this computer, and nothing about them is sent anywhere. The page asks the network for nothing until you use the depth model on a picture of your own. Then it downloads the model from Hugging Face and its runtime from jsDelivr, once, and keeps them in this browser.</p>
     </details>
     <details><summary>Credits</summary>
@@ -339,12 +339,14 @@ void main(){
     name: 'Enter', brand,
     modes: [{ id: 'sound', label: 'Sound' }, { id: 'picture', label: 'Picture' }, { id: 'print', label: 'Print' }], mode: 'sound', modeLabel: 'Which world',
     onMode: (m) => setWorld(m),
-    intro: { eyebrow: 'Enter · walk into a picture, fly through a sound', title: 'Cross the surface.', subtitle: 'W A S D to move, drag to look. Choose a picture or a sound under World. No helper app.' },
+    intro: { eyebrow: 'Enter · walk into a picture, fly through a sound', title: 'Cross the surface.', subtitle: 'Walk into a picture as a depth relief. Fly through a sound, or print it.',
+      actions: '<div class="intro-actions"><button class="open-card" id="hero-open-picture"><span class="oc-icon" aria-hidden="true">PICTURE_ICON</span><span><b>Open a picture</b><small>Step inside it</small></span></button><button class="open-card sound" id="hero-open-sound"><span class="oc-icon" aria-hidden="true">SOUND_ICON</span><span><b>Open a sound</b><small>Fly through it, or print it</small></span></button></div><p class="drop-note">Or drop a file anywhere on the page. W A S D to move, drag to look.</p>' },
+    actions: [{ id: 'dock-open-picture', label: 'Open picture', icon: 'picture' }, { id: 'dock-open-sound', label: 'Open sound', icon: 'sound' }],
     hud, truth: TRUTH.sound,
     sheets: [{ id: 'world', label: 'World', icon: 'sliders', title: 'Choose what to enter.', html: worldSheet }],
     about,
   });
-  if (matchMedia('(pointer: coarse)').matches) { const sub = document.querySelector('.intro p:last-child'); if (sub) sub.textContent = 'Drag to look, hold Fwd to fly, pinch to move. Choose a picture or a sound under World.'; }
+  if (matchMedia('(pointer: coarse)').matches) { const sub = document.querySelector('.intro h1 + p'); if (sub) sub.textContent = 'Walk into a picture as a depth relief. Fly through a sound, or print it.'; const dn = document.querySelector('.drop-note'); if (dn) dn.textContent = 'Drag to look, hold Fwd to fly.'; }
 
   const scene0 = $('scene');
   scene0.insertAdjacentHTML('beforeend', `
@@ -352,6 +354,7 @@ void main(){
     <div id="reticle" aria-hidden="true"></div>
     <div id="tether" aria-hidden="true"></div>
     <div id="world-info" class="chrome"><p id="world-badge" data-kind="sound"></p><p id="world-source"></p></div>
+    <div id="drop-hint" aria-hidden="true"><p>Drop a picture to walk into it, or a sound to fly through it</p></div>
     <div id="touch-pad" class="chrome"><button id="touch-fwd" aria-label="Move forward">Fwd</button><button id="touch-back" aria-label="Move back">Back</button></div>`);
   $('truth').insertAdjacentHTML('afterend', '<p id="credit-line" class="chrome">Picture depth, when you ask for it: Depth Anything V2 Small (Apache-2.0) on ONNX Runtime Web (MIT), both downloaded on first use.</p>');
   $('badges').insertAdjacentHTML('beforeend', '<button class="chip chrome" id="chip-model" data-tone="wait" hidden><span class="dot" aria-hidden="true"></span><span id="chip-model-text"></span></button>');
@@ -578,7 +581,7 @@ void main(){
     for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < mono.length; i++) mono[i] += d[i] / buf.numberOfChannels; }
     return { mono, rate: buf.sampleRate };
   }
-  async function useSoundFile(f) {
+  async function useSoundFile(f, castIt) {
     $('snd-status').textContent = `Reading ${f.name}.`;
     try {
       const { mono, rate } = await decodeFile(f);
@@ -592,10 +595,11 @@ void main(){
       setField(r.atoms, r.dur, rate, `Your sound: ${f.name}`, true);
       updateSource();
       shell.toast(`${r.atoms.length.toLocaleString()} atoms lifted from ${f.name}.`);
+      if (castIt) castNow();
     } catch (err) { $('snd-status').textContent = `That file could not be decoded: ${err.message || err}. The field did not change.`; }
   }
   $('snd-choose').addEventListener('click', () => $('snd-file').click());
-  $('snd-file').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) useSoundFile(f); });
+  $('snd-file').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) openAny(f); });
   $('snd-builtin').addEventListener('click', () => { const b = builtInSound(); setField(b.atoms, b.dur, b.rate, 'Built-in sound: a synthesized pattern, not your audio', false); updateSource(); });
   $('snd-hear').addEventListener('change', rebuildVoices);
 
@@ -785,7 +789,7 @@ void main(){
       choosePicture(im, f.name);
     } catch (e) { $('pic-status').textContent = `That file could not be read as a picture: ${e.message || e}.`; }
   }
-  $('pic-file').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) usePictureFile(f); });
+  $('pic-file').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) openAny(f); });
   $('pic-sample').addEventListener('click', () => { if (!paintedCache) showPainted(); choosePicture(paintedCache.canvas, 'The painting, estimated', paintedCache.depth); });
   $('pic-painted').addEventListener('click', showPainted);
   $('model-go').addEventListener('click', () => { if (!pending && P && P.canvas) pending = { source: P.canvas, name: P.name }; startModel(); });
@@ -798,7 +802,25 @@ void main(){
   });
   $('model-clear').addEventListener('click', async () => { await depth.clear(); modelUI('idle', 'Removed from this browser', 'The next picture will ask before it downloads again.', {}); });
   addEventListener('dragover', (e) => e.preventDefault());
-  addEventListener('drop', (e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (!f) return; if (f.type.startsWith('image/')) usePictureFile(f); else if (f.type.startsWith('audio/')) { shell.setMode('sound'); useSoundFile(f); } });
+  function openAny(f) {
+    const img = (f.type || '').startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|tiff?|heic|heif|avif)$/i.test(f.name);
+    const aud = (f.type || '').startsWith('audio/') || /\.(wav|mp3|m4a|aac|ogg|oga|opus|flac|aiff?|caf|webm)$/i.test(f.name);
+    if (img) usePictureFile(f);
+    else if (aud) { const inPrint = S.world === 'print'; if (!inPrint) shell.setMode('sound'); useSoundFile(f, inPrint); }
+    else shell.toast('That file is neither a picture nor a sound this page can open.');
+  }
+  // The main action, as on the desktop app's start card: open a picture or a sound, from the hero and the dock.
+  const openPicture = () => { noteInput(); $('pic-file').click(); };
+  const openSound = () => { noteInput(); $('snd-file').click(); };
+  ['hero-open-picture', 'dock-open-picture'].forEach((id) => $(id).addEventListener('click', openPicture));
+  ['hero-open-sound', 'dock-open-sound'].forEach((id) => $(id).addEventListener('click', openSound));
+  document.querySelectorAll('.open-card .oc-icon').forEach((e, i) => { e.innerHTML = EnterIcon(i ? 'sound' : 'picture'); });
+  // Drop a file anywhere; the page says where it will go while you hold it over the page.
+  let dragDepth = 0;
+  const dropHint = (on) => { $('drop-hint').classList.toggle('show', on); };
+  addEventListener('dragenter', (e) => { if ([...(e.dataTransfer && e.dataTransfer.types || [])].includes('Files')) { dragDepth++; dropHint(true); } });
+  addEventListener('dragleave', () => { dragDepth = Math.max(0, dragDepth - 1); if (!dragDepth) dropHint(false); });
+  addEventListener('drop', (e) => { e.preventDefault(); dragDepth = 0; dropHint(false); const f = e.dataTransfer.files[0]; if (f) openAny(f); });
 
   /* ---------- the print world's data ---------- */
   const Cast = { file: null, busy: false };

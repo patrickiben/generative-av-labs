@@ -64,17 +64,33 @@ with sync_playwright() as p:
     # Chimera adds its own worst case: the sub held near 180 degrees so the measured cancellation shatters the
     # creature in red, full chaos, and per-note branches so every hit also lights a bud
     HARDER = {'chimera.html': "(()=>{const s=document.getElementById('k-phase');s.value=180;s.dispatchEvent(new Event('input'));const c=document.getElementById('ch-chaos');c.value=100;c.dispatchEvent(new Event('input'));__app.GARDEN.perNote=true})()"}
-    for page in (os.environ.get('FLASH_PAGES') or 'nebula.html chimera.html').split():
+    # Analog has no demo and no kit, so its first case is plain playing. Its hardest is switching engines and flipping A and B
+    # while playing. A switch faster than processing never reaches the screen, so it runs at three speeds and counts the
+    # results shown; Floor against SBR is the largest change the lower spectrogram can make.
+    ANALOG_HARD = {f'switching every {ms} ms': f"(()=>{{let i=0;const M={m};window.__hard=setInterval(()=>{{__app.setMode(M[i++%M.length]);__app.flip()}},{ms})}})()"
+                   for ms, m in ((110, "['floor','exciter','transient','sbr']"), (250, "['sbr','floor']"), (400, "['sbr','floor']"))}
+    for page in (os.environ.get('FLASH_PAGES') or 'nebula.html chimera.html analog.html enter.html enter.html?world=picture enter.html?world=print').split():
         for motion in ('no-preference', 'reduce'):
             pg = b.new_context(viewport={'width': 1440, 'height': 900}, device_scale_factor=1, reduced_motion=motion).new_page()
             pg.goto(f'{BASE}/{page}'); pg.wait_for_timeout(1500)
-            pg.click('#demo-button'); pg.wait_for_timeout(1500)
-            r = analyze(pg.evaluate('__app.recordLuma(9000)'))
-            pg.evaluate(HARD)
-            if page in HARDER: pg.evaluate(HARDER[page])
-            h = analyze(pg.evaluate('__app.recordLuma(6000)'))
-            print(page, motion, 'demo', json.dumps(r)); print(page, motion, 'hardest', json.dumps(h))
-            for name, x in (('demo', r), ('hardest', h)):
+            if page == 'analog.html':
+                pg.wait_for_function('window.__app && __app.result && !__app.busy', timeout=60000)
+                pg.click('#start-listen'); pg.wait_for_timeout(1500)
+                cases = [('playing', analyze(pg.evaluate('__app.recordLuma(9000)')))]
+                for name, js in ANALOG_HARD.items():
+                    n0 = pg.evaluate('__app.runs'); pg.evaluate(js)
+                    x = analyze(pg.evaluate('__app.recordLuma(6000)'))
+                    pg.evaluate('clearInterval(window.__hard)'); x['resultsShown'] = pg.evaluate('__app.runs') - n0
+                    cases.append((name, x)); pg.wait_for_timeout(900)
+            else:
+                drums = pg.query_selector('#demo-button') is not None     # a page with no demo (Enter) gets the rest-and-drift case only
+                if drums: pg.click('#demo-button'); pg.wait_for_timeout(1500)
+                r = analyze(pg.evaluate('__app.recordLuma(9000)'))
+                if drums: pg.evaluate(HARD)
+                if page in HARDER: pg.evaluate(HARDER[page])
+                cases = [('demo', r), ('hardest', analyze(pg.evaluate('__app.recordLuma(6000)')))]
+            for name, x in cases:
+                print(page, motion, name, json.dumps(x))
                 if x['worstRegionOver3PerSec'] > 0.25: bad.append(f'{page} {motion} {name}: {x["worstRegionOver3PerSec"]:.0%} of a region flashes more than 3 times a second')
                 if x['wholeFrame'] > 3: bad.append(f'{page} {motion} {name}: the whole frame flashes {x["wholeFrame"]} times in a second')
     b.close()

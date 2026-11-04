@@ -8,6 +8,8 @@
     about: '<circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/>',
     full: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
     close: '<path d="m6 6 12 12M18 6 6 18"/>',
+    picture: '<rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m5.5 17 4.1-4.1 2.9 2.7 2.4-2.4 3.6 3.8"/>',
+    sound: '<path d="M4 13v-2M8 17V7m4 13V4m4 13V7m4 6v-2"/>',
   };
   const svg = (name) => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICON[name]}</svg>`;
   const $ = (id) => document.getElementById(id);
@@ -28,12 +30,15 @@
         <p class="eyebrow">${esc(cfg.intro.eyebrow)}</p>
         <h1>${esc(cfg.intro.title)}</h1>
         <p>${esc(cfg.intro.subtitle)}</p>
+        ${cfg.intro.actions || ''}
       </div>
       <div id="toast" role="status"></div>
       <div class="dock-wrap">
         <div id="hud" class="chrome">${cfg.hud}</div>
         <div class="badges" id="badges"></div>
         <nav class="dock chrome" aria-label="Controls">
+          ${(cfg.actions || []).map((a) => `<button id="${a.id}" class="dock-open">${svg(a.icon)}<span>${esc(a.label)}</span></button>`).join('')}
+          ${cfg.actions ? '<div class="dock-divider"></div>' : ''}
           ${cfg.sheets.map((s) => `<button id="${s.id}-button" aria-haspopup="dialog" aria-expanded="false">${svg(s.icon)}<span>${esc(s.label)}</span></button>`).join('')}
           <div class="dock-divider"></div>
           <button id="about-button" aria-haspopup="dialog" aria-expanded="false">${svg('about')}<span>About</span></button>
@@ -71,7 +76,14 @@
     modeButtons.forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
 
     const toast = (msg, ms) => { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), ms || 3200); };
-    const fullscreen = () => { if (document.fullscreenElement) document.exitFullscreen(); else if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => toast('Full screen is not available here.')); };
+    const de = document.documentElement, canFull = !!(de.requestFullscreen || de.webkitRequestFullscreen);
+    const fullscreen = () => {
+      if (!canFull) return;
+      if (document.fullscreenElement || document.webkitFullscreenElement) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+      try { const r = (de.requestFullscreen || de.webkitRequestFullscreen).call(de); if (r && r.catch) r.catch(() => toast('Full screen is not available here.')); } catch (e) { toast('Full screen is not available here.'); }
+    };
+    // iPhone browsers have no full-screen API for pages, so the button is not shown there rather than doing nothing
+    $('fs-button').hidden = !canFull;
     $('fs-button').addEventListener('click', fullscreen);
     let hideChrome = false;
     addEventListener('keydown', (e) => {
@@ -88,4 +100,5 @@
   }
 
   global.mountEnterChrome = mountEnterChrome;
+  global.EnterIcon = svg;
 })(window);

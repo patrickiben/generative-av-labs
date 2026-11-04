@@ -118,6 +118,32 @@ with sync_playwright() as p:
     pg.wait_for_timeout(500)
     q = pg.evaluate("({asks: window.__asks, kit: typeof createKit, controls: ['connect-button','demo-button','chip-audio','chip-midi','hit-strip'].filter(i=>document.getElementById(i))})")
     check('no live input anywhere: no microphone or MIDI request, no kit controls', q['asks'] == 0 and q['kit'] == 'undefined' and not q['controls'], json.dumps(q))
+    c.close()
+    # 9. a phone sees how to open its own file at once, and both kinds land in the right world
+    import math, tempfile, wave
+    wav = Path(tempfile.mkdtemp()) / 'tone330.wav'
+    with wave.open(str(wav), 'wb') as w:
+        w.setnchannels(1); w.setsampwidth(2); w.setframerate(22050)
+        w.writeframes(b''.join(struct.pack('<h', int(12000 * math.sin(2 * math.pi * 330 * i / 22050))) for i in range(22050 * 2)))
+    phone = p.devices['iPhone 13']
+    c = b.new_context(**phone); pg = c.new_page(); pg._errs = []; pg.on('pageerror', lambda e: pg._errs.append(str(e)[:200]))
+    pg.goto(URL); pg.wait_for_timeout(2000)
+    seen = pg.evaluate("['hero-open-picture','hero-open-sound','dock-open-picture','dock-open-sound'].map(id => { const r = document.getElementById(id).getBoundingClientRect(); return r.width > 0 && r.top >= 0 && r.bottom <= innerHeight; })")
+    check('a phone sees open-picture and open-sound buttons on the first screen, in the hero and the dock', all(seen), str(seen))
+    with pg.expect_file_chooser() as fc: pg.click('#hero-open-picture')
+    fc.value.set_files(pic); pg.wait_for_selector('#model-go:not([hidden])', timeout=10000)
+    check('the hero button opens a real file chooser, and the picture goes to the picture world', pg.evaluate("__app.S.world") == 'picture')
+    pg.keyboard.press('Escape'); pg.click('[data-mode=print]'); pg.wait_for_function('__app.M!=null', timeout=60000)
+    with pg.expect_file_chooser() as fc: pg.click('#dock-open-sound')
+    fc.value.set_files(str(wav)); pg.wait_for_function("__app.M && /tone330/.test(__app.M.label)", timeout=60000)
+    check('the dock button opens a real file chooser, and a sound in the print world is cast', pg.evaluate("__app.Sound.fromFile && __app.M.watertight"), pg.evaluate("__app.M.label"))
+    check('no page errors on the phone', not pg._errs, str(pg._errs[:2])); c.close()
+    # 10. full screen works where the browser offers it, and the button is absent where it does not (iPhone)
+    c, pg = fresh(b); pg.goto(URL); pg.wait_for_timeout(1200); pg.click('#fs-button'); pg.wait_for_timeout(600)
+    check('full screen opens on a desktop browser', pg.evaluate('!!document.fullscreenElement'))
+    c.close()
+    c, pg = fresh(b, init="delete Element.prototype.requestFullscreen; delete Element.prototype.webkitRequestFullscreen;"); pg.goto(URL); pg.wait_for_timeout(1200)
+    check('with no full-screen API, there is no full-screen button', pg.evaluate("getComputedStyle(document.getElementById('fs-button')).display==='none'"))
     c.close(); b.close()
 srv.shutdown()
 print(f'{sum(res)} of {len(res)} checks passed'); sys.exit(0 if all(res) else 1)

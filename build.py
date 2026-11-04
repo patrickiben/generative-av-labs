@@ -59,9 +59,11 @@ if __name__ == "__main__":
         page("enter.html", "Enter", "Walk into a picture and fly through a sound: a first-person depth relief, a synesthetic sound field and a printable sculpture of the sound.", ["enter-workers.js", "enter-chrome.js", "enter.js"], extra_css=(SRC / "enter.css").read_text(), base=("gl.js",))
     if (SRC / "chimera.js").exists():
         page("chimera.html", "Chimera Synth", "A synth you breed by ear: animal voices, a playable genome and a phase-checked sub, synthesized live in your browser.", ["chimera-ui.js", "chimera-engine.js", "chimera.js"], base=("gl.js",), extra_css=(SRC / "chimera.css").read_text())
+    if (SRC / "analog.js").exists():
+        page("analog.html", "Detail Forge Analog", "Make a dull recording brighter in your browser: before and after spectrograms, a loudness-matched A/B, and every change measured and labeled as amplified or synthesized.", ["analog-dsp.js", "analog-ui.js", "analog.js"], base=(), extra_css=(SRC / "chimera.css").read_text() + (SRC / "analog.css").read_text())
     if (SRC / "displacer.js").exists():
         page("displacer.html", "Displacer", "Blend two pictures or two sounds by optimal transport: the mass moves instead of two files ghosting at once.", ["displacer-engine.js", "displacer.js"], extra_css=(SRC / "displacer.css").read_text())
     if (SRC / "index.src.html").exists():
-        static("index.html", "index.src.html", "Generative AV Labs", "Nebula, Enter, Chimera Synth and Displacer: browser instruments for light and sound, each with its own input.")
+        static("index.html", "index.src.html", "Generative AV Labs", "Nebula, Enter, Chimera Synth, Detail Forge Analog and Displacer: browser instruments for light and sound, each with its own input.")
     if (SRC / "field-guide.src.html").exists():
         static("field-guide.html", "field-guide.src.html", "Field Guide", "How to connect each page, what each status means, and what each input does.")
