@@ -389,8 +389,8 @@ function slicedAssemble(A,X,n){ const G=16;
   S._slMap={acc,G}; return S._slMap; }
 function buildSlicedMap(){ const c=slicedClouds(); const {X}=slicedOT(c.A,c.B); return slicedAssemble(c.A,X,c.n); }
 // SPATIAL OT: pixels move. slicedOT on (x,y)+(r,g,b) clouds; splat-accumulate reconstruction
-function spatialClouds(){
-  const recA=S.imgA,recB=S.imgB, step=3;
+function spatialClouds(step){
+  const recA=S.imgA,recB=S.imgB; step=step||3;
   function cloud(rec){ const d=rec.dataA.data,out=[],ar=rec.w/rec.h,W=rec.w;
     const lumAt=(x,y)=>{const i=(y*W+x)*4;return 0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];};
     for(let y=1;y<rec.h;y+=step)for(let x=1;x<rec.w;x+=step){ const i=(y*W+x)*4;

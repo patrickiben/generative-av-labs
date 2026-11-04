@@ -2250,8 +2250,8 @@ function slicedAssemble(A,X,n){ const G=16;
   S._slMap={acc,G}; return S._slMap; }
 function buildSlicedMap(){ const c=slicedClouds(); const {X}=slicedOT(c.A,c.B); return slicedAssemble(c.A,X,c.n); }
 // SPATIAL OT: pixels move. slicedOT on (x,y)+(r,g,b) clouds; splat-accumulate reconstruction
-function spatialClouds(){
-  const recA=S.imgA,recB=S.imgB, step=3;
+function spatialClouds(step){
+  const recA=S.imgA,recB=S.imgB; step=step||3;
   function cloud(rec){ const d=rec.dataA.data,out=[],ar=rec.w/rec.h,W=rec.w;
     const lumAt=(x,y)=>{const i=(y*W+x)*4;return 0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];};
     for(let y=1;y<rec.h;y+=step)for(let x=1;x<rec.w;x+=step){ const i=(y*W+x)*4;
@@ -2369,8 +2369,9 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
   }
 
   /* ---------- built-in sources: two painted scenes and two sung vowels ---------- */
+  const HI = 3;   // the built-in scenes are painted at three times the working size
   function paintDusk() {
-    const c = document.createElement('canvas'); c.width = 560; c.height = 360; const g = c.getContext('2d');
+    const c = document.createElement('canvas'); c.width = 560 * HI; c.height = 360 * HI; const g = c.getContext('2d'); g.scale(HI, HI);
     const sky = g.createLinearGradient(0, 0, 0, 260);
     sky.addColorStop(0, '#120d2e'); sky.addColorStop(0.38, '#3b1d57'); sky.addColorStop(0.72, '#a3416a'); sky.addColorStop(1, '#ffa25e');
     g.fillStyle = sky; g.fillRect(0, 0, 560, 360);
@@ -2386,7 +2387,7 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
     return c;
   }
   function paintTide() {
-    const c = document.createElement('canvas'); c.width = 560; c.height = 360; const g = c.getContext('2d');
+    const c = document.createElement('canvas'); c.width = 560 * HI; c.height = 360 * HI; const g = c.getContext('2d'); g.scale(HI, HI);
     const sky = g.createLinearGradient(0, 0, 0, 230);
     sky.addColorStop(0, '#08203d'); sky.addColorStop(0.55, '#1d5f86'); sky.addColorStop(1, '#a6e6e2');
     g.fillStyle = sky; g.fillRect(0, 0, 560, 230);
@@ -2477,7 +2478,6 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
     <details id="img-opts"><summary>Picture options</summary><div class="controls-grid">
       <label class="field">Color space<select id="cspace"><option value="ycocg">YCoCg, keeps hues apart</option><option value="rgb">Each RGB channel</option></select></label>
       <label class="field">OT quality<select id="quality"><option value="dither">Dithered map, fast</option><option value="sliced">Sliced OT over 3D color</option></select></label>
-      <label class="field">Spatial OT compositing<select id="spcomp"><option value="sharp">Soft nearest, sharp</option><option value="mean">Mean, blind to overlap</option></select></label>
       <label class="field">Splat size<select id="spadapt"><option value="adaptive">Per point, from local contrast</option><option value="global">One size for all</option></select></label>
     </div></details>
     <details id="aud-opts"><summary>Sound options</summary><div class="controls-grid">
@@ -2536,7 +2536,7 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
     <p class="sheet-intro">Displacer moves mass instead of mixing it. Each blend is a stated computation, and there is no model.</p>
     <table class="maptable"><tbody>
       <tr><th>OT displacement</th><td>Pictures: each color channel's histogram moves toward B's along the intensity axis, so A is recolored and keeps its shapes. Sounds: each frame's spectrum moves along frequency, with its energy kept.</td></tr>
-      <tr><th>Spatial OT</th><td>Pixels move. Both pictures become clouds of position and color, matched by sliced optimal transport. The flat picture is rebuilt from splats, so it is approximate.</td></tr>
+      <tr><th>Spatial OT</th><td>Pixels move. Both pictures become clouds of position and color, matched by sliced optimal transport. Between the ends, A's full-size pixels move together along that map, averaged over neighbors, and take B's colors by OT displacement; the last stretch settles into B itself.</td></tr>
       <tr><th>MP hybrid</th><td>The loudest partials, found by matching pursuit, keep their own clean phase and ride over the transported rest of the sound.</td></tr>
       <tr><th>Crossfade</th><td>The honest control. It adds the two, so both show or sound at once.</td></tr>
       <tr><th>Space</th><td>Pictures: x and y from the frame, depth from brightness. Sounds: Gabor atoms placed by time, log frequency and salience. Matched by sliced optimal transport over position and color.</td></tr>
@@ -2544,7 +2544,7 @@ else if(m.type==='ot'){const E=createEngine({});const t0=performance.now();const
     </tbody></table>
     <details><summary>What is exact, and what is approximate</summary>
       <p><b>Exact.</b> The 1D inverse-CDF map is the exact W2 optimal-transport map between 1D distributions (McCann's displacement interpolation): a theorem, not an approximation. For pictures it moves each channel's histogram, so the mean slides linearly from A to B. For sounds it moves each frame's magnitude spectrum along frequency, with energy conserved per frame. The crossfade is the naive control: it sums the two and moves nothing.</p>
-      <p><b>Approximate.</b> OT displacement and its sliced variant recolor A and keep A's geometry. Spatial OT moves the sampled pixel cloud exactly, but its flat picture is a splat reconstruction, and the match is geometric, not a semantic correspondence. Compositing is a stated, switchable rule.</p>
+      <p><b>Approximate.</b> OT displacement and its sliced variant recolor A and keep A's geometry. Spatial OT moves the sampled pixel cloud exactly, but the picture between the ends moves A's pixels along that map averaged over neighbors, recolors them by OT displacement, and fades into B over the last fifth. The match is geometric, not a semantic correspondence.</p>
       <p>Sound phase is rebuilt by a heuristic, because a transported magnitude has no exact phase, so attacks can smear near the middle. One 1D transport per channel or frame stands in for the full 2D Sinkhorn coupling, which is not run. Nothing here invents a new texture between A and B: expect clean migration, not a hybrid that a generative model would draw.</p>
       <p><b>Fixed from the desktop version.</b> Sound blends there divided by a nearly zero window at the first and last samples, which left them about 250 times too quiet with a click. The granular effect used an unseeded random source, so a saved sound did not repeat. Both are fixed here.</p>
     </details>
@@ -2566,7 +2566,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   const BADGE = {
     'image-ot': 'OT displacement · exact 1D map per color channel · recolors A, keeps its shapes',
     'image-ot-sliced': 'OT displacement, sliced · joint color transport, approximate · recolors A, keeps its shapes',
-    'image-spatial': 'Spatial OT · the sampled pixel cloud moves exactly · the flat picture is an approximate rebuild',
+    'image-spatial': 'Spatial OT · A moves along the smoothed transport map and takes B\'s colors · the ends are exact',
     'image-xfade': 'Crossfade · the naive control · adds both, moves nothing',
     'audio-ot': "OT displacement · exact transport of each frame's spectrum · phase is a heuristic",
     'audio-mp': 'MP hybrid · atoms keep their own phase · the rest is transported',
@@ -2578,7 +2578,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   };
   const CAPTION = {
     'image-ot': "OT displacement moves A's color histogram toward B's along the intensity axis (McCann interpolation). It recolors A and keeps A's shapes, so it is a color and tone morph, not a warp. At 1.00 you see A wearing B's palette.",
-    'image-spatial': "Spatial OT moves pixels. Both pictures become clouds of position and color, matched by sliced optimal transport, and the slider carries A's cloud into B's. The transport of the sampled cloud is exact; the flat picture is rebuilt from splats, so it is approximate. The match is geometric, not a learned correspondence.",
+    'image-spatial': "Spatial OT moves pixels. Both pictures become clouds of position and color, matched by sliced optimal transport, and the slider carries A's cloud into B's. The transport of the sampled cloud is exact; between the ends, A's full-size pixels move together along that map, averaged over neighbors, take B's colors by OT displacement, and settle into B over the last fifth. The match is geometric, not a learned correspondence.",
     'image-xfade': 'Crossfade mixes the two pictures. At 0.50 both show at once, a double exposure. It is the naive control the transport methods are built to beat.',
     'audio-ot': "OT displacement moves each frame's spectral energy from A's frequencies to B's, an exact 1D transport of magnitude. A resonance slides along the axis instead of fading. Phase is rebuilt by a heuristic, the approximate part.",
     'audio-mp': 'MP hybrid splits each sound. The loudest partials, found by matching pursuit, keep their own clean phase so attacks survive, and ride over the transported rest of the sound. The mix sets skeleton against field.',
@@ -2798,12 +2798,14 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     document.querySelectorAll('#view-seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
     document.body.dataset.view = v;
     flatDirty = true; syncMethod(); moved();
+    if (G && Post) resize();
   }
   function moved() { if (!document.body.classList.contains('moved')) document.body.classList.add('moved'); }
   setTimeout(moved, 9000);
   function busy(msg) { const b = $('busy'); if (msg) { b.textContent = msg; b.hidden = false; } else b.hidden = true; }
 
   /* ---------- the flat view: the blend itself, computed by the engine ---------- */
+  const SP_STEP = 2;   // Spatial OT samples every second pixel of the working copy: about 50,000 points
   let flatW = 0, flatH = 0, flatSpec = false, flatMean = [0.05, 0.05, 0.08], flatBusy = false;
   async function ensureSlicedMap() {
     if (S._slMap || flatBusy) return false;
@@ -2819,7 +2821,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   async function ensureSpatialMap() {
     if (S._spMap || flatBusy) return false;
     flatBusy = true; const v = S.ver.image;
-    const c = E.spatialClouds(); busy(`Matching ${c.n.toLocaleString()} points for Spatial OT`);
+    const c = E.spatialClouds(SP_STEP); busy(`Matching ${c.n.toLocaleString()} points for Spatial OT`);
     const { X, Y } = E.packClouds(c.A, c.B, c.n);
     const r = await work({ type: 'ot', X, Y, n: c.n }, [X.buffer, Y.buffer]);
     flatBusy = false; busy(null);
@@ -2827,39 +2829,141 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     if (v === S.ver.image) { E.spatialAssemble(c.A, c.B, r.X, c.n); flatDirty = true; }
     return true;
   }
-  function blendImageData(method, t) {
-    const recA = S.imgA, W = recA.w, H = recA.h;
-    if (method === 'spatial') return E.renderSpatial(t, W, H);
-    if (method === 'xfade') return E.xfadeImage(t, recA, S.imgB);
-    return E.renderImage(t, 'ot', recA.dataA, W, H);
-  }
   function mapsReady(method) {
     if (method === 'spatial' && !S._spMap) { ensureSpatialMap(); return false; }
     if (method === 'ot' && S.quality === 'sliced' && !S._slMap) { ensureSlicedMap(); return false; }
     return true;
   }
   const labels = $('flat-labels');
-  function renderFlatImage() {
-    if (!S.imgA || !S.imgB) return;
-    const main = S.method;
-    if (!mapsReady(main)) return;
-    let src;
-    if (S.compare) {
-      const W = S.imgA.w, H = S.imgA.h, gap = Math.round(W * 0.03), c = document.createElement('canvas'); c.width = W * 2 + gap; c.height = H;
-      const g = c.getContext('2d');
-      const put = (im, x) => { const tc = document.createElement('canvas'); tc.width = W; tc.height = H; tc.getContext('2d').putImageData(im, 0, 0); g.drawImage(tc, x, 0); };
-      put(blendImageData(main === 'xfade' ? 'ot' : main, S.tView), 0); put(E.xfadeImage(S.tView, S.imgA, S.imgB), W + gap);
-      g.clearRect(W, 0, gap, H);
-      src = c; flatW = c.width; flatH = H;
-      labels.innerHTML = `<span>${METHOD_NAME[main === 'xfade' ? 'ot' : main]} · mass moves</span><span>Crossfade · both at once</span>`;
-    } else {
-      src = blendImageData(main, S.tView); flatW = src.width; flatH = src.height; labels.innerHTML = '';
-    }
-    uploadFlat(src, false);
-    const d = src.data || src.getContext('2d').getImageData(0, 0, flatW, flatH).data;
-    let r = 0, g = 0, b = 0, n = 0; for (let i = 0; i < d.length; i += 64) { if (!d[i + 3]) continue; r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; }
-    flatMean = n ? [r, g, b].map((v) => Math.pow(v / n / 255, 2.2)) : [0.05, 0.05, 0.08];
+  /* The engine's maps come from the 560-pixel working copy, as in the desktop app; here they are applied to every pixel of
+     the full-size pictures on the graphics card. OT displacement looks up the same per-value maps the engine builds.
+     Spatial OT warps both full-size pictures toward each other along the transport field, smoothed over neighboring
+     samples, and blends them, so 0.00 shows A exactly and 1.00 shows B. */
+  const GPU_MAX = 4096;
+  const gpu = { srcKey: '', qKey: '', slKey: '', fieldKey: '', texA: null, texB: null, texQ: null, texSL: null, texDA: null, aW: 0, aH: 0, rt: null, meanA: [0.05, 0.05, 0.08], meanB: [0.05, 0.05, 0.08] };
+  const cloudScale = (rec) => { const ar = rec.w / rec.h; return [Math.min(1.2, ar), Math.max(0.83, ar)]; };
+  function srcTexture(old, rec) {
+    const k = Math.min(1, GPU_MAX / Math.max(rec.fw, rec.fh)), w = Math.max(1, Math.round(rec.fw * k)), h = Math.max(1, Math.round(rec.fh * k));
+    let src = rec.full;
+    if (k < 1) { src = document.createElement('canvas'); src.width = w; src.height = h; const g = src.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(rec.full, 0, 0, w, h); }
+    if (old) gl.deleteTexture(old);
+    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE, src);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    return { t, w, h };
   }
+  function meanOf(rec) { const d = rec.dataA.data; let r = 0, g = 0, b = 0, n = 0; for (let i = 0; i < d.length; i += 32) { r += d[i]; g += d[i + 1]; b += d[i + 2]; n++; } return [r, g, b].map((v) => Math.pow(v / n / 255, 2.2)); }
+  function ensureGpuSources() {
+    const key = `${S.ver.image}`;
+    if (gpu.srcKey === key) return;
+    const a = srcTexture(gpu.texA, S.imgA), b = srcTexture(gpu.texB, S.imgB);
+    gpu.texA = a.t; gpu.texB = b.t; gpu.aW = a.w; gpu.aH = a.h;
+    gpu.meanA = meanOf(S.imgA); gpu.meanB = meanOf(S.imgB);
+    gpu.srcKey = key;
+  }
+  // OT displacement's per-value maps, made exactly as the engine's buildLUT makes them: lut(v) = (1 - t) v + t q(v)
+  function ensureQ() {
+    const key = `${S.ver.image}|${S.cspace}|${S.quality}`;
+    if (gpu.qKey === key) return;
+    const ca = [0, 1, 2].map((k) => E.chanCDF(S._ta, k, 4, S._ta.length / 4)), cb = [0, 1, 2].map((k) => E.chanCDF(S._tb, k, 4, S._tb.length / 4));
+    const r = E.mulberry32(20260625), dith = S.quality === 'dither', Q = new Float32Array(256 * 4);
+    for (let k = 0; k < 3; k++) for (let v = 0; v < 256; v++) { let pp; if (dith) { const lo = v > 0 ? ca[k][v - 1] : 0; pp = lo + r() * (ca[k][v] - lo); } else pp = ca[k][v]; Q[v * 4 + k] = E.invCDF256(cb[k], pp); }
+    if (!gpu.texQ) gpu.texQ = G.tex(256, 1, { internal: gl.RGBA32F, format: gl.RGBA, type: gl.FLOAT }, { nearest: true, data: Q });
+    else { gl.bindTexture(gl.TEXTURE_2D, gpu.texQ); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 256, 1, gl.RGBA, gl.FLOAT, Q); }
+    gpu.qKey = key;
+  }
+  function ensureSL() {
+    const key = `${S.ver.image}`;
+    if (gpu.slKey === key || !S._slMap) return;
+    const N = S._slMap.G, acc = S._slMap.acc, data = new Float32Array(N * N * N * 4);
+    for (let ci = 0; ci < N * N * N; ci++) { data[ci * 4] = acc[ci * 3]; data[ci * 4 + 1] = acc[ci * 3 + 1]; data[ci * 4 + 2] = acc[ci * 3 + 2]; }
+    if (gpu.texSL) gl.deleteTexture(gpu.texSL);
+    gpu.texSL = gl.createTexture(); gl.bindTexture(gl.TEXTURE_3D, gpu.texSL);
+    gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA32F, N, N, N, 0, gl.RGBA, gl.FLOAT, data);
+    [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach((q) => gl.texParameteri(gl.TEXTURE_3D, q, gl.NEAREST));
+    gpu.slKey = key;
+  }
+  // Spatial OT between the ends: a smooth displacement field from the matched samples (Gaussian splats on a grid,
+  // normalized, holes filled), so neighboring pixels move together instead of tearing apart.
+  function smoothField(GW, GH, n, U, V, VX, VY) {
+    const acc = new Float32Array(GW * GH * 2), w = new Float32Array(GW * GH), R = 5, s2 = 2 * 2.2 * 2.2;
+    for (let i = 0; i < n; i++) {
+      const gx = U[i] * GW - 0.5, gy = V[i] * GH - 0.5, x0 = Math.round(gx), y0 = Math.round(gy);
+      for (let y = y0 - R; y <= y0 + R; y++) { if (y < 0 || y >= GH) continue;
+        for (let x = x0 - R; x <= x0 + R; x++) { if (x < 0 || x >= GW) continue;
+          const k = Math.exp(-((x - gx) ** 2 + (y - gy) ** 2) / s2), o = y * GW + x; acc[o * 2] += VX[i] * k; acc[o * 2 + 1] += VY[i] * k; w[o] += k; } }
+    }
+    const out = new Float32Array(GW * GH * 2); let has = new Uint8Array(GW * GH);
+    for (let o = 0; o < GW * GH; o++) if (w[o] > 1e-3) { out[o * 2] = acc[o * 2] / w[o]; out[o * 2 + 1] = acc[o * 2 + 1] / w[o]; has[o] = 1; }
+    for (let pass = 0; pass < 256; pass++) {
+      let missing = 0; const next = has.slice();
+      for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) { const o = y * GW + x; if (has[o]) continue; missing++;
+        let sx = 0, sy = 0, m = 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const X = x + dx, Y = y + dy; if (X < 0 || Y < 0 || X >= GW || Y >= GH) continue; const q = Y * GW + X; if (has[q]) { sx += out[q * 2]; sy += out[q * 2 + 1]; m++; } }
+        if (m) { out[o * 2] = sx / m; out[o * 2 + 1] = sy / m; next[o] = 1; } }
+      has = next; if (!missing) break;
+    }
+    return out;
+  }
+  function ensureField() {
+    const key = `${S.ver.image}`;
+    if (gpu.fieldKey === key || !S._spMap) return;
+    const m = S._spMap, n = m.n, [sxA, syA] = cloudScale(S.imgA), U = new Float32Array(n), V = new Float32Array(n);
+    for (let i = 0; i < n; i++) { U[i] = m.x0[i] / (2 * sxA) + 0.5; V[i] = (m.y0[i] * syA) / 2 + 0.5; }
+    const GW = 96, GH = Math.max(12, Math.round((96 * S.imgA.h) / S.imgA.w));
+    if (gpu.texDA) gl.deleteTexture(gpu.texDA);
+    gpu.texDA = G.tex(GW, GH, { internal: gl.RG16F, format: gl.RG, type: gl.FLOAT }, { data: smoothField(GW, GH, n, U, V, m.dx, m.dy) });
+    gpu.fieldKey = key;
+  }
+  function ensureRT(w, h) {
+    if (gpu.rt && gpu.rt.w === w && gpu.rt.h === h) return gpu.rt;
+    if (gpu.rt) G.freeTarget(gpu.rt);
+    gpu.rt = G.target(w, h, { internal: gl.RGBA8, format: gl.RGBA, type: gl.UNSIGNED_BYTE });
+    gl.bindTexture(gl.TEXTURE_2D, gpu.rt.tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    return gpu.rt;
+  }
+  const methodId = (m) => (m === 'xfade' ? 3 : m === 'spatial' ? 2 : S.quality === 'sliced' ? 1 : 0);
+  function prepare(method) { ensureGpuSources(); ensureQ(); if (method === 'spatial') ensureField(); if (method === 'ot' && S.quality === 'sliced') ensureSL(); }
+  function drawBlend(fbo, vp, method, t) {
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.viewport(vp[0], vp[1], vp[2], vp[3]); gl.disable(gl.BLEND);
+    G.bindTex(0, gpu.texA); G.bindTex(1, gpu.texB); G.bindTex(2, gpu.texQ); G.bindTex(3, gpu.texDA || gpu.texA);
+    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_3D, gpu.texSL || dummy3D);
+    G.use(pBlend, { uA: 0, uB: 1, uQ: 2, uDA: 3, uSL: 5, uMethod: methodId(method), uT: t, uYcocg: S.cspace === 'ycocg' ? 1 : 0, uSA: cloudScale(S.imgA), uSB: cloudScale(S.imgB) });
+    G.draw();
+  }
+  // draws the blend for the stage at the size the stage shows it, never larger than the source
+  function renderFlatImage(pw, ph) {
+    if (!S.imgA || !S.imgB || !G) return false;
+    const main = S.method, left = main === 'xfade' ? 'ot' : main;
+    if (!mapsReady(main) || (S.compare && !mapsReady(left))) return false;
+    prepare(main); if (S.compare) prepare(left);
+    gpu.lastPh = ph;
+    const ar = gpu.aW / gpu.aH, hh = Math.max(16, Math.min(ph, gpu.aH)), P = Math.max(16, Math.round(hh * ar)), gap = S.compare ? Math.round(P * 0.03) : 0, ww = S.compare ? 2 * P + gap : P;
+    if (!flatDirty && gpu.rt && gpu.rt.w === ww && gpu.rt.h === hh) return true;
+    const rt = ensureRT(ww, hh), t = S.tView;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, rt.fbo); gl.viewport(0, 0, ww, hh); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+    if (S.compare) {
+      drawBlend(rt.fbo, [0, 0, P, hh], left, t); drawBlend(rt.fbo, [P + gap, 0, P, hh], 'xfade', t);
+      labels.innerHTML = `<span>${METHOD_NAME[left]} · mass moves</span><span>Crossfade · both at once</span>`;
+    } else { drawBlend(rt.fbo, [0, 0, P, hh], main, t); labels.innerHTML = ''; }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    G.bindTex(0, rt.tex); gl.generateMipmap(gl.TEXTURE_2D);
+    flatMean = gpu.meanA.map((v, k) => v + (gpu.meanB[k] - v) * t);
+    flatDirty = false; flatReady = 'image';
+    return true;
+  }
+  // the blend at any size, read back for saving: rows come out top first, as ImageData wants them
+  function blendPixels(method, t, w, h) {
+    prepare(method);
+    const T = G.target(w, h, { internal: gl.RGBA8, format: gl.RGBA, type: gl.UNSIGNED_BYTE });
+    drawBlend(T.fbo, [0, 0, w, h], method, t);
+    const px = new Uint8Array(w * h * 4); gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null); G.freeTarget(T);
+    return new ImageData(new Uint8ClampedArray(px.buffer), w, h);
+  }
+  const imageCanvas = (im) => { const c = document.createElement('canvas'); c.width = im.width; c.height = im.height; c.getContext('2d').putImageData(im, 0, 0); return c; };
   /* the sound's flat view is its spectrogram: log frequency up, time across, the suite's color law */
   function spectrogram(data, rate, cols, rows) {
     const N = 1024, K = N / 2, re = new Float32Array(N), im = new Float32Array(N), win = new Float32Array(N), out = new Uint8Array(cols * rows), mags = new Float32Array(cols * rows);
@@ -3048,6 +3152,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
   /* ---------- WebGL ---------- */
   const cv = $('stage');
   const G = createGL(cv);
+  let pBlend, dummy3D;
   let gl, Post, pFlat, pPts, pResolve, scene, acc, tFlat, ptsVao, ptsBuf, baseVao, rw = 0, rh = 0, wantSnap = null, safe = { top: 0.12, bottom: 0.68 };
   const BACK = `
 uniform vec2 uRes; uniform vec3 uMean; uniform vec2 uCenter; uniform float uKick;
@@ -3110,6 +3215,29 @@ void main(){
   if(uGlow>.5){ float g=exp(-r2*5.)+.3*exp(-r2*1.3); o=vec4(vC*g*uI,1.); }
   else { float g=exp(-r2*3.); float w=g*g*vW; o=vec4(vC*w,w); }
 }`;
+  // One pass draws the blend, for the stage and for saved files alike. v = 0 is the picture's top row.
+  const BLEND_FS = FS_HEAD + `precision highp sampler3D;
+uniform sampler2D uA,uB,uQ,uDA; uniform sampler3D uSL;
+uniform int uMethod; uniform float uT,uYcocg; uniform vec2 uSA,uSB;
+vec3 toS(vec3 c){ if(uYcocg<.5) return c; float co=c.r-c.b, tmp=c.b+floor(co*.5), cg=c.g-tmp, y=tmp+floor(cg*.5); return clamp(vec3(y,cg+128.,co+128.),0.,255.); }
+vec3 fromS(vec3 d){ if(uYcocg<.5) return d; float y=d.x, cg=d.y-128., co=d.z-128., tmp=y-floor(cg*.5), g=cg+tmp, b=tmp-floor(co*.5), r=b+co; return clamp(vec3(r,g,b),0.,255.); }
+vec3 recolor(vec3 a){ vec3 s=toS(a); ivec3 si=ivec3(s);
+  vec3 q=vec3(texelFetch(uQ,ivec2(si.r,0),0).r,texelFetch(uQ,ivec2(si.g,0),0).g,texelFetch(uQ,ivec2(si.b,0),0).b);
+  return fromS(floor(clamp((1.-uT)*s+uT*q,0.,255.)+.5)); }
+void main(){
+  vec2 uv=vUv;
+  if(uMethod==2){
+    vec2 P=vec2((uv.x-.5)*2.*uSA.x,(uv.y-.5)*2./uSA.y), q=P;
+    for(int k=0;k<8;k++){ vec2 u=vec2(q.x/(2.*uSA.x)+.5,q.y*uSA.y*.5+.5); q=P-uT*texture(uDA,u).xy; }
+    vec2 ua=vec2(q.x/(2.*uSA.x)+.5,q.y*uSA.y*.5+.5), ub=vec2(P.x/(2.*uSB.x)+.5,P.y*uSB.y*.5+.5);
+    vec3 moved=recolor(floor(texture(uA,ua).rgb*255.+.5))/255.;
+    o=vec4(mix(moved,texture(uB,ub).rgb,smoothstep(.8,1.,uT)),1.); return;
+  }
+  vec3 a=floor(texture(uA,uv).rgb*255.+.5);
+  if(uMethod==3){ o=vec4(mix(a,floor(texture(uB,uv).rgb*255.+.5),uT)/255.,1.); return; }
+  if(uMethod==1){ ivec3 ci=ivec3(min(vec3(15.),floor(a/16.))); vec3 d=texelFetch(uSL,ivec3(ci.b,ci.g,ci.r),0).rgb; o=vec4(floor(clamp(a+uT*d,0.,255.)+.5)/255.,1.); return; }
+  o=vec4(recolor(a)/255.,1.);
+}`;
   const RESOLVE_FS = FS_HEAD + BACK + `
 uniform sampler2D uAcc;
 void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a.a,1e-4); o=vec4(mix(bg,invAces(c),smoothstep(.02,.24,a.a)),1.); }`;
@@ -3155,7 +3283,7 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
   function resize() {
     const dpr = Math.min(devicePixelRatio || 1, 2), W = Math.max(320, Math.round(cv.clientWidth * dpr)), H = Math.max(240, Math.round(cv.clientHeight * dpr));
     if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
-    const budget = 2.2e6, asp = W / H;
+    const budget = S.view === 'flat' ? Infinity : 2.2e6, asp = W / H;
     let h = Math.round(Math.sqrt(budget / asp)), w = Math.round(h * asp);
     if (w > W) { w = W; h = H; }
     measureSafe();
@@ -3197,31 +3325,35 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
       if (S.sweep) { S.sweepT += dt; setT(0.5 - 0.5 * Math.cos((S.sweepT / 24) * Math.PI * 2), 'sweep'); }
       if (S.tView !== S.t) { const d = S.t - S.tView; S.tView = Math.abs(d) < 1e-4 ? S.t : S.tView + d * (1 - Math.exp(-dt / 0.15)); if (S.mode === 'image') flatDirty = true; }
       if (S.view === 'space' && spaceKey !== wantKey()) buildSpace();
-      if (S.view === 'flat' && S.mode === 'image' && flatDirty) { flatDirty = false; renderFlatImage(); }
       if (S.view === 'flat' && S.mode === 'audio' && flatReady !== 'audio' && S.lastRender) showSpectrogram(S.lastRender);
       if (scopeDirty || $('blend-sheet').open) { scopeDirty = false; drawScopes(); }
       if (S.space.sway && !dragging && !RM.matches) S.space.phase += dt * 0.11;
       const sway = RM.matches ? 0 : Math.sin(S.space.phase) * 0.5;
 
       const W = rw, H = rh, asp = W / H, sh = safe.bottom - safe.top, dy = 1 - (safe.top + safe.bottom);
-      const showFlat = S.view === 'flat' && flatReady === S.mode;
+      const imgFlat = S.view === 'flat' && S.mode === 'image' && !!(S.imgA && S.imgB);
+      if (imgFlat) { const ar = S.imgA.fw / S.imgA.fh; flatW = 1000 * (S.compare ? 2.03 * ar : ar); flatH = 1000; flatSpec = false; }
+      let showFlat = S.view === 'flat' && (imgFlat || flatReady === S.mode);
       const showSpace = S.view === 'space' && spaceN > 0 && splat && splat.kind === S.mode;
-      let mean = showSpace ? splat.mean : flatMean, center = [0.5, 1 - (safe.top + safe.bottom) / 2], rect = [0, 0, 0, 0];
+      const center = [0.5, 1 - (safe.top + safe.bottom) / 2]; let rect = [0, 0, 0, 0];
       if (showFlat) {
         const side = $('scope-card').hidden ? 0.05 : Math.min(0.3, 318 / Math.max(1, innerWidth)), aw = (1 - 2 * side) * W, ah = 0.94 * sh * H, k = Math.min(aw / flatW, ah / (flatSpec ? flatW / 1.9 : flatH)), pw = flatW * k, ph = (flatSpec ? flatW / 1.9 : flatH) * k;
         const cx = 0.5, cy = center[1];
         rect = [cx - pw / W / 2, cy - ph / H / 2, cx + pw / W / 2, cy + ph / H / 2];
+        if (imgFlat) showFlat = renderFlatImage(Math.round(pw), Math.round(ph)) || flatReady === 'image';
         if (labels.childElementCount) { labels.style.left = `${rect[0] * 100}%`; labels.style.width = `${(rect[2] - rect[0]) * 100}%`; labels.style.top = `${(1 - rect[3]) * 100}%`; }
       }
       labels.hidden = !(showFlat && S.compare && S.mode === 'image');
+      const mean = showSpace ? splat.mean : flatMean;
       const back = { uRes: [W, H], uMean: mean, uCenter: center, uKick: env.kick * react };
 
       gl.disable(gl.BLEND);
       if (!showSpace) {
-        G.into(scene); G.bindTex(0, tFlat);
+        const pic = S.mode === 'image' && gpu.rt;
+        G.into(scene); G.bindTex(0, pic ? gpu.rt.tex : tFlat);
         let play = -1;
         if (playSrc && AC && playKind === 'blend') play = clamp((AC.currentTime - playStart) / playDur, 0, 1);
-        G.use(pFlat, { ...back, uImg: 0, uRect: rect, uHas: showFlat ? 1 : 0, uSpec: flatSpec ? 1 : 0, uPlay: play, uLod: showFlat ? Math.max(0, Math.log2(flatH / Math.max(1, (rect[3] - rect[1]) * H))) : 0 });
+        G.use(pFlat, { ...back, uImg: 0, uRect: rect, uHas: showFlat ? 1 : 0, uSpec: flatSpec ? 1 : 0, uPlay: play, uLod: showFlat ? Math.max(0, Math.log2((pic ? gpu.rt.h : flatH) / Math.max(1, (rect[3] - rect[1]) * H))) : 0 });
         G.draw();
       } else {
         const yaw = S.space.yaw + sway, pitch = S.space.pitch, dist = S.space.dist;
@@ -3257,8 +3389,8 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
       }
       const bloom = Post.bloom(scene.tex, showSpace ? 0.75 : 0.85);
       Post.finish(scene.tex, bloom, {
-        uBloomK: showSpace ? (0.3 + env.kick * 0.05 * react + env.crash * 0.1 * react) : 0.16 + env.kick * 0.04 * react, uExposure: 1,
-        uFlash: RM.matches ? 0 : Math.min(0.06, env.flash * 0.06 * react), uFlashC: [1, 0.95, 0.88], uGrain: 0.012, uT: now / 1000, uVig: showSpace ? 0.38 : 0.22, uSat: 1, rate: RM.matches ? 0.16 : 0.36,
+        uBloomK: showSpace ? (0.3 + env.kick * 0.05 * react + env.crash * 0.1 * react) : 0.08, uExposure: 1,
+        uFlash: RM.matches ? 0 : Math.min(0.06, env.flash * 0.06 * react), uFlashC: [1, 0.95, 0.88], uGrain: showSpace ? 0.012 : 0.004, uT: now / 1000, uVig: showSpace ? 0.38 : 0.14, uSat: 1, rate: RM.matches ? 0.16 : 0.36,
       }, dtMs / 1000);
       if (lumaRec) lumaRec(now);
       if (wantSnap) { const done = wantSnap; wantSnap = null; cv.toBlob((blob) => done(blob), 'image/png'); }
@@ -3397,29 +3529,15 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
   function describeSave() {
     const el = $('save-what'); if (!el) return;
     el.textContent = S.mode === 'image'
-      ? (S.method === 'spatial' ? `Spatial OT is rebuilt from about ${(S._spMap ? S._spMap.n : 23000).toLocaleString()} splats, so it saves at the working size, ${S.imgA ? `${S.imgA.w} × ${S.imgA.h}` : ''} pixels. A sweep is a strip of seven steps. The poster adds the scope.` : `The blend saves as a PNG at A's own size${S.imgA ? `, ${S.imgA.fw} × ${S.imgA.fh}` : ''}. A sweep is a strip of seven steps. The poster adds the scope.`)
+      ? `The blend saves as a PNG at A's own size${S.imgA ? `, ${Math.min(S.imgA.fw, Math.round(S.imgA.fw * 4096 / Math.max(S.imgA.fw, S.imgA.fh)))} × ${Math.min(S.imgA.fh, Math.round(S.imgA.fh * 4096 / Math.max(S.imgA.fw, S.imgA.fh)))}` : ''}, up to 4,096 pixels on the long side. A sweep is a strip of seven steps. The poster adds the scope.`
       : 'The blend saves as a 16-bit WAV at the current position, effects included. A sweep is one WAV that rides from A to B. The poster shows the spectrogram and the scope.';
   }
   async function saveBlend() {
     if (S.mode === 'audio') { const r = await currentRender(); if (r) download(new Blob([E.encodeWav(r.data, r.rate)], { type: 'audio/wav' }), `${tag()}.wav`); return; }
-    if (!S.imgA || !S.imgB) return;
+    if (!S.imgA || !S.imgB || !G) return;
     if (!mapsReady(S.method)) { shell.toast('Matching first. Save again in a moment.'); return; }
-    const recA = S.imgA;
-    if (S.method === 'spatial') { const im = E.renderSpatial(S.t, recA.w, recA.h), c = document.createElement('canvas'); c.width = recA.w; c.height = recA.h; c.getContext('2d').putImageData(im, 0, 0); download(await toBlob(c), `${tag()}_${recA.w}px.png`); return; }
-    const W = recA.fw, H = recA.fh, full = document.createElement('canvas'); full.width = W; full.height = H;
-    const fc = full.getContext('2d', { willReadFrequently: true });
-    if (S.method === 'ot' && S.quality === 'sliced') {
-      fc.drawImage(recA.full, 0, 0); const sd = fc.getImageData(0, 0, W, H), dd = new Uint8ClampedArray(sd.data); E.applySliced(dd, S.t); fc.putImageData(new ImageData(dd, W, H), 0, 0);
-    } else if (S.method === 'ot') {     // the desktop export: distributions at full size, A against B drawn to A's size
-      fc.drawImage(recA.full, 0, 0); const ad = new Uint8ClampedArray(fc.getImageData(0, 0, W, H).data); E.toSpace(ad);
-      const bc = document.createElement('canvas'); bc.width = W; bc.height = H; const bg = bc.getContext('2d', { willReadFrequently: true }); bg.drawImage(S.imgB.full, 0, 0, W, H);
-      const bd = new Uint8ClampedArray(bg.getImageData(0, 0, W, H).data); E.toSpace(bd);
-      const n = ad.length / 4, ca = [0, 1, 2].map((k) => E.chanCDF(ad, k, 4, n)), cb = [0, 1, 2].map((k) => E.chanCDF(bd, k, 4, n));
-      const dith = S.quality === 'dither', lut = [0, 1, 2].map((k) => E.buildLUT(ca[k], cb[k], S.t, dith));
-      for (let i = 0; i < ad.length; i += 4) { ad[i] = Math.round(lut[0][ad[i]]); ad[i + 1] = Math.round(lut[1][ad[i + 1]]); ad[i + 2] = Math.round(lut[2][ad[i + 2]]); }
-      E.fromSpace(ad); fc.putImageData(new ImageData(ad, W, H), 0, 0);
-    } else { fc.drawImage(recA.full, 0, 0); fc.globalAlpha = S.t; fc.drawImage(S.imgB.full, 0, 0, W, H); fc.globalAlpha = 1; }
-    download(await toBlob(full), `${tag()}.png`);
+    prepare(S.method);
+    download(await toBlob(imageCanvas(blendPixels(S.method, S.t, gpu.aW, gpu.aH))), `${tag()}.png`);
   }
   async function saveSweep() {
     if (S.mode === 'audio') {
@@ -3431,13 +3549,14 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
       return;
     }
     if (!mapsReady(S.method)) { shell.toast('Matching first. Save again in a moment.'); return; }
-    const K = 7, W = S.imgA.w, H = S.imgA.h, tile = Math.round(W * 0.6), th = Math.round(H * 0.6), c = document.createElement('canvas');
+    prepare(S.method);
+    const K = 7, th = Math.min(400, gpu.aH), tile = Math.round(th * (gpu.aW / gpu.aH)), c = document.createElement('canvas');
     c.width = K * (tile + 6) + 6; c.height = th + 40; const g = c.getContext('2d');
     g.fillStyle = '#101525'; g.fillRect(0, 0, c.width, c.height);
     g.font = '15px ui-sans-serif, -apple-system, sans-serif'; g.fillStyle = '#b6b9cf';
     for (let k = 0; k < K; k++) {
-      const tt = k / (K - 1), im = blendImageData(S.method, tt), tc = document.createElement('canvas'); tc.width = W; tc.height = H; tc.getContext('2d').putImageData(im, 0, 0);
-      g.drawImage(tc, 6 + k * (tile + 6), 6, tile, th); g.fillText(`t = ${tt.toFixed(2)}`, 10 + k * (tile + 6), th + 30);
+      const tt = k / (K - 1);
+      g.drawImage(imageCanvas(blendPixels(S.method, tt, tile, th)), 6 + k * (tile + 6), 6, tile, th); g.fillText(`t = ${tt.toFixed(2)}`, 10 + k * (tile + 6), th + 30);
     }
     download(await toBlob(c), `${tag().replace(/_t\d+$/, '')}_strip.png`);
   }
@@ -3449,7 +3568,7 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
     g.fillStyle = '#b6b9cf'; g.font = '24px ui-sans-serif, -apple-system, sans-serif';
     g.fillText(`${S.mode === 'image' ? 'Two pictures' : 'Two sounds'} · ${METHOD_NAME[S.method]} · t = ${S.t.toFixed(2)} · A: ${S.names[S.mode].A} · B: ${S.names[S.mode].B}`, 72, 162);
     let inset = null;
-    if (S.mode === 'image') { if (mapsReady(S.method)) { const im = blendImageData(S.method, S.t); inset = document.createElement('canvas'); inset.width = im.width; inset.height = im.height; inset.getContext('2d').putImageData(im, 0, 0); } }
+    if (S.mode === 'image') { if (G && mapsReady(S.method)) { prepare(S.method); const ih = Math.min(1120, gpu.aH), iw = Math.round(ih * (gpu.aW / gpu.aH)); inset = imageCanvas(blendPixels(S.method, S.t, iw, ih)); } }
     else { const r = await currentRender(); if (r) { const cols = 640, rows = 256, sp = spectrogram(r.data, r.rate, cols, rows); inset = document.createElement('canvas'); inset.width = cols; inset.height = rows; const ig = inset.getContext('2d');
       ig.putImageData(specImage(sp, cols, rows), 0, 0); } }
     if (inset) { const k = Math.min(920 / inset.width, 560 / inset.height); g.drawImage(inset, 70, 210, inset.width * k, inset.height * k); }
@@ -3514,7 +3633,6 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
   $('scope-on').addEventListener('change', (e) => { S.scope = e.target.checked; scopeDirty = true; });
   $('cspace').addEventListener('change', (e) => { S.cspace = e.target.value; E.cacheImageDists(); flatDirty = true; });
   $('quality').addEventListener('change', (e) => { S.quality = e.target.value; flatDirty = true; syncMethod(); });
-  $('spcomp').addEventListener('change', (e) => { S.spComp = e.target.value; flatDirty = true; });
   $('spadapt').addEventListener('change', (e) => { S.spAdapt = e.target.value === 'adaptive'; flatDirty = true; spaceKey = ''; });
   $('phasemode').addEventListener('change', (e) => { S.phasemode = e.target.value; S.audDirty = true; scheduleRender(60); });
   $('xlaw').addEventListener('change', (e) => { S.xlaw = e.target.value; S.audDirty = true; scheduleRender(60); });
@@ -3599,7 +3717,9 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
     gl = G.gl;
     try {
       Post = createPost(G);
-      pFlat = G.program(FLAT_FS); pResolve = G.program(RESOLVE_FS); pPts = G.program(PTS_FS, PTS_VS);
+      pFlat = G.program(FLAT_FS); pResolve = G.program(RESOLVE_FS); pPts = G.program(PTS_FS, PTS_VS); pBlend = G.program(BLEND_FS);
+      dummy3D = gl.createTexture(); gl.bindTexture(gl.TEXTURE_3D, dummy3D); gl.texImage3D(gl.TEXTURE_3D, 0, gl.RGBA32F, 1, 1, 1, 0, gl.RGBA, gl.FLOAT, new Float32Array(4));
+      [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach((q) => gl.texParameteri(gl.TEXTURE_3D, q, gl.NEAREST));
       baseVao = gl.getParameter(gl.VERTEX_ARRAY_BINDING);
       tFlat = G.tex(2, 2, { internal: gl.RGBA8, format: gl.RGBA, type: gl.UNSIGNED_BYTE });
       gl.bindTexture(gl.TEXTURE_2D, tFlat); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
@@ -3641,6 +3761,7 @@ void main(){ vec4 a=texture(uAcc,vUv); vec3 bg=backdrop(vUv); vec3 c=a.rgb/max(a
   window.__app = {
     S, kit, E, recordLuma, setT, setView, setMethod, loadFile, buildSpace,
     get spaceN() { return spaceN; }, get spaceReady() { return spaceKey === wantKey() && !spaceBusy; }, get flat() { return { w: flatW, h: flatH, spec: flatSpec, ready: flatReady }; },
+    get flatRT() { return gpu.rt ? { w: gpu.rt.w, h: gpu.rt.h, shownH: gpu.lastPh || 0 } : null; },
     get busy() { return !$('busy').hidden; }, get safe() { return safe; }, get playing() { return playSrc ? playKind : ''; }, currentRender,
     pixel() {
       const c = document.createElement('canvas'); c.width = 32; c.height = 18; const g = c.getContext('2d');
