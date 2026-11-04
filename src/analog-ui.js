@@ -91,7 +91,7 @@
         <div class="dock-divider"></div>
         <button id="about-button" aria-haspopup="dialog" aria-expanded="false">${svg('about')}<span>About</span></button>
       </nav>
-      <p class="truth chrome" id="truth">Nothing here recovers lost audio. Floor and Transient amplify what is there; Exciter and SBR synthesize new detail above the measured cutoff. Every number is measured on the output, in this browser.</p>
+      <p class="truth chrome" id="truth">Nothing here recovers lost audio. Floor amplifies what is there; Exciter and SBR synthesize new detail above the measured cutoff, and Transient's moving gain spreads some new highs there too. Every number is measured on the output, in this browser.</p>
     </div>`);
 
   const sheet = (id, title, intro, html, wide) => `

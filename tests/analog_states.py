@@ -3,7 +3,8 @@
 
   boot      : the synthetic test sound is labeled, processed at once, and nothing plays before a click
   listening : Start listening plays A; Space flips to B and back, a held key's repeats are ignored; P stops
-  engines   : keys 1 to 4 choose Floor, Exciter, Transient and SBR while playing, each labeled amplified or synthesized
+  engines   : keys 1 to 4 choose Floor, Exciter, Transient and SBR while playing, each labeled amplified or synthesized,
+              and Transient's new highs above the cutoff named as new
   range     : a drag late in the sound enhances only that range and measures it there, where the desktop app's
               measuring window reads it as unchanged; a click clears it
   exports   : the 24-bit WAV, read back here, equals the page's output, enhanced inside the range and untouched
@@ -149,13 +150,15 @@ with sync_playwright() as p:
     check('B is played at the measured BS.1770 gain', abs(gm[0] - (gm[1] if gm[2] else 1)) < 1e-9, f'{gm[0]:.3f}× with matching {"on" if gm[2] else "off"}')
 
     # 3. engines by key, while playing, each labeled by what it does
-    for key, mode, label in (('1', 'floor', 'amplified'), ('2', 'exciter', 'synthesized'), ('3', 'transient', 'amplified'), ('4', 'sbr', 'synthesized')):
+    for key, mode, label, hb_label in (('1', 'floor', 'amplified', 'amplified'), ('2', 'exciter', 'synthesized', 'synthesized'),
+                                       ('3', 'transient', 'amplified', 'new, spread by the moving gain'), ('4', 'sbr', 'synthesized', 'synthesized')):
         pg.keyboard.press(key); r = wait_mode(pg, mode)
         m, chip, hb = r['metrics'], text(pg, '#chip-proc-text'), pg.text_content('#m-hb-n')
-        ok = label in chip and label in hb and pg.evaluate('__app.playing')
+        ok = label in chip and hb_label in hb and pg.evaluate('__app.playing')
         if mode == 'floor': ok = ok and abs(m['bw_after'] - m['bw_before']) < 200    # a shelf cannot make content above a brick wall
         if mode in ('exciter', 'sbr'): ok = ok and m['hb_after'] - m['hb_before'] > 20    # new content above the cutoff
         if mode == 'sbr': ok = ok and m['bw_after'] > 18000                             # and SBR carries the band to the top
+        if mode == 'transient': ok = ok and 'some new highs' in chip and m['hb_after'] - m['hb_before'] > 20   # a moving gain spreads new energy upward, and the page says so
         check(f'key {key} chooses {mode}, labeled {label}', ok, f"{chip} · bandwidth {m['bw_before']:.0f} to {m['bw_after']:.0f} Hz · high band {m['hb_after'] - m['hb_before']:+.1f} dB")
     pg.keyboard.press('p'); pg.wait_for_timeout(200)
     check('P stops', not pg.evaluate('__app.playing'))

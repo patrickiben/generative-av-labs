@@ -92,7 +92,7 @@
 
     <section id="analog">
       <h2>Detail Forge Analog</h2>
-      <p>Analog makes a dull, band-limited recording brighter and says how. It cannot recover lost audio: Floor and Transient amplify what is there, and Exciter and SBR synthesize new detail above the measured cutoff. Tested in Chrome on a Mac with test files made by ffmpeg. <b>No outside listener has judged its sound yet.</b></p>
+      <p>Analog makes a dull, band-limited recording brighter and says how. It cannot recover lost audio: Floor amplifies what is there, Exciter and SBR synthesize new detail above the measured cutoff, and Transient lifts attacks with a moving gain that also spreads some new highs above it. Tested in Chrome on a Mac with test files made by ffmpeg. <b>No outside listener has judged its sound yet.</b></p>
       <ul>
         <li><b>Files.</b> WAV and AIFF are read straight from the file. FLAC, MP3, M4A and Ogg are decoded by the browser at the rate in the file's own header, so it does not resample them, and the Source sheet says which happened. Up to 10 minutes and two channels.</li>
         <li><b>Range.</b> Drag across the spectrograms to enhance one stretch, with 50 ms crossfades at the seams. The numbers are measured on that stretch, which fixes a window the desktop app measured in the wrong place.</li>
