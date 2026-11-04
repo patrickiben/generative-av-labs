@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#101525">
 <title>Detail Forge Analog</title>
-<meta name="description" content="Make a dull recording brighter in your browser: before and after spectrograms, a loudness-matched A/B, and every change measured and labeled as amplified or synthesized.">
+<meta name="description" content="Forge a new layer of fine audio texture while preserving the source: guarded synthesis, an added-detail audition and a loudness-matched comparison, entirely in your browser.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23101525'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%23b8b7ff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2' fill='%23b8b7ff'/%3E%3C/svg%3E">
 <style>
 :root {
@@ -444,18 +444,31 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
 #measured-sheet .statgrid { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 560px) { #measured-sheet .statgrid { grid-template-columns: repeat(2, 1fr); } }
 
+/* The primary path is source-anchored synthesis; effects are comparison controls. */
+.tile-btn.forge-choice { grid-column: 1 / -1; display: grid; grid-template-columns: 36px 1fr auto; text-align: left; gap: 4px 12px; background: rgba(151, 220, 205, 0.07); border-color: rgba(151, 220, 205, 0.35); }
+.tile-btn.forge-choice svg { grid-row: 1 / 3; align-self: center; width: 30px; height: 30px; }
+.tile-btn.forge-choice .cap { grid-column: 2; }
+.tile-btn.forge-choice .tag { grid-column: 3; grid-row: 1 / 3; align-self: center; }
+.forge-process { grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 12px; margin: 0 0 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line); font-size: 11px; color: var(--muted); }
+.forge-process b { display: block; color: #bfe8d9; font-size: 17px; font-weight: 400; margin-bottom: 5px; }
+.knobs[data-for="forge"] .set-row, .knobs[data-for="forge"] .hint { grid-column: 1 / -1; }
+#detail-button[aria-pressed="true"], #side-d[aria-pressed="true"] { color: #c8f0dd; border-color: #bfe8d9; background: rgba(151, 220, 205, 0.13); }
+@media (max-width: 520px) { body[data-app="analog"] .mode-switch button { padding: 8px 9px; font-size: 9px; letter-spacing: 0.5px; } .forge-process { font-size: 10px; gap: 8px; } }
+
+.knobs[data-for="forge"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 560px) { .knobs[data-for="forge"] { grid-template-columns: 1fr; } }
+
 </style>
 </head>
 <body>
 <main class="scene" id="scene" aria-label="Detail Forge Analog">
-<canvas id="stage" role="img" aria-label="Make a dull recording brighter in your browser: before and after spectrograms, a loudness-matched A/B, and every change measured and labeled as amplified or synthesized."></canvas>
+<canvas id="stage" role="img" aria-label="Forge a new layer of fine audio texture while preserving the source: guarded synthesis, an added-detail audition and a loudness-matched comparison, entirely in your browser."></canvas>
 </main>
 <script>
-/* analog-dsp.js: Detail Forge Analog's signal processing, ported line by line from the desktop app's dsp.py, with the
-   processing run its worker thread did (app.py, Worker.run). Plain functions on planar Float32Array channels and no
-   DOM: the page runs this in a Worker, and tests/analog_numbers.py runs it under Node beside the Python original.
-   FLOOR amplifies what is there; EXCITER and SBR synthesize; TRANSIENT synthesizes no band on purpose, but its moving gain
-   spreads some new energy above the cutoff. Nothing here recovers lost audio. */
+/* analog-dsp.js: source-anchored Forge synthesis and the four legacy comparison processors.
+   Plain functions on planar Float32Array channels, shared by the browser Worker and numerical tests.
+   The comparison processors retain the desktop dsp.py/app.py behavior; Forge adds a guarded residual.
+   None of these algorithms recovers lost audio. */
 (function (root) {
   'use strict';
 
@@ -466,7 +479,7 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
     const pmod = (a, b) => ((a % b) + b) % b;                       // Python's % for a positive divisor
     // Python's round() and C's lrintf: halves go to the even neighbor
     const roundEven = (v) => { const r = Math.round(v); return Math.abs(v % 1) === 0.5 && r % 2 !== 0 ? r - 1 : r; };
-    const DEFAULTS = { mode: 'sbr', gain_db: 9, drive: 4.0, emix: 0.35, tamt: 0.6, wet: 0.65, tilt: -6, target_hz: 20000 };
+    const DEFAULTS = { mode: 'forge', amount: 0.55, cutoff_hz: 0, gain_db: 9, drive: 4.0, emix: 0.35, tamt: 0.6, wet: 0.65, tilt: -6, target_hz: 20000 };
 
     /* ---------------- FFT: radix 2 in place, real transforms by the half-length trick ---------------- */
     const plans = new Map();
@@ -783,6 +796,128 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
       return { out: peakGuard(out), info: { fc, target_hz: target, wet, tilt_db_oct: tiltDb } };
     }
 
+    /* ---------------- FORGE: source + guarded, source-conditioned detail ---------------- */
+    // A procedural analogue of Detail Forge's texture injection, not a learned restoration model.
+    // Tonal peaks continue at integer multiples with phase tied to the source. Diffuse texture is
+    // synthesized only in proportion to the source's spectral flatness. Each tile follows the
+    // source envelope; no source samples are replaced, normalized or waveshaped.
+    // The final linear-phase FIR removes residual below the guard (finite transition, not a brick wall).
+    function energyWelch(ch, sr) {
+      // Long recordings are sampled evenly, so a quiet intro cannot hide a later bandwidth change.
+      const all = ch.map((x) => {
+        if (x.length <= 1 << 18) return welch(x, sr);
+        let result;
+        for (let i = 0; i < 64; i++) {
+          const o = Math.floor(i * (x.length - 4096) / 63), part = welch(x.subarray(o, o + 4096), sr);
+          if (!result) result = { f: part.f, pxx: new Float32Array(part.pxx.length) };
+          for (let k = 0; k < part.pxx.length; k++) result.pxx[k] += part.pxx[k] / 64;
+        }
+        return result;
+      }), W = all[0];
+      if (all.length === 1) return W;
+      const pxx = new Float32Array(W.pxx.length);
+      for (const c of all) for (let k = 0; k < pxx.length; k++) pxx[k] += c.pxx[k] / all.length;
+      return { f: W.f, pxx };
+    }
+    function linkedK(ch) { return ch.reduce((s, x) => s + kweightEnergy([x]), 0) / ch.length; }
+    function guardResidual(x, sr, fc) {
+      const taps = 513, delay = (taps - 1) / 2, N = 2048, hop = N - taps + 1;
+      const cutoff = Math.min(sr * 0.49, fc + Math.max(240, sr * 0.006));
+      const h = new Float64Array(N), hr = new Float64Array(N / 2 + 1), hi = new Float64Array(hr.length);
+      for (let i = 0; i < taps; i++) {
+        const t = i - delay, a = 2 * cutoff / sr;
+        const low = t === 0 ? a : Math.sin(Math.PI * a * t) / (Math.PI * t);
+        h[i] = ((t === 0 ? 1 : 0) - low) * (0.42 - 0.5 * Math.cos(2 * Math.PI * i / (taps - 1)) + 0.08 * Math.cos(4 * Math.PI * i / (taps - 1)));
+      }
+      rfft(h, hr, hi);
+      const out = new Float64Array(x.length + taps - 1), frame = new Float64Array(N), re = new Float64Array(hr.length), im = new Float64Array(hr.length);
+      for (let o = 0; o < x.length; o += hop) {
+        frame.fill(0); frame.set(x.subarray(o, Math.min(o + hop, x.length)));
+        rfft(frame, re, im);
+        for (let k = 0; k < re.length; k++) { const r = re[k] * hr[k] - im[k] * hi[k]; im[k] = re[k] * hi[k] + im[k] * hr[k]; re[k] = r; }
+        irfft(re, im, frame);
+        for (let i = 0; i < N && o + i < out.length; i++) out[o + i] += frame[i];
+      }
+      return Float32Array.from(out.subarray(delay, delay + x.length));
+    }
+    function forgeDetail(ch, sr, o = {}) {
+      const fc = o.fc ?? cutoffFromWelch(energyWelch(ch, sr), sr), amount = clip(o.amount ?? 0.55, 0, 1);
+      const target = Math.min(o.target_hz ?? 20000, sr * 0.48), seed = (o.seed ?? 17) >>> 0;
+      const N = 2048, half = N / 2, hop = N / 4, df = sr / N, n = ch[0].length, w = hann(N);
+      const startBin = Math.ceil((fc + Math.max(480, sr * 0.012)) / df), endBin = Math.floor(target / df);
+      const info = { fc, target_hz: target, amount, seed, algorithm: 'guarded-texture-v1', guard_transition_hz: Math.max(480, sr * 0.012), headroom_gain: 1, tiles: 0, texture_mean: 0 };
+      if (!amount || startBin >= endBin) return { out: ch.map((x) => x.slice()), info: { ...info, reason: !amount ? 'zero amount: unchanged source' : 'no room above the guard' } };
+      const residual = ch.map((x) => {
+        // Restart the same random stream for each channel: identical channels remain identical;
+        // opposite-polarity channels retain polarity because phase comes from the source.
+        const rand = mulberry32(seed), phases = new Float64Array(half + 1);
+        for (let k = 0; k <= half; k++) phases[k] = rand() * 2 * Math.PI;
+        const acc = new Float64Array(n + N * 2), norm = new Float64Array(acc.length), frame = new Float64Array(N);
+        const re = new Float64Array(half + 1), im = new Float64Array(half + 1), mag = new Float64Array(half + 1);
+        const rr = new Float64Array(half + 1), ri = new Float64Array(half + 1);
+        const lo = Math.max(4, Math.floor(fc / df / 4)), high = Math.min(half - 2, Math.floor(fc / df * 0.94));
+        let previousEnergy = 0;
+        for (let base = -half, tile = 0; base < n; base += hop, tile++) {
+          let energy = 0;
+          for (let i = 0; i < N; i++) { const j = base + i, v = j >= 0 && j < n ? x[j] : 0; frame[i] = v * w[i]; energy += frame[i] ** 2; }
+          rr.fill(0); ri.fill(0);
+          if (energy > 1e-12) {
+            rfft(frame, re, im);
+            let sum = 0, log = 0, edge = 0;
+            for (let k = 0; k <= half; k++) mag[k] = Math.hypot(re[k], im[k]);
+            for (let k = lo; k <= high; k++) { const p = mag[k] ** 2 + 1e-20; sum += p; log += Math.log(p); if (k > high * 0.65) edge += p; }
+            const flatness = Math.exp(log / Math.max(1, high - lo + 1)) / (sum / Math.max(1, high - lo + 1) + 1e-20);
+            const texture = clip(Math.sqrt(flatness) * 1.4, 0, 1), onset = clip((energy - previousEnergy) / (energy + 1e-12), 0, 1);
+            const appetite = clip(Math.sqrt(edge / (energy * N / 2 + 1e-20)) * 5, 0.08, 1);
+            // Continue resolved peaks. An odd multiplier carries channel polarity as well as phase.
+            for (let k = lo + 1; k < high; k++) {
+              if (mag[k] < mag[k - 1] || mag[k] <= mag[k + 1] || mag[k] ** 2 < sum * 0.001) continue;
+              for (let multiple = 3; multiple <= 9; multiple += 2) {
+                const targetBin = k * multiple;
+                if (targetBin < startBin || targetBin > endBin) continue;
+                const amp = mag[k] * (1 - texture * 0.7) / Math.pow(multiple, 1.15), phase = Math.atan2(im[k], re[k]) * multiple;
+                for (let j = -1; j <= 1; j++) {
+                  const b = targetBin + j; if (b < startBin || b > endBin) continue;
+                  const a = amp * (j === 0 ? 1 : -0.5); rr[b] += a * Math.cos(phase); ri[b] += a * Math.sin(phase);
+                }
+              }
+            }
+            const noiseAmp = Math.sqrt(sum / Math.max(1, high - lo + 1)) * texture * (0.3 + 0.35 * onset);
+            for (let k = startBin; k <= endBin; k++) {
+              const seam = Math.min(1, (k - startBin) / 8, (endBin - k) / 8), tilt = (k * df / fc) ** -1.2;
+              // Time-local envelope and a phase tied to the source, shared across stereo channels.
+              const sourceBin = lo + ((k - startBin) % Math.max(1, high - lo));
+              const p = phases[k] + Math.atan2(im[sourceBin], re[sourceBin]);
+              rr[k] = (rr[k] + noiseAmp * Math.cos(p)) * seam * tilt;
+              ri[k] = (ri[k] + noiseAmp * Math.sin(p)) * seam * tilt;
+            }
+            let addedPower = 0; for (let k = startBin; k <= endBin; k++) addedPower += 2 * (rr[k] ** 2 + ri[k] ** 2) / N;
+            const gain = amount * Math.min(1, Math.sqrt(energy * 0.035 / (addedPower + 1e-20))) * appetite;
+            for (let k = startBin; k <= endBin; k++) { rr[k] *= gain; ri[k] *= gain; }
+            info.texture_mean += texture; info.tiles++;
+          }
+          previousEnergy = energy;
+          irfft(rr, ri, frame);
+          const offset = base + half;
+          for (let i = 0; i < N; i++) { acc[offset + i] += frame[i] * w[i]; norm[offset + i] += w[i] ** 2; }
+        }
+        const raw = new Float32Array(n);
+        for (let i = 0; i < n; i++) raw[i] = acc[i + half] / Math.max(norm[i + half], 1e-10);
+        return guardResidual(raw, sr, fc);
+      });
+      info.texture_mean /= Math.max(1, info.tiles);
+      // Reserve headroom by reducing only the new layer. The source itself is never attenuated.
+      let headroom = 1;
+      for (let c = 0; c < ch.length; c++) for (let i = 0; i < n; i++) {
+        const d = residual[c][i], s = ch[c][i];
+        if (d > 1e-12) headroom = Math.min(headroom, Math.max(0, (Math.max(0.999, s) - s) / d));
+        else if (d < -1e-12) headroom = Math.min(headroom, Math.max(0, (Math.min(-0.999, s) - s) / d));
+      }
+      info.headroom_gain = headroom;
+      if (headroom < 0.01) info.reason = 'Source has no peak headroom: detail is suppressed to preserve it. Use a quieter source to allow a new layer.';
+      return { out: ch.map((x, c) => x.map((v, i) => v + residual[c][i] * headroom)), info };
+    }
+
     /* ---------------- EXCITER: harmonics of what is there ---------------- */
     // the band above about 0.45 of the cutoff is waveshaped at 4x oversampling, so the new harmonics do not alias,
     // then high-passed again and mixed back
@@ -866,7 +1001,7 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
     }
 
     // log-magnitude spectrogram (freq by time, row-major by frequency) in [0, 1], as dsp.spectrogram draws it
-    function spectrogram(ch, sr, nfft = 1024, maxFrames = 900) {
+    function spectrogram(ch, sr, nfft = 1024, maxFrames = 900, channelEnergy = false) {
       const m = toMono(ch), n = m.length, step = nfft >> 1, w = hann(nfft), nb = (nfft >> 1) + 1;
       if (n < nfft) return { S: new Float32Array(0), bins: nb, frames: 0, t: [] };
       const nadd = pmod(-(n - nfft), step) % nfft, nseg = (n + nadd - nfft) / step + 1;
@@ -877,9 +1012,19 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
       const F = idx.length, S = new Float32Array(nb * F), seg = new Float64Array(nfft), re = new Float64Array(nb), im = new Float64Array(nb);
       idx.forEach((s, t) => {
         const o = s * step;
-        for (let i = 0; i < nfft; i++) seg[i] = o + i < n ? m[o + i] * w[i] : 0;
-        rfft(seg, re, im);
-        for (let k = 0; k < nb; k++) { const db = 20 * Math.log10(Math.hypot(re[k], im[k]) / ws + EPS); S[k * F + t] = (clip(db, -100, 0) + 100) / 100; }
+        if (channelEnergy && ch.length > 1) {
+          const power = new Float64Array(nb);
+          for (const channel of ch) {
+            for (let i = 0; i < nfft; i++) seg[i] = o + i < n ? channel[o + i] * w[i] : 0;
+            rfft(seg, re, im);
+            for (let k = 0; k < nb; k++) power[k] += (re[k] ** 2 + im[k] ** 2) / ch.length;
+          }
+          for (let k = 0; k < nb; k++) { const db = 20 * Math.log10(Math.sqrt(power[k]) / ws + EPS); S[k * F + t] = (clip(db, -100, 0) + 100) / 100; }
+        } else {
+          for (let i = 0; i < nfft; i++) seg[i] = o + i < n ? m[o + i] * w[i] : 0;
+          rfft(seg, re, im);
+          for (let k = 0; k < nb; k++) { const db = 20 * Math.log10(Math.hypot(re[k], im[k]) / ws + EPS); S[k * F + t] = (clip(db, -100, 0) + 100) / 100; }
+        }
       });
       return { S, bins: nb, frames: F, t: idx.map((s) => (s * step + nfft / 2) / sr) };
     }
@@ -896,9 +1041,11 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
       const selective = 0 <= n0 && n0 < n1 && n1 <= n && n1 - n0 < n - Math.trunc(0.05 * sr);
       let x = selective ? src.map((c) => c.slice(n0, n1)) : src;
       progress(10, 'measuring the source cutoff');
-      const fc = estimateCutoff(x, sr);
+      const estimated = p.mode === 'forge' ? cutoffFromWelch(energyWelch(x, sr), sr) : estimateCutoff(x, sr);
+      const fc = p.mode === 'forge' && p.cutoff_hz > 0 ? clip(p.cutoff_hz, 500, sr / 2) : estimated;
       let out, info = { fc }, gainCurve = null;
-      if (p.mode === 'floor') { progress(45, 'high shelf, the honest control'); out = floorHighshelf(x, sr, p.gain_db, 0.5 * fc); }
+      if (p.mode === 'forge') { progress(35, 'synthesizing a guarded detail layer'); const r = forgeDetail(x, sr, { ...p, fc }); out = r.out; info = { ...r.info, estimated_cutoff_hz: estimated, cutoff_source: p.cutoff_hz > 0 ? 'user' : 'estimated' }; }
+      else if (p.mode === 'floor') { progress(45, 'high shelf, the honest control'); out = floorHighshelf(x, sr, p.gain_db, 0.5 * fc); }
       else if (p.mode === 'exciter') { progress(40, 'harmonic exciter, 4x oversampled'); out = exciter(x, sr, { fc, drive: p.drive, mix: p.emix }); }
       else if (p.mode === 'transient') { progress(40, 'transient restore, dynamic gain'); const r = transientRestore(x, sr, p.tamt); out = r.out; gainCurve = r.gain; }
       else { progress(35, 'spectral band replication'); const r = sbrEnhance(x, sr, { fc, target_hz: p.target_hz, wet: p.wet, tilt_db_oct: p.tilt, phases: p.phases, seed: p.seed }); out = r.out; info = r.info; }
@@ -908,8 +1055,8 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
         for (let i = 0; i < xf; i++) t[i] = 0.5 - 0.5 * Math.cos((Math.PI * i) / xf);
         out.forEach((seg, c) => {
           const sp = spliced[c];
-          for (let i = 0; i < xf; i++) seg[i] = f32(f32(seg[i] * t[i]) + f32(sp[n0 + i] * f32(1 - t[i])));
-          for (let i = 0; i < xf; i++) { const j = len - xf + i, tr = t[xf - 1 - i]; seg[j] = f32(f32(seg[j] * tr) + f32(sp[n1 - xf + i] * f32(1 - tr))); }
+          for (let i = 0; i < xf; i++) seg[i] = p.mode === 'forge' ? sp[n0 + i] + (seg[i] - sp[n0 + i]) * t[i] : f32(f32(seg[i] * t[i]) + f32(sp[n0 + i] * f32(1 - t[i])));
+          for (let i = 0; i < xf; i++) { const j = len - xf + i, tr = t[xf - 1 - i]; seg[j] = p.mode === 'forge' ? sp[n1 - xf + i] + (seg[j] - sp[n1 - xf + i]) * tr : f32(f32(seg[j] * tr) + f32(sp[n1 - xf + i] * f32(1 - tr))); }
           sp.set(seg.subarray(0, len), n0);
         });
         out = spliced; x = full;
@@ -917,6 +1064,16 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
       progress(80, 'measuring the result');
       const span = selective && p.measure !== 'desktop', cut = (ch) => (span ? ch.map((c) => c.subarray(n0, n1)) : ch);
       const metrics = measure(cut(out), cut(x), fc, sr);
+      if (p.mode === 'forge') {
+        const a = cut(x), b = cut(out), delta = b.map((v, c) => v.map((s, i) => s - a[c][i]));
+        const Wa = energyWelch(a, sr), Wb = energyWelch(b, sr), Wd = energyWelch(delta, sr);
+        let sourcePower = 0, lowError = 0, added = 0, resultPower = 0;
+        for (let c = 0; c < a.length; c++) for (let i = 0; i < a[c].length; i++) { added += delta[c][i] ** 2; resultPower += b[c][i] ** 2; }
+        for (let k = 0; k < Wa.f.length && Wa.f[k] < fc; k++) { sourcePower += Wa.pxx[k]; lowError += Wd.pxx[k]; }
+        Object.assign(metrics, { bw_before: cutoffFromWelch(Wa, sr), bw_after: cutoffFromWelch(Wb, sr), hb_before: highBandFromWelch(Wa, fc, sr), hb_after: highBandFromWelch(Wb, fc, sr), lsd: lsdFromWelch(Wb, Wa, fc), nr: nrFromWelch(Wb, fc, sr), gain: clip(Math.sqrt(linkedK(a) / linkedK(b)), 0.1, 10), welch_before: Wa, welch_after: Wb });
+        metrics.nr.verdict = metrics.nr.flatness > 0.6 ? 'noise-like' : metrics.nr.flatness > 0.02 ? 'mixed' : 'tonal';
+        Object.assign(info, { guard_error_db: 10 * Math.log10(Math.max(1e-16, lowError / Math.max(sourcePower, 1e-20))), added_energy_percent: 100 * added / Math.max(resultPower, 1e-20), source_samples_kept: true });
+      }
       return { out, fc, info, metrics, selective, n0: selective ? n0 : 0, n1: selective ? n1 : n, gainCurve, mode: p.mode };
     }
 
@@ -941,7 +1098,7 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
 
     return {
       DEFAULTS, EPS, toMono, peakGuard, welch, estimateCutoff, cutoffFromWelch, rbjHighShelf, butterHighpassSOS, sosfilt,
-      firwinKaiser, resamplePoly, gaussianFilter1d, floorHighshelf, sbrEnhance, exciter, transientRestore, kweightEnergy,
+      firwinKaiser, resamplePoly, gaussianFilter1d, floorHighshelf, sbrEnhance, forgeDetail, guardResidual, energyWelch, linkedK, exciter, transientRestore, kweightEnergy,
       loudnessGain, bandwidthHz, highBandLevelDb, lsdSharedBand, nrQuality, measure, spectrogram, run, encodeWav24,
       rfft, irfft, hann, roundEven,
     };
@@ -974,6 +1131,7 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
     image: '<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="m4 17 5-5 4 4 2.5-2.5L20 18"/><circle cx="15.5" cy="9.5" r="1.5"/>',
     table: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M10 5v14"/>',
     wave: '<path d="M3 12h2l2-5 3 10 3-14 3 14 2-5h3"/>',
+    forge: '<path d="M3 17h18M4 13h4l2-8 3 11 2-6h5"/><path d="m17 3 1 2 2 1-2 1-1 2-1-2-2-1 2-1z"/>',
     floor: '<path d="M3 17h6c3.5 0 3.5-9 7-9h5"/>',
     exciter: '<path d="M5 20V8M9 20v-8M13 20v-5M17 20v-3M21 20v-1.5"/>',
     transient: '<path d="M3 18h4l2.5-13L12 18h9"/>',
@@ -990,12 +1148,13 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
 
   const DOCK = [
     { id: 'source', label: 'Source', icon: 'file' },
-    { id: 'engine', label: 'Engine', icon: 'sliders' },
+    { id: 'engine', label: 'Forge', icon: 'sliders' },
     { id: 'listen', label: 'Listen', icon: 'phones' },
     { id: 'measured', label: 'Measured', icon: 'chart' },
     { id: 'keep', label: 'Keep', icon: 'keep' },
   ];
   const MODES = [
+    { id: 'forge', name: 'Forge', cap: 'Guarded detail synthesis', kind: 'syn' },
     { id: 'floor', name: 'Floor', cap: 'High shelf', kind: 'amp' },
     { id: 'exciter', name: 'Exciter', cap: 'Harmonics', kind: 'syn' },
     { id: 'transient', name: 'Transient', cap: 'Attack restore', kind: 'amp' },
@@ -1015,12 +1174,12 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
       </div>
     </header>
     <nav class="mode-switch chrome" aria-label="Engine">
-      ${MODES.map((m) => `<button data-mode="${m.id}" aria-pressed="${m.id === 'sbr'}">${m.name}</button>`).join('')}
+      <button data-mode="forge" aria-pressed="true">Forge detail</button><button id="compare-open">Compare effects</button><button id="detail-button" aria-pressed="false">Hear added layer</button>
     </nav>
     <div class="intro">
-      <p class="eyebrow" id="intro-eyebrow">Detail Forge Analog · labeled detail</p>
-      <h1 id="intro-title">Brighten a dull recording, honestly.</h1>
-      <p id="intro-sub">A synthetic test sound is loaded. Press Play, then flip A and B by tapping the letter or pressing the space bar.</p>
+      <p class="eyebrow" id="intro-eyebrow">Preserve the sound. Invent the fine detail.</p>
+      <h1 id="intro-title">Forge the missing texture.</h1>
+      <p id="intro-sub">Keep the source as the anchor. Add a new layer of harmonics and texture above its estimated cutoff. Hear the original, the result, or only what was invented.</p>
       <button class="pill primary start" id="start-listen">${svg('play')}Start listening</button>
     </div>
     <div id="toast" role="status"></div>
@@ -1048,7 +1207,7 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
         <div class="dock-divider"></div>
         <button id="about-button" aria-haspopup="dialog" aria-expanded="false">${svg('about')}<span>About</span></button>
       </nav>
-      <p class="truth chrome" id="truth">Nothing here recovers lost audio. Floor amplifies what is there; Exciter and SBR synthesize new detail above the measured cutoff, and Transient's moving gain spreads some new highs there too. Every number is measured on the output, in this browser.</p>
+      <p class="truth chrome" id="truth">Source + invented detail. Forge follows the sound’s local texture and protects the original band. Procedural synthesis, not recovered audio or a neural model.</p>
     </div>`);
 
   const sheet = (id, title, intro, html, wide) => `
@@ -1078,7 +1237,7 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
         ${row('Enhance from', 'Seconds into the sound', '<div class="range-in"><input type="number" id="sel-t0" step="0.01" min="0" aria-label="Range start in seconds"><span>to</span><input type="number" id="sel-t1" step="0.01" min="0" aria-label="Range end in seconds"></div>')}
         <p class="hint" id="sel-status">The whole sound. Drag across the spectrograms to choose a stretch, and a click clears it.</p>
         ${callout('Only the range is processed, with 50 ms crossfades at the seams, and the rest stays untouched. The numbers are measured on the range itself.')}`, { right: '<button class="pill small" id="sel-full">Whole sound</button>' })}
-      ${card('Test sound', `${row('Synthetic test sound', 'Plucked chords and breath noise, cut off above 11 kHz', '<button class="pill" id="src-synth">Load it</button>')}
+      ${card('Test sound', `${row('Synthetic test sound', 'Plucked chords and breath noise, cut off above 6 kHz', '<button class="pill" id="src-synth">Load it</button>')}
         ${callout('Made in this page from a fixed seed, to stand in for a dull recording. It is not a recording of anything.')}`, { right: SYNTH })}
       ${dcard('What this browser can open', `<ul>
           <li><b>WAV and AIFF</b> are read straight from the file, sample for sample: 8 to 32-bit PCM and 32 or 64-bit float.</li>
@@ -1087,14 +1246,20 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
           <li>Up to 10 minutes and two channels. Extra channels are left out, and the page says so.</li>
         </ul>`, { id: 'formats' })}`),
 
-    sheet('engine', 'Choose the engine.', 'Two engines amplify what is there, and two synthesize new detail above the measured cutoff. Each change runs again by itself.', `
+    sheet('engine', 'Build the detail layer.', 'Like Detail Forge for images: keep the source as an anchor, synthesize fine texture, then guard the original structure. Every setting runs again automatically.', `
       <div class="tiles four" role="group" aria-label="Engine">
-        ${MODES.map((m) => `<button class="tile-btn eng" data-mode="${m.id}" aria-pressed="${m.id === 'sbr'}">${svg(m.id)}<b>${m.name}</b><span class="cap">${m.cap}</span>${m.kind === 'amp' ? AMP : SYN}</button>`).join('')}
+        ${MODES.filter(m => m.id === 'forge').map((m) => `<button class="tile-btn eng ${m.id === 'forge' ? 'forge-choice' : ''}" data-mode="${m.id}" aria-pressed="${m.id === 'forge'}">${svg(m.id)}<b>${m.name}</b><span class="cap">${m.cap}</span>${m.kind === 'amp' ? AMP : SYN}</button>`).join('')}
       </div>
-      ${card('Response', `<canvas class="viz" id="engine-viz" role="img" aria-label="A picture of what the chosen engine does" style="height:150px"></canvas>
-        <p class="hint" id="engine-viz-note">-</p>`, { hid: 'engine-viz-title', right: '<span class="cstate" id="engine-state"></span>' })}
       ${card('Settings', `
-        <div class="knobs" data-for="sbr">
+        <div class="knobs" data-for="forge">
+          <div class="forge-process"><span><b>01</b> Source anchor</span><span><b>02</b> Texture synthesis</span><span><b>03</b> Band guard</span></div>
+          ${knob('k-amount', 'Amount of invented detail', 'v-amount', 0, 100, 55, '55 %')}
+          ${knob('k-cutoff', 'Protect the original band below', 'v-cutoff', 0, 200, 0, 'Auto · estimated')}
+          ${knob('k-ceiling', 'Detail ceiling', 'v-ceiling', 40, 220, 200, '20.0 kHz')}
+          <div class="set-row"><div><b>Texture seed</b><span>Repeat a result or try a new fine texture.</span></div><div class="range-in"><input id="forge-seed" type="number" min="0" max="4294967295" step="1" value="17" aria-label="Texture seed"><button class="pill small" id="new-seed">New</button></div></div>
+          <p class="hint">Auto estimates the source cutoff; it cannot know what was lost. Drag the guard to override it. The original samples stay underneath the new layer. A finite transition above the guard limits low-band leakage. There is no upsampling: if the source rate leaves no room above the guard, the sound passes through unchanged.</p>
+        </div>
+        <div class="knobs" data-for="sbr" hidden>
           ${knob('k-wet', 'Wet, the synthesized amount', 'v-wet', 0, 100, 65, '65 %')}
           ${knob('k-tilt', 'High-frequency tilt', 'v-tilt', -14, -2, -6, '-6 dB/oct')}
           ${knob('k-target', 'Target ceiling', 'v-target', 10, 22, 20, '20 kHz')}
@@ -1107,13 +1272,17 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
         <div class="knobs" data-for="transient" hidden>${knob('k-tamt', 'Attack amount', 'v-tamt', 10, 100, 60, '60 %')}</div>
         <div class="bar" aria-hidden="true"><i id="proc-bar"></i></div>
         <p class="hint" id="proc-line" role="status">-</p>
-        ${callout('-', 'engine-note')}`, { right: '<button class="pill small" id="eng-reset">Defaults</button>' })}`, true),
+        ${callout('-', 'engine-note')}`, { right: '<button class="pill small" id="eng-reset">Defaults</button>' })}
+      ${card('Detail map', `<canvas class="viz" id="engine-viz" role="img" aria-label="A picture of what the chosen engine does" style="height:150px"></canvas>
+        <p class="hint" id="engine-viz-note">-</p>`, { hid: 'engine-viz-title', right: '<span class="cstate" id="engine-state"></span>' })}
+      ${dcard('Compare with classic effects', `<p class="hint">These are reference effects from the original Analog app. Forge is the source-anchored detail workflow.</p><div class="tiles four">${MODES.filter(m => m.id !== 'forge').map(m => `<button class="tile-btn eng" data-mode="${m.id}" aria-pressed="false">${svg(m.id)}<b>${m.name}</b><span class="cap">${m.cap}</span>${m.kind === 'amp' ? AMP : SYN}</button>`).join('')}</div>`, { id: 'comparison-engines' })}`, true),
 
     sheet('listen', 'Hear the difference.', 'A and B play from the same instant, so a flip changes only the processing.', `
-      <div class="tiles three">
+      <div class="tiles four">
         <button class="tile-btn" id="listen-play" aria-pressed="false">${svg('play')}<b id="listen-play-b">Play</b><span class="cap" id="listen-play-cap">From the start</span></button>
         <button class="tile-btn side" id="side-a" aria-pressed="true"><span class="big">A</span><b>Source</b><span class="cap">As it was</span></button>
         <button class="tile-btn side" id="side-b" aria-pressed="false"><span class="big">B</span><b>Result</b><span class="cap" id="side-b-cap">Loudness-matched</span></button>
+        <button class="tile-btn side" id="side-d" aria-pressed="false"><span class="big">Δ</span><b>Added detail</b><span class="cap">Result minus source · actual level</span></button>
       </div>
       ${card('Level, K-weighted', `<canvas class="viz" id="level-viz" role="img" aria-label="The K-weighted level of A, of B as made, and of B as you hear it, with the level playing now" style="height:112px"></canvas>
         <p class="hint" id="level-note">-</p>`, { right: tag('live', 'BS.1770') })}
@@ -1129,12 +1298,15 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
         ${stat('Original band', 'm-lsd', 'log-spectral distance, lower is truer')}
         ${stat('Added band', 'm-nr', 'spectral flatness')}
         ${stat('Loudness match', 'm-gain', 'BS.1770 gain on B')}
-        ${stat('Cutoff', 'm-fc', 'measured on the source')}
+        ${stat('Guard cutoff', 'm-fc', 'estimated or chosen')}
+        ${stat('Invented layer', 'm-added', 'residual energy / result energy')}
+        ${stat('Guard leakage', 'm-guard', 'added low-band energy / source low-band energy')}
+        ${stat('Detail headroom', 'm-headroom', 'gain on added layer only')}
       </div>
       ${callout('The synthesized band reads as hiss. Lower the wet amount or the tilt, or the source may be too narrow.', 'm-warn')}
       ${card('Spectrum before and after', `<canvas class="viz" id="spec-viz" role="img" aria-label="Welch power spectra of the source and the result, with the measured cutoff" style="height:190px"></canvas>
         <p class="hint" id="m-span">-</p>`, { right: MEAS })}
-      ${dcard('Fixed from the desktop app', `<p>With a range selected, the desktop app measured the first 2<sup>18</sup> samples of the whole file, 5.46 s at 48 kHz, so a range later than that read as unchanged. This page measures the range it processed. Everything else matches the desktop app number for number.</p>`, { id: 'fix' })}`, true),
+      ${dcard('Fixed from the desktop app', `<p>With a range selected, the desktop app measured the first 2<sup>18</sup> samples of the whole file, 5.46 s at 48 kHz, so a range later than that read as unchanged. This page measures the range it processed. The four comparison effects retain the desktop algorithms. Forge is a new source-anchored synthesis path.</p>`, { id: 'fix' })}`, true),
 
     sheet('keep', 'Keep the result.', 'Everything stays in this browser until you save a file yourself.', `
       <div class="tiles three">
@@ -1146,23 +1318,23 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
       ${card('Take it further', `<p class="hint lead">Save the WAV, then open it in <a href="nebula.html">Nebula</a>, whose Form mode turns a sound into a particle cloud, or in <a href="chimera.html">Chimera Synth</a>, which grows a seed from a sound or plays it as a voice.</p>`)}
       ${callout('The WAV is 24-bit at the source\'s own rate: the whole sound, with the range enhanced if you chose one, written sample for sample as the desktop app writes it.')}`),
 
-    sheet('about', 'What is real here.', 'Detail Forge Analog\'s signal processing, ported line by line from the desktop app and checked against it number for number, running in this browser.', `
+    sheet('about', 'What is real here.', 'A procedural audio analogue of Detail Forge: new fine detail on an original structure, with an inspectable difference layer. It is not neural audio super-resolution.', `
       <div class="legend" id="label-legend">
         <div class="lg">${MEAS}<p>Every number is measured on the real output: bandwidth, the level above the cutoff, how well the original band was kept, and the loudness match.</p></div>
         <div class="lg">${AMP}<p>Floor and Transient change the level of what is there. Floor is the honest control: a high shelf that invents nothing above the cutoff.</p></div>
-        <div class="lg">${SYN}<p>Exciter and SBR make new content above the cutoff from what is below it. Plausible detail, synthesized, never recovered.</p></div>
+        <div class="lg">${SYN}<p>Forge makes a separate detail layer from local spectral peaks and diffuse texture, guards its low band, and adds it to the untouched source. Exciter and SBR are comparison effects. None recovers lost audio.</p></div>
         <div class="lg">${SYNTH}<p>The test sound is made in this page and labeled on screen the whole time it is loaded.</p></div>
       </div>
       ${dcard('Running in this page', `<ul>
-          <li>The cutoff measured from a Welch spectrum, as the desktop app measures it.</li>
-          <li>Four engines: an RBJ high shelf, a 4x oversampled harmonic exciter, a dynamic-gain transient restore, and spectral band replication.</li>
+          <li>An estimated cutoff from a Welch spectrum; Forge also accepts a chosen guard frequency. A source with no room above its guard passes through unchanged.</li>
+          <li>Forge: harmonic peak continuation, source-shaped noise texture, short overlapping tiles, a linear-phase high-band guard, and headroom control that scales only the invented layer. Four older effects remain as comparison controls.</li>
           <li>Range processing with 50 ms crossfades, before and after spectrograms, and a loudness-matched A/B.</li>
           <li>A 24-bit WAV written the way the desktop app writes it.</li>
         </ul>`)}
       ${dcard('What it cannot do', `<p>It cannot recover lost audio. A band-limited recording cannot be restored, only continued. SBR folds the top octave below the cutoff upward and gives it fresh phase: plausible highs, not the ones that were there. Its random phases come from this page's own seeded generator, so its output differs from the desktop app's in the synthesized band, within the same spread.</p>`)}
-      ${dcard('Checked against the desktop app', `<p>230 of 230 checks passed: samples within 1.8 × 10<sup>-7</sup> of the desktop app's, every measure equal to four decimals, SBR inside the desktop app's own run-to-run spread, and the 24-bit WAV byte for byte. The one change is the measuring window, under Measured.</p>`)}
-      ${dcard('Keys', `<p>Space flips A and B. P plays or stops. 1 to 4 choose Floor, Exciter, Transient and SBR. O opens a file. F is full screen, and Escape closes a sheet.</p>`)}
-      ${dcard('Safety and privacy', `<p>Start quietly. Exciter and SBR add high frequencies that can sound harsh on headphones, and B is matched to A in loudness, not limited. The picture changes only when you act or play, and it measures under the WCAG limit of three flashes a second, even with fast engine and A/B switching. That is a measured screen, not a medical guarantee.</p>
+      ${dcard('Checked against the desktop app', `<p>The legacy comparison effects have numerical parity tests against the desktop app. Forge has separate tests for silence, deterministic seeds, stereo polarity, no-op endpoints, unchanged samples outside a selection, and low-band leakage. These are integrity checks, not evidence that synthesized detail is the lost original.</p>`)}
+      ${dcard('Keys', `<p>Space flips A and B. P plays or stops. 1 to 4 choose Floor, Exciter, Transient and SBR; 5 returns to Forge. D auditions the added layer. O opens a file. F is full screen, and Escape closes a sheet.</p>`)}
+      ${dcard('Safety and privacy', `<p>Start quietly. Forge, Exciter and SBR add high frequencies that can sound harsh on headphones, and B is matched to A in loudness, not limited. The picture changes only when you act or play, and it measures under the WCAG limit of three flashes a second, even with fast engine and A/B switching. That is a measured screen, not a medical guarantee.</p>
         <p>Your file is read in this browser and never sent anywhere. The page makes no network requests after it loads. Your volume, loop and match choices stay in this browser's storage.</p>`)}
       ${dcard('Ideas credited', `<p>No outside code is included. Spectral band replication follows the idea in HE-AAC's SBR. The shelf follows Robert Bristow-Johnson's Audio EQ Cookbook, and the loudness match uses the K-weighting of ITU-R BS.1770. The exciter follows the classic studio exciter.</p>`)}
       <p class="note"><a href="field-guide.html#analog">Read the field guide</a> · <a href="https://github.com/patrickiben/generative-av-labs" rel="noopener">Source</a></p>`),
@@ -1222,23 +1394,23 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
   const kHz = (v) => `${(v / 1000).toFixed(1)}<small>kHz</small>`;
   const msText = (ms) => (ms < 1000 ? `${Math.round(ms)} ms` : `${(ms / 1000).toFixed(1)} s`);
   const announce = (t) => { if ($('sr-status').textContent !== t) $('sr-status').textContent = t; };
-  const MODE = { floor: ['Floor', 'amp'], exciter: ['Exciter', 'syn'], transient: ['Transient', 'amp'], sbr: ['SBR', 'syn'] };
+  const MODE = { floor: ['Floor', 'amp'], exciter: ['Exciter', 'syn'], transient: ['Transient', 'amp'], sbr: ['SBR', 'syn'], forge: ['Forge', 'syn'] };
   const MODE_IDS = Object.keys(MODE);
   const MAX_SECONDS = 600;
   const minSpan = (sr) => Math.max(4096 / sr, 0.25);
 
   /* ---------------- state ---------------- */
-  const DEF = { wet: 65, tilt: -6, target: 20, gain: 9, drive: 40, emix: 35, tamt: 60 };
+  const DEF = { amount: 55, cutoff: 0, ceiling: 200, seed: 17, wet: 65, tilt: -6, target: 20, gain: 9, drive: 40, emix: 35, tamt: 60 };
   const S = {
-    mode: 'sbr', prm: { ...DEF }, sel: null, drag: null, src: null, res: null, err: null, prog: null,
+    mode: 'forge', prm: { ...DEF }, sel: null, drag: null, src: null, res: null, err: null, prog: null,
     side: 'A', match: store.get('match', true), loop: store.get('loop', true), vol: store.get('volume', 0.8), runs: 0, wantPlay: false,
   };
 
   /* ---------------- the synthetic test sound ---------------- */
   function mulberry(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-  // plucked chords (Karplus-Strong) and breath noise, then a brick wall at 11 kHz: a dull recording made to order
+  // plucked chords (Karplus-Strong) and breath noise, then a low-pass taper ending at 6 kHz: a dull recording made to order
   function makeSynthetic() {
-    const sr = 44100, n = sr * 8, N = 1 << 19, rng = mulberry(20261103), cut = 11000;
+    const sr = 44100, n = sr * 8, N = 1 << 19, rng = mulberry(20261103), cut = 6000;
     const L = new Float64Array(N), R = new Float64Array(N);
     const CH = [[48, 55, 64, 67, 72], [45, 52, 60, 64, 69], [41, 48, 57, 60, 65], [43, 50, 59, 62, 67]];
     for (let b = 0; b < 16; b++) {
@@ -1451,21 +1623,21 @@ body[data-app="analog"] .intro::before { height: 400px; background: radial-gradi
   const WSRC = `'use strict';
 const DSP = (${DSP.build.toString()})();
 let SRC = null, SR = 0;
-const kdb = (ch) => 10 * Math.log10(DSP.kweightEnergy(ch));
+const kdb = (ch, linked) => 10 * Math.log10(linked ? DSP.linkedK(ch) : DSP.kweightEnergy(ch));
 const thin = (a, n) => { if (!a) return null; const m = Math.min(n, a.length), o = new Float32Array(m), k = a.length / m; for (let i = 0; i < m; i++) { let v = 0; for (let j = Math.floor(i * k), e = Math.max(j + 1, Math.floor((i + 1) * k)); j < e; j++) v = Math.max(v, a[j]); o[i] = v; } return o; };
 onmessage = (e) => {
   const m = e.data;
   try {
-    if (m.type === 'load') { SRC = m.ch; SR = m.sr; const s = DSP.spectrogram(SRC, SR); postMessage({ type: 'loaded', id: m.id, spec: s }, [s.S.buffer]); return; }
+    if (m.type === 'load') { SRC = m.ch; SR = m.sr; const s = DSP.spectrogram(SRC, SR, 1024, 900, true); postMessage({ type: 'loaded', id: m.id, spec: s }, [s.S.buffer]); return; }
     const t0 = performance.now();
     const r = DSP.run(SRC, SR, m.params, (pct, line) => postMessage({ type: 'progress', id: m.id, pct, line }));
     postMessage({ type: 'progress', id: m.id, pct: 90, line: 'drawing the spectrogram' });
-    const s = DSP.spectrogram(r.out, SR), cut = (c) => c.map((x) => x.subarray(r.n0, r.n1)), W = r.metrics;
+    const s = DSP.spectrogram(r.out, SR, 1024, 900, true), cut = (c) => c.map((x) => x.subarray(r.n0, r.n1)), W = r.metrics;
     const out = r.out.map((c, i) => (c.buffer === SRC[i].buffer ? c.slice() : c));
     const metrics = { bw_before: W.bw_before, bw_after: W.bw_after, hb_before: W.hb_before, hb_after: W.hb_after, lsd: W.lsd, nr: W.nr, gain: W.gain,
       wb: { f: W.welch_before.f, p: W.welch_before.pxx }, wa: { f: W.welch_after.f, p: W.welch_after.pxx } };
     postMessage({ type: 'result', id: m.id, out, fc: r.fc, info: r.info, metrics, selective: r.selective, n0: r.n0, n1: r.n1, mode: r.mode,
-      gainCurve: thin(r.gainCurve, 1200), spec: s, kA: kdb(cut(SRC)), kB: kdb(cut(out)), ms: performance.now() - t0 }, [...new Set(out.map((c) => c.buffer)), s.S.buffer]);
+      gainCurve: thin(r.gainCurve, 1200), spec: s, kA: kdb(cut(SRC), r.mode === 'forge'), kB: kdb(cut(out), r.mode === 'forge'), ms: performance.now() - t0 }, [...new Set(out.map((c) => c.buffer)), s.S.buffer]);
   } catch (err) { postMessage({ type: 'error', id: m.id, message: String((err && err.message) || err) }); }
 };`;
   let WK = null, wURL = null, srcSeq = 0, runSeq = 0, resSeq = 0, inflight = null, pending = false, runT = 0;
@@ -1479,7 +1651,7 @@ onmessage = (e) => {
   }
   function paramsNow() {
     const P = S.prm;
-    return { mode: S.mode, wet: P.wet / 100, tilt: P.tilt, target_hz: P.target * 1000, gain_db: P.gain, drive: P.drive / 10, emix: P.emix / 100, tamt: P.tamt / 100, sel: S.sel ? [...S.sel] : null, measure: 'span' };
+    return { mode: S.mode, amount: P.amount / 100, cutoff_hz: P.cutoff * 100, seed: S.mode === 'forge' ? P.seed : undefined, wet: P.wet / 100, tilt: P.tilt, target_hz: S.mode === 'forge' ? P.ceiling * 100 : P.target * 1000, gain_db: P.gain, drive: P.drive / 10, emix: P.emix / 100, tamt: P.tamt / 100, sel: S.sel ? [...S.sel] : null, measure: 'span' };
   }
   function scheduleRun(ms) {
     clearTimeout(runT);
@@ -1551,7 +1723,7 @@ onmessage = (e) => {
   function setMode(m, quiet) {
     if (!MODE_IDS.includes(m)) return;
     S.mode = m;
-    document.querySelectorAll('.mode-switch button, .tile-btn.eng').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
+    document.querySelectorAll('.mode-switch button[data-mode], .tile-btn.eng').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === m)));
     document.querySelectorAll('.knobs[data-for]').forEach((k) => { k.hidden = k.dataset.for !== m; });
     if (!quiet) { engage(); scheduleRun(40); }
     renderEngine(); drawSheets();
@@ -1724,7 +1896,7 @@ onmessage = (e) => {
     stopNodes();
     const sA = AC.createBufferSource(), sB = AC.createBufferSource(), gA = AC.createGain(), gB = AC.createGain();
     sA.buffer = bufA.b; sB.buffer = bufB.b; sA.loop = sB.loop = S.loop;
-    gA.gain.value = S.side === 'A' ? 1 : 0; gB.gain.value = S.side === 'B' ? bGain() : 0;
+    gA.gain.value = S.side === 'A' ? 1 : S.side === 'D' ? -1 : 0; gB.gain.value = S.side === 'B' ? bGain() : S.side === 'D' ? 1 : 0;
     sA.connect(gA).connect(master); sB.connect(gB).connect(master);
     const t = AC.currentTime + 0.04;
     sA.start(t, off); sB.start(t, off); startAt = t - off;
@@ -1756,11 +1928,11 @@ onmessage = (e) => {
     S.side = side || (S.side === 'A' ? 'B' : 'A');
     if (nodes) {
       const t = AC.currentTime;
-      nodes.gA.gain.setTargetAtTime(S.side === 'A' ? 1 : 0, t, 0.004);
-      nodes.gB.gain.setTargetAtTime(S.side === 'B' ? bGain() : 0, t, 0.004);
+      nodes.gA.gain.setTargetAtTime(S.side === 'A' ? 1 : S.side === 'D' ? -1 : 0, t, 0.004);
+      nodes.gB.gain.setTargetAtTime(S.side === 'B' ? bGain() : S.side === 'D' ? 1 : 0, t, 0.004);
     }
     engage(); renderSound(); renderGauges(); renderListen(); requestDraw();
-    announce(S.side === 'A' ? 'A, the source' : 'B, the result');
+    announce(S.side === 'A' ? 'A, the source' : S.side === 'D' ? 'Added detail only, at its actual level' : 'B, the result');
   }
   function liveDb() {
     if (!an || !nodes) return null;
@@ -1804,7 +1976,8 @@ onmessage = (e) => {
     $('sel-full').disabled = !S.sel;
   }
   function chipLine(r) {
-    return { floor: 'Floor · amplified, nothing added', transient: 'Transient · amplified, some new highs', exciter: 'Exciter · harmonics synthesized', sbr: `SBR · synthesized above ${(r.fc / 1000).toFixed(1)} kHz` }[r.mode];
+    if (r.mode === 'forge' && r.info.reason) return r.info.amount === 0 ? 'Forge · zero amount, source unchanged' : r.info.headroom_gain < .01 ? 'Forge · no headroom for added detail' : 'Forge · no room above guard, source unchanged';
+    return { forge: `Forge · synthesized above ${(r.fc / 1000).toFixed(1)} kHz`, floor: 'Floor · amplified, nothing added', transient: 'Transient · amplified, some new highs', exciter: 'Exciter · harmonics synthesized', sbr: `SBR · synthesized above ${(r.fc / 1000).toFixed(1)} kHz` }[r.mode];
   }
   function renderProc() {
     const c = $('chip-proc'), busy = !!(inflight || runT || pending), r = S.res;
@@ -1818,7 +1991,7 @@ onmessage = (e) => {
   function renderSound() {
     const c = $('chip-sound'), t = $('chip-sound-text');
     if (!(window.AudioContext || window.webkitAudioContext)) { c.dataset.tone = 'bad'; t.textContent = 'Sound · not supported'; }
-    else if (nodes) { c.dataset.tone = 'good'; t.textContent = `Playing ${S.side} · ${S.side === 'A' ? 'the source' : 'the result'}`; }
+    else if (nodes) { c.dataset.tone = 'good'; t.textContent = `Playing ${S.side} · ${S.side === 'A' ? 'the source' : S.side === 'D' ? 'added detail only' : 'the result'}`; }
     else if (S.wantPlay) { c.dataset.tone = 'wait'; t.textContent = 'Sound · waiting for the result'; }
     else { c.dataset.tone = 'idle'; t.textContent = AC ? `Stopped · ${S.side} chosen` : 'Sound · off'; }
     const p = $('listen-play');
@@ -1835,11 +2008,12 @@ onmessage = (e) => {
     const r = S.res;
     $('g-cutoff').innerHTML = r ? kHz(r.fc) : '-';
     $('g-bw').innerHTML = r ? kHz(r.metrics.bw_after) : '-';
-    $('g-side').textContent = S.side;
-    $('g-side-name').textContent = S.side === 'A' ? 'source' : 'result';
+    $('g-side').textContent = S.side === 'D' ? 'Δ' : S.side;
+    $('g-side-name').textContent = S.side === 'A' ? 'source' : S.side === 'D' ? 'added detail' : 'result';
+    $('detail-button').setAttribute('aria-pressed', String(S.side === 'D'));
     const ab = $('ab-toggle');
     ab.setAttribute('aria-pressed', String(S.side === 'B'));
-    ab.setAttribute('aria-label', S.side === 'A' ? 'Listening: A, source. Press to hear B, the result' : 'Listening: B, result. Press to hear A, the source');   // starts with the visible text, for speech input
+    ab.setAttribute('aria-label', S.side === 'A' ? 'Listening: A, source. Press to hear B, the result' : S.side === 'D' ? 'Listening: added detail. Press to hear A, the source' : 'Listening: B, result. Press to hear A, the source');   // starts with the visible text, for speech input
   }
   function renderMeasured() {
     const r = S.res; if (!r) return;
@@ -1849,23 +2023,29 @@ onmessage = (e) => {
     set('m-lsd', `${M.lsd.toFixed(2)} dB`, 'log-spectral distance below the cutoff, lower is truer', M.lsd < 3 ? 'good' : 'warn');
     set('m-nr', M.nr.verdict, `flatness ${M.nr.flatness.toFixed(3)} above the cutoff`, M.nr.ok ? 'good' : 'bad');
     set('m-gain', `${M.gain.toFixed(2)}×`, 'BS.1770 gain applied to B');
-    set('m-fc', `${int(r.fc)} Hz`, r.selective ? 'measured on the range' : 'measured on the source');
+    set('m-fc', `${int(r.fc)} Hz`, r.mode === 'forge' && r.info.cutoff_source === 'user' ? 'chosen by you · source estimate ' + int(r.info.estimated_cutoff_hz) + ' Hz' : 'estimated from source spectrum');
+    const fg = r.mode === 'forge';
+    set('m-added', fg ? `${r.info.added_energy_percent.toFixed(2)} %` : '—', fg ? 'difference-layer energy / result energy; not recovered detail' : 'available in Forge');
+    set('m-guard', fg ? `${r.info.guard_error_db.toFixed(0)} dB` : '—', 'added energy below guard / source energy below guard', fg && r.info.guard_error_db < -50 ? 'good' : '');
+    set('m-headroom', fg ? `${(r.info.headroom_gain * 100).toFixed(0)} %` : '—', fg ? 'of invented layer retained; source never turned down' : 'available in Forge');
     $('m-warn').hidden = !(r.mode === 'sbr' && !M.nr.ok);
     const s = S.src;
-    $('m-span').textContent = `${r.selective ? `Measured on ${(r.n0 / s.sr).toFixed(2)} to ${(r.n1 / s.sr).toFixed(2)} s, the range that was processed.` : 'Measured on the whole sound.'} Cutoff and bandwidth are the highest frequency more than 12 dB above the spectrum's floor and within 60 dB of its peak.`;
+    $('m-span').textContent = `${r.selective ? `Measured on ${(r.n0 / s.sr).toFixed(2)} to ${(r.n1 / s.sr).toFixed(2)} s, the range that was processed.` : 'Measured on the whole sound.'} ${r.mode === 'forge' ? 'Spectra combine channel energy; long files are sampled throughout. ' : ''}Cutoff and bandwidth are the highest frequency more than 12 dB above the spectrum's floor and within 60 dB of its peak.`;
   }
   const ENGINE_NOTE = {
+    forge: 'Forge adds a high-frequency layer shaped by your sound’s tones, texture and attacks. The original stays underneath. Use Hear added layer to judge the invention on its own: plausible fine detail, not recovered audio.',
     floor: 'A high shelf from half the measured cutoff: the honest control. It lifts what is there and invents nothing above the cutoff.',
     exciter: 'The band above about 0.45 of the cutoff is waveshaped at four times the sample rate, so the new harmonics do not alias, then high-passed and mixed back. New content, made from what is there.',
     transient: 'A fast envelope runs ahead of a slow one, and the difference raises the gain on attacks. It synthesizes no band on purpose, but a gain that moves this fast spreads some new energy above the cutoff; the Measured sheet shows how much.',
     sbr: 'Spectral band replication: the top octave below the cutoff is folded upward, tilted, matched in level at the seam and given fresh phase. Plausible highs, synthesized, not recovered.',
   };
-  const VIZ_TITLE = { floor: 'Shelf response', exciter: 'Shaper curve', transient: 'Gain over time', sbr: 'Band replication' };
+  const VIZ_TITLE = { forge: 'The source anchor and the invented band', floor: 'Shelf response', exciter: 'Shaper curve', transient: 'Gain over time', sbr: 'Band replication' };
   function renderEngine() {
     $('engine-viz-title').textContent = VIZ_TITLE[S.mode];
     $('engine-note').textContent = ENGINE_NOTE[S.mode];
     const r = S.res && S.res.mode === S.mode ? S.res : null, P = S.prm, fc = S.res ? S.res.fc : null, nyq = S.src ? S.src.sr / 2 : 22050;
     $('engine-viz-note').textContent = !fc ? 'Waiting for the first result.' : {
+      forge: r && r.mode === 'forge' ? `${P.amount} % detail · ${r.info.cutoff_source === 'user' ? 'chosen' : 'estimated'} guard ${int(fc)} Hz · seed ${P.seed}. ${r.info.reason || `${r.info.added_energy_percent.toFixed(2)} % residual energy; low-band leakage ${r.info.guard_error_db.toFixed(0)} dB.`}` : 'Processing the detail layer…',
       floor: `+${P.gain} dB shelf from ${int(fc / 2)} Hz, half the measured cutoff of ${int(fc)} Hz.`,
       exciter: `The band above ${int(clamp(fc * 0.45, 800, S.src.sr * 0.35))} Hz, driven at ${(P.drive / 10).toFixed(1)} and mixed in at ${P.emix} %.`,
       transient: r && r.gainCurve ? `Gain from 1.00 up to at most ${(1 + 2 * P.tamt / 100).toFixed(2)}; this run peaked at ${Math.max(...r.gainCurve).toFixed(2)}.` : 'Processing…',
@@ -1875,6 +2055,7 @@ onmessage = (e) => {
   function renderListen() {
     $('side-a').setAttribute('aria-pressed', String(S.side === 'A'));
     $('side-b').setAttribute('aria-pressed', String(S.side === 'B'));
+    $('side-d').setAttribute('aria-pressed', String(S.side === 'D'));
     $('side-b-cap').textContent = S.res ? (S.match ? `Matched, ${S.res.metrics.gain.toFixed(2)}×` : 'Not matched, as made') : 'Processing';
     const r = S.res;
     $('level-note').textContent = r ? `A ${r.kA.toFixed(1)} dB, B as made ${r.kB.toFixed(1)} dB, B as you hear it ${(r.kB + 20 * Math.log10(bGain())).toFixed(1)} dB: K-weighted mean square against full scale${r.selective ? ', over the range' : ''}. The white line is the level playing now, unweighted.` : '-';
@@ -1921,7 +2102,8 @@ onmessage = (e) => {
     let top = -Infinity;
     lines.forEach((l) => l.f.forEach((f, i) => { if (f >= o.lo && f <= o.hi && l.d[i] > top) top = l.d[i]; }));
     top = Math.ceil((top + 4) / 10) * 10; const bot = top - 100, fy = (d) => T + ((top - clamp(d, bot, top)) / (top - bot)) * ph;
-    (o.bands || []).forEach((b) => { x.fillStyle = b.color; x.fillRect(fx(Math.max(b.lo, o.lo)), T, fx(Math.min(b.hi, o.hi)) - fx(Math.max(b.lo, o.lo)), ph); if (b.label) muted(x, b.label, fx(Math.max(b.lo, o.lo)) + 5, T + 12); });
+    x.font = `10px ${SANS}`;
+    (o.bands || []).forEach((b) => { const bx = fx(Math.max(b.lo, o.lo)); x.fillStyle = b.color; x.fillRect(bx, T, fx(Math.min(b.hi, o.hi)) - bx, ph); if (b.label) muted(x, b.label, bx + 5, bx + 5 + x.measureText(b.label).width > L + pw - 100 ? T + 26 : T + 12); });
     x.strokeStyle = 'rgba(191, 194, 236, 0.10)'; x.lineWidth = 1;
     for (let d = top; d >= bot; d -= 20) { const y = Math.round(fy(d)) + 0.5; x.beginPath(); x.moveTo(L, y); x.lineTo(L + pw, y); x.stroke(); muted(x, `${d}`, L - 5, y + 3, 'right'); }
     const step = o.hi - o.lo > 12000 ? 5000 : o.hi - o.lo > 5000 ? 2000 : 1000;
@@ -1987,9 +2169,9 @@ onmessage = (e) => {
       } else muted(x, 'Processing…', L + pw / 2, T + ph / 2, 'center');
       muted(x, `${n0.toFixed(2)} s`, L, h - 5); muted(x, `${n1.toFixed(2)} s`, L + pw, h - 5, 'right');
     } else {
-      const sbr = r && r.mode === 'sbr', tgt = Math.min(P.target * 1000, nyq);
+      const sbr = r && (r.mode === 'sbr' || r.mode === 'forge'), tgt = Math.min(S.mode === 'forge' ? P.ceiling * 100 : P.target * 1000, nyq);
       plotWelch(v, { lo: Math.max(0, fc * 0.35), hi: nyq, before: r.metrics.wb, after: sbr ? r.metrics.wa : null, fc,
-        bands: [{ lo: fc / 2, hi: fc, color: 'rgba(184, 183, 255, 0.10)', label: 'source octave' }, { lo: fc, hi: tgt, color: 'rgba(241, 207, 142, 0.09)', label: 'synthesized' }] });
+        bands: [{ lo: fc / 2, hi: fc, color: 'rgba(184, 183, 255, 0.10)', label: S.mode === 'forge' ? 'source anchor' : 'source octave' }, { lo: fc, hi: tgt, color: 'rgba(241, 207, 142, 0.09)', label: 'synthesized' }] });
     }
   }
   function drawLevel() {
@@ -2026,6 +2208,7 @@ onmessage = (e) => {
     return {
       app: 'Detail Forge Analog (browser)', made: new Date().toISOString(),
       source: { name: s.origin === 'synthetic' ? 'synthetic test sound' : s.name, synthetic: s.origin === 'synthetic', sample_rate: s.sr, rate_from: s.rateFrom, channels: s.ch.length, seconds: +s.dur.toFixed(4) },
+      synthesis: r.mode === 'forge' ? r.info : null,
       engine: r.mode, label: MODE[r.mode][1] === 'syn' ? 'synthesized' : 'amplified', settings: r.params,
       range_seconds: r.selective ? [r.n0 / s.sr, r.n1 / s.sr] : null, measured_on: r.selective ? 'the processed range' : 'the whole sound',
       measured: { cutoff_hz: r.fc, bandwidth_before_hz: M.bw_before, bandwidth_after_hz: M.bw_after, high_band_before_db: M.hb_before, high_band_after_db: M.hb_after, lsd_db: M.lsd, flatness: M.nr.flatness, added_band: M.nr.verdict, loudness_gain_b: M.gain, k_weighted_a_db: r.kA, k_weighted_b_db: r.kB },
@@ -2047,12 +2230,12 @@ onmessage = (e) => {
   }
 
   /* ---------------- controls ---------------- */
-  document.querySelectorAll('.mode-switch button, .tile-btn.eng').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
-  const KN = { wet: ['k-wet', 'v-wet', (v) => `${v} %`], tilt: ['k-tilt', 'v-tilt', (v) => `${v} dB/oct`], target: ['k-target', 'v-target', (v) => `${v} kHz`], gain: ['k-gain', 'v-gain', (v) => `${v} dB`],
+  document.querySelectorAll('.mode-switch button[data-mode], .tile-btn.eng').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+  const KN = { amount: ['k-amount', 'v-amount', (v) => `${v} %`], cutoff: ['k-cutoff', 'v-cutoff', (v) => v ? `${(v / 10).toFixed(1)} kHz · chosen` : 'Auto · estimated'], ceiling: ['k-ceiling', 'v-ceiling', (v) => `${(v / 10).toFixed(1)} kHz`], wet: ['k-wet', 'v-wet', (v) => `${v} %`], tilt: ['k-tilt', 'v-tilt', (v) => `${v} dB/oct`], target: ['k-target', 'v-target', (v) => `${v} kHz`], gain: ['k-gain', 'v-gain', (v) => `${v} dB`],
     drive: ['k-drive', 'v-drive', (v) => (v / 10).toFixed(1)], emix: ['k-emix', 'v-emix', (v) => `${v} %`], tamt: ['k-tamt', 'v-tamt', (v) => `${v} %`] };
   const syncKnob = (k) => { const [id, vid, f] = KN[k]; $(id).value = S.prm[k]; $(vid).textContent = f(S.prm[k]); };
   Object.entries(KN).forEach(([k, [id]]) => $(id).addEventListener('input', () => { S.prm[k] = +$(id).value; syncKnob(k); engage(); renderEngine(); drawSheets(); scheduleRun(320); }));
-  const GROUP = { sbr: ['wet', 'tilt', 'target'], floor: ['gain'], exciter: ['drive', 'emix'], transient: ['tamt'] };
+  const GROUP = { forge: ['amount', 'cutoff', 'ceiling'], sbr: ['wet', 'tilt', 'target'], floor: ['gain'], exciter: ['drive', 'emix'], transient: ['tamt'] };
   $('eng-reset').addEventListener('click', () => { GROUP[S.mode].forEach((k) => { S.prm[k] = DEF[k]; syncKnob(k); }); UI.syncAllRanges(); scheduleRun(0); renderEngine(); drawSheets(); });
 
   const fileIn = $('file-input'), pick = () => fileIn.click();
@@ -2069,6 +2252,12 @@ onmessage = (e) => {
   $('ab-toggle').addEventListener('click', () => flip());
   $('side-a').addEventListener('click', () => flip('A'));
   $('side-b').addEventListener('click', () => flip('B'));
+  $('side-d').addEventListener('click', () => flip('D'));
+  $('detail-button').addEventListener('click', () => { flip(S.side === 'D' ? 'A' : 'D'); if (!nodes) play(); });
+  $('compare-open').addEventListener('click', () => { UI.openSheet('engine'); $('comparison-engines').open = true; $('comparison-engines').scrollIntoView({ block: 'nearest' }); });
+  const updateSeed = (value) => { S.prm.seed = Math.max(0, Math.min(4294967295, Math.trunc(+value || 0))); $('forge-seed').value = S.prm.seed; scheduleRun(0); };
+  $('forge-seed').addEventListener('change', () => updateSeed($('forge-seed').value));
+  $('new-seed').addEventListener('click', () => updateSeed((S.prm.seed + 1) >>> 0));
   function bindSwitch(id, key, after) {
     const b = $(id), sync = () => b.setAttribute('aria-checked', String(S[key]));
     b.addEventListener('click', () => { S[key] = !S[key]; store.set(key, S[key]); sync(); after(); });
@@ -2102,7 +2291,8 @@ onmessage = (e) => {
     if (e.repeat) return;
     const k = e.key.toLowerCase();
     if (k === 'p') togglePlay();
-    else if (k >= '1' && k <= '4') setMode(MODE_IDS[+k - 1]);
+    else if (k === 'd') flip(S.side === 'D' ? 'A' : 'D');
+    else if (k >= '1' && k <= '5') setMode(MODE_IDS[+k - 1]);
     else if (k === 'o') pick();
     else if (k === 'f') toggleFs();
   });
@@ -2149,7 +2339,7 @@ onmessage = (e) => {
   Object.keys(KN).forEach(syncKnob);
   UI.syncAllRanges();
   layout();
-  setMode('sbr', true);
+  setMode('forge', true);
   setSource(makeSynthetic());
 
   window.__app = {
@@ -2157,8 +2347,8 @@ onmessage = (e) => {
     get mode() { return S.mode; }, get side() { return S.side; }, get playing() { return !!nodes; }, get sound() { return AC ? AC.state : 'off'; },
     get busy() { return !!(inflight || runT || pending); }, get runs() { return S.runs; }, get lastDownload() { return LAST_DOWNLOAD; },
     get source() { const s = S.src; return s && { name: s.name, origin: s.origin, sr: s.sr, channels: s.ch.length, frames: s.n, seconds: s.dur, rateFrom: s.rateFrom, format: s.format, channelsInFile: s.channelsInFile }; },
-    get result() { const r = S.res; if (!r) return null; const { wb, wa, ...m } = r.metrics; return { mode: r.mode, fc: r.fc, selective: r.selective, n0: r.n0, n1: r.n1, metrics: m, kA: r.kA, kB: r.kB, ms: r.ms }; },
-    get gainB() { return bGain(); }, get geo() { return geo && { ...geo, dur: S.src.dur }; },
+    get result() { const r = S.res; if (!r) return null; const { wb, wa, ...m } = r.metrics; return { mode: r.mode, fc: r.fc, info: r.info, selective: r.selective, n0: r.n0, n1: r.n1, metrics: m, kA: r.kA, kB: r.kB, ms: r.ms }; },
+    get auditionGains() { return nodes ? [nodes.gA.gain.value, nodes.gB.gain.value] : null; }, get gainB() { return bGain(); }, get geo() { return geo && { ...geo, dur: S.src.dur }; },
     outSlice(c, i0, i1) { return Array.from(S.res.out[c].subarray(i0, i1)); },
     srcSlice(c, i0, i1) { return Array.from(S.src.ch[c].subarray(i0, i1)); },
   };

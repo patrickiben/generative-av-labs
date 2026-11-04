@@ -7,6 +7,7 @@
   const { createGL, createPost, FS_HEAD } = GLKit;
   const ENV0 = { kick: 0, snare: 0, hat: 0, hatOpen: 0, tom: 0, tomPos: 0.5, crash: 0, ride: 0, flash: 0 };   // no live input: every hit uniform reads zero
   const $ = (id) => document.getElementById(id);
+  const htmlText = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
   const RM = matchMedia('(prefers-reduced-motion: reduce)');
   const FS = 26, LF0 = Math.log(40), LF1 = Math.log(22050), LIVE_SPAN = 12.8;
@@ -515,7 +516,7 @@ void main(){
     fileN = atoms.length;
     fieldToFloor(atoms, dur, rate);
     if (G && gl) { gl.bindBuffer(gl.ARRAY_BUFFER, vboFile); gl.bufferData(gl.ARRAY_BUFFER, atomsToField(atoms, dur, rate), gl.STATIC_DRAW); }
-    $('snd-status').innerHTML = `<b>${label}</b> · ${atoms.length.toLocaleString()} atoms over ${dur.toFixed(1)} s`;
+    $('snd-status').innerHTML = `<b>${htmlText(label)}</b> · ${atoms.length.toLocaleString()} atoms over ${dur.toFixed(1)} s`;
     if (S.world === 'sound') renderWorldLabels();
     rebuildVoices();
   }
@@ -581,14 +582,18 @@ void main(){
     for (let c = 0; c < buf.numberOfChannels; c++) { const d = buf.getChannelData(c); for (let i = 0; i < mono.length; i++) mono[i] += d[i] / buf.numberOfChannels; }
     return { mono, rate: buf.sampleRate };
   }
+  let soundSeq = 0;
   async function useSoundFile(f, castIt) {
+    const request = ++soundSeq;
     $('snd-status').textContent = `Reading ${f.name}.`;
     try {
       const { mono, rate } = await decodeFile(f);
+      if (request !== soundSeq) return;
       let pk = 0; for (let i = 0; i < mono.length; i++) pk = Math.max(pk, Math.abs(mono[i]));
       if (pk < 1e-4) { $('snd-status').textContent = `${f.name} is silent, so there is nothing to lift. The field did not change.`; return; }
       $('snd-status').textContent = 'Lifting the atoms out of the sound.';
       const r = await cast.atoms(mono.slice(0), rate, 1200);
+      if (request !== soundSeq) return;
       Cast.file = { name: f.name, atoms: r.atoms, dur: r.dur, rate };
       const opt = document.querySelector('#cast-source option[value=file]'); opt.disabled = false; opt.textContent = `The sound I chose: ${f.name}`; $('cast-source').value = 'file';
       $('snd-hear').checked = true;
@@ -596,17 +601,17 @@ void main(){
       updateSource();
       shell.toast(`${r.atoms.length.toLocaleString()} atoms lifted from ${f.name}.`);
       if (castIt) castNow();
-    } catch (err) { $('snd-status').textContent = `That file could not be decoded: ${err.message || err}. The field did not change.`; }
+    } catch (err) { if (request === soundSeq) $('snd-status').textContent = `That file could not be decoded: ${err.message || err}. The field did not change.`; }
   }
   $('snd-choose').addEventListener('click', () => $('snd-file').click());
   $('snd-file').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) openAny(f); });
-  $('snd-builtin').addEventListener('click', () => { const b = builtInSound(); setField(b.atoms, b.dur, b.rate, 'Built-in sound: a synthesized pattern, not your audio', false); updateSource(); });
+  $('snd-builtin').addEventListener('click', () => { soundSeq++; const b = builtInSound(); setField(b.atoms, b.dur, b.rate, 'Built-in sound: a synthesized pattern, not your audio', false); updateSource(); });
   $('snd-hear').addEventListener('change', rebuildVoices);
 
   /* ---------- the picture world's data ---------- */
   let P = null, tMap = null, tDepth = null;
   const depth = EnterDepth.create(onModelState);
-  let pending = null;
+  let pending = null, pictureSeq = 0;
   function paintScene(W, H) {
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d'), img = g.createImageData(W, H), px = img.data, dep = new Float32Array(W * H);
@@ -714,7 +719,8 @@ void main(){
     return KitDepth.normalize(out);
   }
   let paintedCache = null;
-  function showPainted() {
+  function showPainted(cancelPending = true) {
+    if (cancelPending) { pictureSeq++; pending = null; }
     if (!paintedCache) paintedCache = paintScene(innerWidth < 800 ? 1080 : 1620, innerWidth < 800 ? 720 : 1080);
     setPicture(paintedCache.canvas, paintedCache.depth, paintedCache.w, paintedCache.h, 'painted', 'The painted scene');
     $('pic-status').innerHTML = '<b>The painted scene.</b> Drawn on this page by rules, with its depth drawn by the same rules. No model is involved.';
@@ -746,30 +752,36 @@ void main(){
     else modelUI('bad', 'The depth runtime could not start', String(e.message).slice(0, 160), { ...retry, chip: 'Depth model · could not start' });
   }
   async function afterChoosing() {
+    const request = pictureSeq;
     if (depth.ready) return runEstimate();
     const p = await depth.pickPath();
-    if (await depth.stored()) return startModel();
+    const stored = await depth.stored();
+    if (request !== pictureSeq || !pending) return;
+    if (stored) return startModel();
     const total = p.model.bytes + p.runtime.bytes;
     modelUI('warn', `First use downloads ${mb(total)} MB`, `Depth Anything V2 Small, ${p.model.name}, ${mb(p.model.bytes)} MB from Hugging Face, and ONNX Runtime Web, ${mb(p.runtime.bytes)} MB from jsDelivr. It stays in this browser afterward. It will run on your ${p.label}${p.key === 'cpu' ? ', because this browser has no WebGPU. That path is slower, at lower resolution, with a quantized model' : ''}. Your picture is not sent anywhere.`, { go: true, goText: `Download ${mb(total)} MB and continue`, rule: true });
     shell.openSheet('world');
   }
   async function startModel() {
-    try { await depth.load(); await runEstimate(); } catch (e) { console.warn('depth model:', e.message); modelFailure(e); }
+    const request = pictureSeq;
+    try { await depth.load(); if (request === pictureSeq) await runEstimate(); } catch (e) { if (request === pictureSeq) { console.warn('depth model:', e.message); modelFailure(e); } }
   }
   async function runEstimate() {
     if (!pending) { modelReady(); return; }
     const job = pending; pending = null;
+    if (job.request !== pictureSeq) return;
     modelUI('wait', 'Estimating depth', `On your ${depth.path.label}. The picture stays here.`, { chip: 'Depth model · estimating' });
     try {
       const c = fitCanvas(job.source, 2048);
       const out = await depth.estimate(c, c.width, c.height);
+      if (job.request !== pictureSeq) return;
       let truth = null;
       if (job.truth) truth = KitDepth.correlation(out.depth, job.truth);
       setPicture(c, out.depth, c.width, c.height, 'estimated', job.name, { ms: out.ms, modelW: out.modelW, modelH: out.modelH, path: depth.path.label, truth });
-      $('pic-status').innerHTML = `<b>${job.name}</b> · ${c.width} × ${c.height} · a guess at depth, from a ${out.modelW} × ${out.modelH} estimate in ${Math.round(out.ms)} ms on your ${depth.path.label}.${truth != null ? ` Against the depth the painting was drawn with, the estimate correlates at r = ${truth.toFixed(2)}. That is one scene, not a measure of the model.` : ''}`;
+      $('pic-status').innerHTML = `<b>${htmlText(job.name)}</b> · ${c.width} × ${c.height} · a guess at depth, from a ${out.modelW} × ${out.modelH} estimate in ${Math.round(out.ms)} ms on your ${depth.path.label}.${truth != null ? ` Against the depth the painting was drawn with, the estimate correlates at r = ${truth.toFixed(2)}. That is one scene, not a measure of the model.` : ''}`;
       modelReady(out.ms);
       if (kitBusy()) shell.toast('Relief ready.');
-    } catch (e) { console.warn('depth run:', e.message); modelFailure(e); }
+    } catch (e) { if (job.request === pictureSeq) { console.warn('depth run:', e.message); modelFailure(e); } }
   }
   const kitBusy = () => $('world-sheet').open === false;
   function modelReady(ms) {
@@ -777,30 +789,34 @@ void main(){
     modelUI('good', `Ready · on your ${p.label}`, `Depth Anything V2 Small, ${p.model.name}, stored in this browser.${ms != null ? ` Last estimate ${Math.round(ms)} ms.` : ''}`, { clear: true });
     setTimeout(() => { if ($('model-state').textContent.startsWith('Ready')) $('chip-model').hidden = true; }, 1500);
   }
-  function choosePicture(source, name, truth) { pending = { source, name, truth }; afterChoosing(); }
+  function choosePicture(source, name, truth, request = ++pictureSeq) { if (request !== pictureSeq) return; pending = { source, name, truth, request }; afterChoosing(); }
   $('pic-choose').addEventListener('click', () => $('pic-file').click());
   async function usePictureFile(f) {
+    const request = ++pictureSeq; pending = null;
+    let url;
     if (f.size > 120e6) { $('pic-status').textContent = 'That file is over 120 MB, which is more than this page reads.'; return; }
     try {
-      const url = URL.createObjectURL(f), im = new Image(); im.src = url; await im.decode();
+      url = URL.createObjectURL(f); const im = new Image(); im.src = url; await im.decode();
+      if (request !== pictureSeq) return;
       if (im.naturalWidth < 16 || im.naturalHeight < 16) throw new Error('it is too small');
-      $('pic-status').innerHTML = `<b>${f.name}</b> · ${im.naturalWidth} × ${im.naturalHeight}`;
+      $('pic-status').innerHTML = `<b>${htmlText(f.name)}</b> · ${im.naturalWidth} × ${im.naturalHeight}`;
       shell.setMode('picture');
-      choosePicture(im, f.name);
-    } catch (e) { $('pic-status').textContent = `That file could not be read as a picture: ${e.message || e}.`; }
+      choosePicture(im, f.name, null, request);
+    } catch (e) { if (request === pictureSeq) $('pic-status').textContent = `That file could not be read as a picture: ${e.message || e}.`; }
+    finally { if (url) URL.revokeObjectURL(url); }
   }
   $('pic-file').addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) openAny(f); });
   $('pic-sample').addEventListener('click', () => { if (!paintedCache) showPainted(); choosePicture(paintedCache.canvas, 'The painting, estimated', paintedCache.depth); });
   $('pic-painted').addEventListener('click', showPainted);
-  $('model-go').addEventListener('click', () => { if (!pending && P && P.canvas) pending = { source: P.canvas, name: P.name }; startModel(); });
+  $('model-go').addEventListener('click', () => { if (!pending && P && P.canvas) pending = { source: P.canvas, name: P.name, request: ++pictureSeq }; startModel(); });
   $('model-rule').addEventListener('click', () => {
-    const job = pending || (P && { source: P.canvas, name: P.name }); if (!job) return; pending = null;
+    const job = pending || (P && { source: P.canvas, name: P.name }); if (!job) return; pictureSeq++; pending = null;
     const c = fitCanvas(job.source, 1536), d = brightnessDepth(c);
     setPicture(c, d, c.width, c.height, 'brightness', job.name);
-    $('pic-status').innerHTML = `<b>${job.name}</b> · brightness sets depth. A stated rule with no model, and no claim that this is how far away anything is.`;
+    $('pic-status').innerHTML = `<b>${htmlText(job.name)}</b> · brightness sets depth. A stated rule with no model, and no claim that this is how far away anything is.`;
     modelUI('warn', 'Not used for this picture', 'You chose the brightness rule. Pick a picture again to use the model.', { go: false });
   });
-  $('model-clear').addEventListener('click', async () => { await depth.clear(); modelUI('idle', 'Removed from this browser', 'The next picture will ask before it downloads again.', {}); });
+  $('model-clear').addEventListener('click', async () => { pictureSeq++; pending = null; await depth.clear(); modelUI('idle', 'Removed from this browser', 'The next picture will ask before it downloads again.', {}); });
   addEventListener('dragover', (e) => e.preventDefault());
   function openAny(f) {
     const img = (f.type || '').startsWith('image/') || /\.(png|jpe?g|webp|gif|bmp|tiff?|heic|heif|avif)$/i.test(f.name);
@@ -854,7 +870,7 @@ void main(){
     gl.bindVertexArray(null);
     $('cast-stl').disabled = false; $('cast-hear').disabled = false;
     $('cast-stl').textContent = `Download STL (${mb(84 + (idx.length / 3) * 50)} MB)`;
-    $('cast-status').innerHTML = `<b>${label}</b> · ${r.atoms} atoms · ${(idx.length / 3).toLocaleString()} faces · ${r.bodies} ${r.bodies === 1 ? 'body' : 'bodies'} · <b>${r.watertight ? 'watertight, checked on every edge' : `not watertight: ${r.openEdges} open edges`}</b> · ${Math.round(r.ms)} ms`;
+    $('cast-status').innerHTML = `<b>${htmlText(label)}</b> · ${r.atoms} atoms · ${(idx.length / 3).toLocaleString()} faces · ${r.bodies} ${r.bodies === 1 ? 'body' : 'bodies'} · <b>${r.watertight ? 'watertight, checked on every edge' : `not watertight: ${r.openEdges} open edges`}</b> · ${Math.round(r.ms)} ms`;
     updateSource();
   }
   // Binary STL with Z up, which is what slicers expect. One grid cell is one millimeter.
@@ -986,7 +1002,7 @@ void main(){
     $('g-h-k').textContent = w === 'sound' ? 'Pitch' : w === 'picture' ? 'Depth here' : 'Faces';
     $('g-b-k').textContent = w === 'sound' ? 'Atoms' : w === 'picture' ? 'Relief' : 'Closed';
     picLim.fresh = true;
-    if (w === 'picture' && !P && G && gl) showPainted();
+    if (w === 'picture' && !P && G && gl) showPainted(false);
     if (w === 'print' && !M && !Cast.busy && G && gl) castNow();
     $('truth').textContent = TRUTH[w];
     renderWorldLabels(); updateSource();
@@ -1175,7 +1191,7 @@ void main(){
       gl.disable(gl.BLEND); gl.disable(gl.DEPTH_TEST);
       let cam = null;
       if (S.world === 'sound') cam = renderSound(now, dt, dtMs, env);
-      else if (S.world === 'picture') { if (!P) showPainted(); cam = renderPicture(now, dt, env, dtMs / 1000); } else renderPrint(now, dt, env, dtMs / 1000);
+      else if (S.world === 'picture') { if (!P) showPainted(false); cam = renderPicture(now, dt, env, dtMs / 1000); } else renderPrint(now, dt, env, dtMs / 1000);
       if (lumaRec) lumaRec(now);
       if (wantSnap) { const done = wantSnap; wantSnap = null; cv.toBlob((blob) => done(blob), 'image/png'); }
       if (frameIdx % 6 === 0) updateHud();
@@ -1198,7 +1214,7 @@ void main(){
   /* ---------- boot ---------- */
   const b0 = builtInSound();
   Sound.atoms = b0.atoms; Sound.dur = b0.dur; fileN = b0.atoms.length; fieldToFloor(b0.atoms, b0.dur, b0.rate);
-  $('snd-status').innerHTML = `<b>${Sound.label}</b> · ${fileN.toLocaleString()} atoms over ${b0.dur.toFixed(1)} s`;
+  $('snd-status').innerHTML = `<b>${htmlText(Sound.label)}</b> · ${fileN.toLocaleString()} atoms over ${b0.dur.toFixed(1)} s`;
   document.body.dataset.world = 'sound';
   if (!G || !(G.floatRT || G.gl.getExtension('EXT_color_buffer_half_float'))) {
     shell.glFail('This page needs WebGL2 with floating-point render targets, which this browser did not provide.');

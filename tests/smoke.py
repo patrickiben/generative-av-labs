@@ -56,7 +56,7 @@ with sync_playwright() as p:
     pg.wait_for_function('window.__app && __app.result && !__app.busy', timeout=120000)
     if pg.get_attribute('#source-badge', 'data-source') != 'synthetic' or 'not a recording' not in pg.inner_text('#source-label'): bad.append('analog.html: the test sound is not labeled')
     r = pg.evaluate('__app.result')
-    if not (10500 < r['fc'] < 11500 and r['metrics']['bw_after'] > 18000 and r['mode'] == 'sbr'): bad.append(f'analog.html: unexpected result {r["fc"]:.0f} Hz to {r["metrics"]["bw_after"]:.0f} Hz')
+    if not (5500 < r['fc'] < 6500 and r['metrics']['bw_after'] > 18000 and r['mode'] == 'forge'): bad.append(f'analog.html: unexpected result {r["fc"]:.0f} Hz to {r["metrics"]["bw_after"]:.0f} Hz')
     pg.click('#start-listen'); pg.wait_for_timeout(600); pg.keyboard.press('Space'); pg.wait_for_timeout(200)
     if pg.evaluate('__app.side') != 'B' or not pg.evaluate('__app.playing'): bad.append('analog.html: A/B did not play and flip')
     if pg.evaluate("typeof createKit") != 'undefined' or pg.query_selector('#connect-button'): bad.append('analog.html: drum input is on the page')

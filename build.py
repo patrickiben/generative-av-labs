@@ -60,7 +60,7 @@ if __name__ == "__main__":
     if (SRC / "chimera.js").exists():
         page("chimera.html", "Chimera Synth", "A synth you breed by ear: animal voices, a playable genome and a phase-checked sub, synthesized live in your browser.", ["chimera-ui.js", "chimera-engine.js", "chimera.js"], base=("gl.js",), extra_css=(SRC / "chimera.css").read_text())
     if (SRC / "analog.js").exists():
-        page("analog.html", "Detail Forge Analog", "Make a dull recording brighter in your browser: before and after spectrograms, a loudness-matched A/B, and every change measured and labeled as amplified or synthesized.", ["analog-dsp.js", "analog-ui.js", "analog.js"], base=(), extra_css=(SRC / "chimera.css").read_text() + (SRC / "analog.css").read_text())
+        page("analog.html", "Detail Forge Analog", "Forge a new layer of fine audio texture while preserving the source: guarded synthesis, an added-detail audition and a loudness-matched comparison, entirely in your browser.", ["analog-dsp.js", "analog-ui.js", "analog.js"], base=(), extra_css=(SRC / "chimera.css").read_text() + (SRC / "analog.css").read_text())
     if (SRC / "displacer.js").exists():
         page("displacer.html", "Displacer", "Blend two sounds by optimal transport: the energy moves along frequency instead of two recordings playing at once.", ["displacer-engine.js", "displacer.js"], extra_css=(SRC / "displacer.css").read_text())
     if (SRC / "index.src.html").exists():

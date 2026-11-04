@@ -372,29 +372,60 @@ ${useSignal ? `      <dialog class="sheet wide" id="signal-sheet" aria-labelledb
     renderStates();
 
     /* ---------- recording ---------- */
-    let recorder = null, recChunks = [];
+    let recorder = null;
     const download = (blob, name) => { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); };
     const stamp = () => new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
     $('rec-toggle').addEventListener('click', () => {
       if (!kit.recording) {
         kit.startRecording(cfg.id);
-        if ($('rec-video').checked && cfg.canvas().captureStream && global.MediaRecorder) {
-          const st = cfg.canvas().captureStream(60);
-          const sound = kit.recordingStream();
-          if (sound) sound.getAudioTracks().forEach((t) => st.addTrack(t));
-          const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m));
-          recChunks = [];
-          recorder = new MediaRecorder(st, mime ? { mimeType: mime, videoBitsPerSecond: 14e6 } : {});
-          recorder.ondataavailable = (e) => { if (e.data.size) recChunks.push(e.data); };
-          recorder.onstop = () => download(new Blob(recChunks, { type: recorder.mimeType }), `${cfg.id}-${stamp()}.${(recorder.mimeType || '').includes('mp4') ? 'mp4' : 'webm'}`);
-          recorder.start(1000);
+        let videoProblem = '';
+        if ($('rec-video').checked) {
+          let st = null;
+          try {
+            if (!cfg.canvas().captureStream || !global.MediaRecorder) throw new Error('this browser does not support screen recording');
+            st = cfg.canvas().captureStream(60);
+            const sound = kit.recordingStream();
+            // The kit owns a persistent audio destination. Each take owns clones,
+            // so cleaning up this capture cannot silence the next recording.
+            if (sound) sound.getAudioTracks().forEach((t) => st.addTrack(t.clone()));
+            const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m));
+            const activeRecorder = new MediaRecorder(st, mime ? { mimeType: mime, videoBitsPerSecond: 14e6 } : {});
+            const chunks = [], takeStamp = stamp();
+            let failed = false;
+            activeRecorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+            activeRecorder.onerror = () => {
+              failed = true;
+              toast('Video recording failed. The session data is still available.');
+              if (recorder === activeRecorder) {
+                recorder = null;
+                $('rec-status').textContent = 'Video could not be recorded. Session data is still recording; press Stop and save.';
+              }
+              if (activeRecorder.state !== 'inactive') activeRecorder.stop();
+            };
+            activeRecorder.onstop = () => {
+              try {
+                if (!failed && chunks.length) download(new Blob(chunks, { type: activeRecorder.mimeType }), `${cfg.id}-${takeStamp}.${(activeRecorder.mimeType || '').includes('mp4') ? 'mp4' : 'webm'}`);
+              } finally {
+                st.getTracks().forEach((t) => t.stop());
+                if (recorder === activeRecorder) recorder = null;
+              }
+            };
+            recorder = activeRecorder;
+            activeRecorder.start(1000);
+          } catch (err) {
+            if (st) st.getTracks().forEach((t) => t.stop());
+            recorder = null;
+            videoProblem = ` Video could not start: ${err.message}. Session data is still being recorded.`;
+          }
         }
         $('rec-toggle').textContent = 'Stop and save';
         $('session-button').classList.add('rec');
-        $('rec-status').textContent = 'Recording. Play, then press Stop and save.';
+        $('rec-status').textContent = `Recording. Play, then press Stop and save.${videoProblem}`;
       } else {
         const s = kit.stopRecording();
-        if (recorder) { recorder.stop(); recorder = null; }
+        const stoppedRecorder = recorder;
+        recorder = null;
+        if (stoppedRecorder && stoppedRecorder.state !== 'inactive') stoppedRecorder.stop();
         download(new Blob([JSON.stringify(s)], { type: 'application/json' }), `${cfg.id}-session-${stamp()}.json`);
         $('rec-toggle').textContent = 'Start recording';
         $('session-button').classList.remove('rec');

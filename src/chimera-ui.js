@@ -273,7 +273,7 @@
       ${card('Patch', `<div class="genome-code"><span>Genome code</span><b id="genome" class="code">-</b></div>
         <div class="btn-row"><button class="pill" id="patch-save">Save patch file</button><button class="pill" id="patch-load">Load patch file</button><button class="pill" id="patch-link">Copy share link</button><button class="pill" id="patch-mut">Mutate</button></div>
         <input type="file" id="patch-file" accept="application/json,.patch,.json" hidden>
-        ${callout('Patch files and links hold settings only, never audio. A share link keeps the whole patch after the # in the address, which browsers do not send to any server.')}`)}
+        ${callout('Patch files and links keep the current Garden genome or Morph settings, never audio. A raw sample oscillator needs its file loaded again. The patch stays after the # in the address, which browsers do not send to any server.')}`)}
       ${card('Start from words', `<input class="vibe-in" id="vibe" type="text" placeholder="Describe a sound, like crunchy but wet swamp monster" aria-label="Describe a sound">
         <div class="tiles quickvibes">${VIBES.map(([v, a, b, n]) => `<button class="tile-btn small" data-v="${v}"><span class="pair" aria-hidden="true">${a}<i>×</i>${b}</span><b>${n}</b></button>`).join('')}</div>
         ${callout('A keyword matcher picks two animals, the blend point and the grit from your words. It stands in for a language model, makes no network call, and is deliberately simple.', 'vibeout')}`, { right: STAND })}`),
