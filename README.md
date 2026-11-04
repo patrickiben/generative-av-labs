@@ -1,8 +1,8 @@
 # Generative AV Labs
 
-**[Open the home page](https://patrickiben.github.io/generative-av-labs/)** · [Nebula](https://patrickiben.github.io/generative-av-labs/nebula.html) · [Enter](https://patrickiben.github.io/generative-av-labs/enter.html) · [Chimera Synth](https://patrickiben.github.io/generative-av-labs/chimera.html) · [Detail Forge Analog](https://patrickiben.github.io/generative-av-labs/analog.html) · [Field guide](https://patrickiben.github.io/generative-av-labs/field-guide.html)
+**[Open the home page](https://patrickiben.github.io/generative-av-labs/)** · [Nebula](https://patrickiben.github.io/generative-av-labs/nebula.html) · [Enter](https://patrickiben.github.io/generative-av-labs/enter.html) · [Chimera Synth](https://patrickiben.github.io/generative-av-labs/chimera.html) · [Detail Forge Analog](https://patrickiben.github.io/generative-av-labs/analog.html) · [Displacer](https://patrickiben.github.io/generative-av-labs/displacer.html) · [Field guide](https://patrickiben.github.io/generative-av-labs/field-guide.html)
 
-Browser instruments for light and sound. Each page runs in your browser. There is no helper app and no server, and your audio, MIDI and pictures never leave the browser. Nebula, Chimera Synth and Detail Forge Analog use no model. Enter uses one, a depth estimate for your own picture, which downloads only when you ask.
+Browser instruments for light and sound. Each page runs in your browser. There is no helper app and no server, and your audio, MIDI and pictures never leave the browser. Nebula, Chimera Synth, Detail Forge Analog and Displacer use no model. Enter uses one, a depth estimate for your own picture, which downloads only when you ask.
 
 ![Nebula during the demo](docs/nebula.jpg)
 
@@ -14,7 +14,11 @@ Browser instruments for light and sound. Each page runs in your browser. There i
 
 ![Chimera Synth during the demo](docs/chimera.jpg)
 
-**Chimera Synth** is a bass you breed by ear, and the one page here that makes sound. A genome of 20 genes grows the voice: drag a bud toward its tip and hear the seed lean that way, then let go to grow a new seed. Morph mode blends fifteen animal voices, from a mallard to a dolphin, by sliding their formants along a log-frequency axis. A phase check measures the low end and locks the sub where it adds up. A MIDI keyboard plays it over Web MIDI, and so do the computer keys. It came from the desktop Bio-Bass Chimera Lab, whose page is kept in `legacy/` with one hardware comment removed.
+**Chimera Synth** is a bass you breed by ear. A genome of 20 genes grows the voice: drag a bud toward its tip and hear the seed lean that way, then let go to grow a new seed. Morph mode blends fifteen animal voices, from a mallard to a dolphin, by sliding their formants along a log-frequency axis. A phase check measures the low end and locks the sub where it adds up. A MIDI keyboard plays it over Web MIDI, and so do the computer keys. It came from the desktop Bio-Bass Chimera Lab, whose page is kept in `legacy/` with one hardware comment removed.
+
+![Displacer's two built-in pictures halfway through moving into each other](docs/displacer.jpg)
+
+**Displacer** blends two pictures or two sounds without a crossfade. It moves the mass along an optimal-transport map: colors slide toward the other picture's palette, pixels travel to new places, and a sound's energy moves along frequency. The Space view lifts the pair into a 3D cloud of splats that you can turn while the slider carries one into the other. Genopatch grows a playable FM voice that fits a sound, and every blend saves as a PNG, a WAV or a point cloud. The mod wheel moves the blend. It came from the desktop Displacer, whose page is kept unchanged in `legacy/`; two defects there, sound blends about 250 times too quiet and a granular effect that did not repeat, are fixed here.
 
 ![Detail Forge Analog's before and after spectrograms](docs/analog.jpg)
 

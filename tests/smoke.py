@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """A short check for CI: each page boots, says it is ambient, runs the demo, and the demo really produces hits.
-Chimera is a synth, so its demo is checked by the riff steps it really played instead of drum hits."""
+Chimera is a synth, so its demo is checked by the riff steps it really played instead of drum hits.
+Displacer takes files, not a kit, so it is checked by the blend and the cloud it really built instead."""
 import http.server, sys, threading
 from pathlib import Path
 from playwright.sync_api import sync_playwright
@@ -13,7 +14,7 @@ srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Q)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 bad = []
 with sync_playwright() as p:
-    for page in ('nebula.html', 'chimera.html'):
+    for page in ('nebula.html', 'chimera.html', 'displacer.html'):
         # a browser of its own for each page: under software rendering, a page left running starves the next one,
         # and on Linux closing one page's GL context stalled the next page's
         b = p.chromium.launch(args=['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'])
@@ -21,6 +22,14 @@ with sync_playwright() as p:
         pg.set_default_timeout(120000)            # software rendering on the CI runner can hold a frame for many seconds
         pg.on('pageerror', lambda e: errors.append(str(e)[:200]))
         pg.goto(f'http://127.0.0.1:{srv.server_port}/{page}', timeout=120000); pg.wait_for_timeout(2500)
+        if page == 'displacer.html':
+            pg.wait_for_function('window.__app && __app.spaceN > 0', timeout=120000)
+            n = pg.evaluate('__app.spaceN')
+            if pg.is_visible('#demo-button'): bad.append(f'{page}: shows a drum demo')
+            if errors: bad.append(f'{page}: {errors[0]}')
+            print(f'{page}: {n} points in the cloud, {len(errors)} page errors')
+            b.close()
+            continue
         if pg.get_attribute('#source-badge', 'data-source') != 'ambient': bad.append(f'{page}: not ambient at load')
         pg.click('#demo-button'); pg.wait_for_timeout(4000)
         if pg.get_attribute('#source-badge', 'data-source') != 'demo': bad.append(f'{page}: demo is not labeled')

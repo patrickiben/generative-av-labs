@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#101525">
 <title>Generative AV Labs</title>
-<meta name="description" content="Nebula, Enter, Chimera Synth and Detail Forge Analog: browser instruments for light and sound, each with its own input.">
+<meta name="description" content="Nebula, Enter, Chimera Synth, Detail Forge Analog and Displacer: browser instruments for light and sound, each with its own input.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23101525'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='%23b8b7ff' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='2' fill='%23b8b7ff'/%3E%3C/svg%3E">
 <style>
 :root {
@@ -214,12 +214,13 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
 .site-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 42px; }
 .site-brand { display: flex; align-items: center; gap: 11px; font-size: 15px; font-weight: 500; letter-spacing: -0.3px; color: var(--ink); text-decoration: none; }
 .site-brand svg { width: 22px; height: 26px; stroke: var(--accent); fill: none; stroke-width: 1.2; }
-.site-nav { display: flex; gap: 8px; }
+.site-nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .site-nav a { font-size: 12px; color: var(--ink); text-decoration: none; border: 1px solid var(--line); background: var(--glass); border-radius: 999px; padding: 9px 14px; }
 .site-nav a:hover { background: var(--soft); }
 .hero-title { text-align: center; margin: 0 0 36px; }
 .hero-title .eyebrow { margin-bottom: 14px; }
-.hero-title h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(36px, 5vw, 64px); letter-spacing: -1.5px; line-height: 1.1; margin: 0; }
+.hero-title h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(36px, 5vw, 64px); letter-spacing: -1.5px; line-height: 1.1; margin: 0; text-wrap: balance; }
+.hero-title h1 span { white-space: nowrap; }   /* break between the phrases, never inside one */
 .hero-title p:last-child { color: var(--muted); font-size: 15px; margin: 14px auto 0; max-width: 560px; line-height: 1.55; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
 .app-card { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: var(--glass); backdrop-filter: blur(14px); text-decoration: none; color: inherit; box-shadow: 0 18px 70px var(--shadow); transition: transform 0.35s ease, border-color 0.35s ease; }
@@ -268,7 +269,7 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
   <main>
     <div class="hero-title">
       <p class="eyebrow">Instruments for light and sound, in the browser</p>
-      <h1>Play it, walk into it, breed it, brighten it.</h1>
+      <h1><span>Play it,</span> <span>walk into it,</span> <span>breed it,</span> <span>brighten it,</span> <span>blend it.</span></h1>
       <p>Each page runs in your browser, with no helper app and no server.</p>
     </div>
     <div class="cards">
@@ -288,9 +289,13 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
         <img src="docs/analog.jpg" alt="Before and after spectrograms of a test sound; above a dashed cutoff line the lower one is filled in where the upper one is dark" width="1440" height="900">
         <div class="body"><h2>Detail Forge Analog</h2><p>Brighten a dull recording, honestly. Four engines either amplify what is there or synthesize new detail above the measured cutoff, a loudness-matched A/B lets you hear which, and every change is measured in your browser.</p><span class="go">Open Detail Forge Analog →</span></div>
       </a>
+      <a class="app-card" href="displacer.html" id="card-displacer">
+        <img src="docs/displacer.jpg" alt="A sunset picture lifted into a cloud of glowing splats, halfway through moving into a moonlit sea" width="1440" height="900">
+        <div class="body"><h2>Displacer</h2><p>Don't crossfade, move the mass. Two pictures or two sounds blend by optimal transport, and you can turn the migration in 3D. A mod wheel can move it. No model.</p><span class="go">Open Displacer →</span></div>
+      </a>
     </div>
     <div class="strip">
-      <div class="tile"><span class="k">Inputs</span><b>Each page its own</b><span class="d">Nebula listens to a drum kit's audio and MIDI. Enter opens your own pictures and sounds. Chimera Synth plays from a MIDI keyboard or your computer keys. Detail Forge Analog opens a recording.</span></div>
+      <div class="tile"><span class="k">Inputs</span><b>Each page its own</b><span class="d">Nebula listens to a drum kit's audio and MIDI. Enter and Displacer open your own pictures and sounds. Chimera Synth plays from a MIDI keyboard or your computer keys. Detail Forge Analog opens a recording.</span></div>
       <div class="tile"><span class="k">Browser</span><b>Chrome or Edge</b><span class="d">They have Web MIDI. Safari does not, and Firefox asks for an add-on for it.</span></div>
       <div class="tile"><span class="k">Nothing to connect?</span><b>Run a demo</b><span class="d">Nebula and Chimera Synth each have one, and Detail Forge Analog opens with a synthetic test sound, each labeled on screen the whole time.</span></div>
       <div class="tile" id="family"><span class="k">Sibling collection</span><b><a href="../body-signal-labs/">Body Signal Labs</a></b><span class="d">Scenes that follow your body: Autonomic Telemetry, Endless Cockpit and Biofeedback Path Cockpit.</span></div>

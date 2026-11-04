@@ -6,12 +6,13 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
 .site-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-bottom: 42px; }
 .site-brand { display: flex; align-items: center; gap: 11px; font-size: 15px; font-weight: 500; letter-spacing: -0.3px; color: var(--ink); text-decoration: none; }
 .site-brand svg { width: 22px; height: 26px; stroke: var(--accent); fill: none; stroke-width: 1.2; }
-.site-nav { display: flex; gap: 8px; }
+.site-nav { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .site-nav a { font-size: 12px; color: var(--ink); text-decoration: none; border: 1px solid var(--line); background: var(--glass); border-radius: 999px; padding: 9px 14px; }
 .site-nav a:hover { background: var(--soft); }
 .hero-title { text-align: center; margin: 0 0 36px; }
 .hero-title .eyebrow { margin-bottom: 14px; }
-.hero-title h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(36px, 5vw, 64px); letter-spacing: -1.5px; line-height: 1.1; margin: 0; }
+.hero-title h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(36px, 5vw, 64px); letter-spacing: -1.5px; line-height: 1.1; margin: 0; text-wrap: balance; }
+.hero-title h1 span { white-space: nowrap; }   /* break between the phrases, never inside one */
 .hero-title p:last-child { color: var(--muted); font-size: 15px; margin: 14px auto 0; max-width: 560px; line-height: 1.55; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
 .app-card { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: var(--glass); backdrop-filter: blur(14px); text-decoration: none; color: inherit; box-shadow: 0 18px 70px var(--shadow); transition: transform 0.35s ease, border-color 0.35s ease; }
