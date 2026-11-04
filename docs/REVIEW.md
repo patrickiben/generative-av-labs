@@ -23,6 +23,7 @@ Detail Forge Analog's existing source-preservation, residual-only audition and g
 1. **Editable Displacer projects.** Save both source sounds, blend/effect settings and the cloud view together, then reopen the exact working state. Current WAV/image/point exports capture results, not a resumable project.
 2. **Cancellable fitting and analysis.** Give longer Genopatch/model jobs a visible Cancel control and a clear relationship to the current source or seed. Request ordering prevents stale results; cancellation would also avoid wasting compute and make experimentation easier.
 3. **Portable Chimera sample patches.** Offer an optional bundle that includes raw oscillator samples. Plain patches and links should stay small and continue to disclose external sample dependencies.
-4. **A listening evaluation of Forge.** Compare level-matched originals/results on speech, percussion, cymbals and sustained tones, including the added layer alone. Numerical integrity establishes preservation and bounds; it does not establish that invented texture improves every recording.
+4. **Live Nebula Form audition.** The current sound audition is a snapshot of the cloud/morph when playback starts. Refresh it as the visible blend moves, or expose an explicit Update audition action so sight and sound stay easy to compare.
+5. **A listening evaluation of Forge.** Compare level-matched originals/results on speech, percussion, cymbals and sustained tones, including the added layer alone. Numerical integrity establishes preservation and bounds; it does not establish that invented texture improves every recording.
 
 Measured checks and remaining hardware limitations are in [VALIDATION.md](VALIDATION.md). Changes are in the draft pull request; this review does not imply deployment.
