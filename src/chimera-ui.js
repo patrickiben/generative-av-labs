@@ -124,6 +124,20 @@
         <p class="hint">Z to M is the lower octave and Q to U the upper, with the sharps on the row above. Last note <b id="kbnote">0 st</b>.</p>`)}
       ${card('Just exploring?', `<button class="pill primary wide" id="demo-sheet">Run demo</button>
         <p class="hint">The demo plays a riff through the garden by itself, and it is labeled on screen the whole time.</p>`)}
+      ${card('Muse S / Athena biofeedback timbre automation', `
+        <div class="row-actions" id="chimera-bio-row" style="margin-top:2px;flex-wrap:wrap">
+          <button class="pill" id="chimera-bio-toggle" aria-pressed="false">Bio timbre: off</button>
+          <button class="pill" id="chimera-bio-demo" aria-pressed="false">Synthetic preview: off</button>
+        </div>
+        <div class="row-actions" id="chimera-bio-modes" style="margin-top:8px;flex-wrap:wrap">
+          <button class="pill on" data-cbio="pad2d" aria-pressed="true" title="Map EEG balance to Morph X and fNIRS optical density to Morph Y">2D Pad (EEG × fNIRS)</button>
+          <button class="pill" data-cbio="eeg" aria-pressed="false">EEG balance</button>
+          <button class="pill" data-cbio="fnirs" aria-pressed="false">fNIRS optical</button>
+          <button class="pill" data-cbio="prv" aria-pressed="false">Optical PRV</button>
+          <button class="pill" data-cbio="stillness" aria-pressed="false">Head stillness</button>
+          <button class="pill" data-cbio="fusion" aria-pressed="false">4-sensor fusion</button>
+        </div>
+        <p class="hint" id="chimera-bio-status" style="margin-top:8px">Modulate the 4-corner animal Morph pad or Garden macro hands-free using Muse S / Athena EEG, fNIRS optical, PRV, IMU stillness, or synthetic preview.</p>`, { id: 'chimera-bio-card' })}
       ${card('Settings', row('Reconnect MIDI', 'When this page opens, if the browser already allows it', sw('reconnect', 'Reconnect MIDI when this page opens')))}
       ${dcard('Connecting a MIDI keyboard', `<ol>
           <li><b>Plug in.</b> A USB MIDI keyboard plugs straight into the computer. A keyboard with a 5-pin MIDI OUT needs a USB-MIDI interface. The browser lists the device's name.</li>
@@ -144,6 +158,7 @@
           ${knob('k-wub', 'Wub rate', 'v-wub', 0, 120, 32, '3.2 Hz')}
           ${knob('k-wubd', 'Wub depth', 'v-wubd', 0, 100, 55, '55 %')}
           ${knob('k-oct', 'Pitch', 'v-oct', -24, 12, 0, '0 st')}
+          ${knob('k-fshift', 'Formant shift', 'v-fshift', -12, 12, 0, '0 st')}
           ${knob('k-glide', 'Glide', 'v-glide', 0, 300, 40, '40 ms')}
         </div>`, { right: '<button class="pill small" id="pluck">Pluck</button>' })}
       ${card('Pad and polyphony', `
@@ -156,10 +171,11 @@
         </div>`, { right: LIVE })}
       ${card('Sample voice', `
         ${row('Load a sample', 'Or drop a file anywhere on the page.', '<button class="pill" id="samp-load">Choose a file</button>')}
+        ${row('Built-in test sample', 'Try sample analysis or oscillator loop immediately', '<div class="seg" id="samp-presets" role="group" aria-label="Built-in test samples"><button data-sp="throat">Throat drone</button><button data-sp="bell">Bell strike</button><button data-sp="choir">Vowel choir</button></div>')}
         ${row('It becomes', 'Measured formants, or the raw sound as the oscillator', '<div class="seg" id="sampseg" role="group" aria-label="What a sample becomes"><button data-smode="formant" class="on">Formants</button><button data-smode="osc">Oscillator</button></div>')}
         <input type="file" id="samp-file" accept="${ACCEPT}" hidden>
         <p class="hint"><span class="mini" id="samp-status">No sample loaded</span></p>
-        ${callout('Measured formants are a heuristic fit to the file\'s spectrum, not the sample and not a voice clone. Patches keep the measured numbers only, never audio.', 'samp-note')}`)}`, true),
+        ${callout('Measured formants are a heuristic fit to the file\'s spectrum, not the sample and not a voice clone. Patches keep the measured numbers only; use Save bundle (+ audio) in Patch to embed raw sample audio.', 'samp-note')}`)}`, true),
 
     sheet('garden', 'Breed by ear.', 'A genome of 20 genes grows the sound. The seed sits at the center and its twelve buds are mutations. Press near a bud and drag along its vine, then let go to grow a new seed there.', `
       ${card('Lineage', `<canvas class="viz" id="lineage" role="img" aria-label="Family tree of the seeds grown so far" style="height:118px"></canvas>
@@ -171,7 +187,8 @@
       ${card('Growing', `${row('Auto-drift', 'Wander through the buds by itself', sw('g-grow', 'Auto-drift'))}
         ${row('Per-note branches', 'Each note leans the genome toward its own bud, and letting go returns to the seed', sw('g-pernote', 'Per-note branches'))}`)}
       ${card('Seeds', `<div class="btn-row"><button class="pill" id="g-random">New random seed</button><button class="pill" id="g-undo">Undo</button><button class="pill" id="g-mark">Mark parent A</button><button class="pill" id="g-breed" disabled>Breed with A</button></div>`)}
-      ${card('Grow from a sample', `${row('Choose an audio file', 'Fits the genome to its spectrum, or drop a file on the page', '<button class="pill" id="gp-load">Choose a file</button>')}
+      ${card('Grow from a sample', `${row('Choose an audio file', 'Fits the genome to its spectrum, or drop a file on the page', '<div class="btn-row" style="margin:0"><button class="pill" id="gp-load">Choose a file</button><button class="pill" id="gp-cancel" hidden>Cancel</button></div>')}
+        ${row('Or fit a built-in sound', 'Synthesized test sound for differential evolution', '<div class="seg" id="gp-presets" role="group" aria-label="Built-in sounds to grow from"><button data-gp="throat">Throat drone</button><button data-gp="bell">Bell strike</button><button data-gp="choir">Vowel choir</button></div>')}
         <input type="file" id="gp-file" accept="${ACCEPT}" hidden>
         <div class="bar" aria-hidden="true"><i id="gp-bar"></i></div>
         <p class="hint" id="gp-status">Differential evolution fits the genome to the sample's spectrum.</p>
@@ -220,7 +237,9 @@
           ${knob('gr-pan', 'Pan spread', 'v-grpan', 0, 100, 60, '60 %')}
           ${knob('gr-rev', 'Reverse grains', 'v-grrev', 0, 100, 0, '0 %')}
         </div>`, { id: 'rk-grain', right: '<span class="cstate" id="gr-state"></span>' + LIVE })}
-      ${dcard('Sequencer', `<div class="btn-row"><button class="pill primary" id="seq-on" aria-pressed="false">Play riff</button></div>
+      ${dcard('Sequencer', `<div class="btn-row"><button class="pill primary" id="seq-on" aria-pressed="false">Play riff</button>
+          <select id="seq-scale" aria-label="Sequencer scale"><option value="chromatic">Chromatic</option><option value="pentatonic">Minor pentatonic</option><option value="dorian">Dorian</option><option value="phrygian">Phrygian</option><option value="fifths">Octave + fifths</option></select>
+          <button class="pill" id="seq-melody">Random melody</button></div>
         <div class="knobs">
           ${knob('seq-bpm', 'Tempo', 'v-bpm', 60, 200, 140, '140')}
           ${knob('seq-swing', 'Swing', 'v-swing', 0, 60, 0, '0 %')}
@@ -271,9 +290,9 @@
       </div>
       <p class="hint" id="rec-status" role="status">Not recording.</p>
       ${card('Patch', `<div class="genome-code"><span>Genome code</span><b id="genome" class="code">-</b></div>
-        <div class="btn-row"><button class="pill" id="patch-save">Save patch file</button><button class="pill" id="patch-load">Load patch file</button><button class="pill" id="patch-link">Copy share link</button><button class="pill" id="patch-mut">Mutate</button></div>
-        <input type="file" id="patch-file" accept="application/json,.patch,.json" hidden>
-        ${callout('Patch files and links keep the current Garden genome or Morph settings, never audio. A raw sample oscillator needs its file loaded again. The patch stays after the # in the address, which browsers do not send to any server.')}`)}
+        <div class="btn-row"><button class="pill" id="patch-save">Save patch file</button><button class="pill" id="patch-save-bundle" hidden>Save bundle (+ audio)</button><button class="pill" id="patch-load">Load patch file</button><button class="pill" id="patch-link">Copy share link</button><button class="pill" id="patch-mut">Mutate</button></div>
+        <input type="file" id="patch-file" accept="application/json,.patch,.json,.bundle.json" hidden>
+        ${callout('Patch files and links keep the current Garden genome or Morph settings, never audio. When a sample is loaded, Save bundle (+ audio) embeds the sample audio in a self-contained .bundle.json file so the raw sample oscillator restores intact. The patch link stays after the # in the address, which browsers do not send to any server.')}`)}
       ${card('Start from words', `<input class="vibe-in" id="vibe" type="text" placeholder="Describe a sound, like crunchy but wet swamp monster" aria-label="Describe a sound">
         <div class="tiles quickvibes">${VIBES.map(([v, a, b, n]) => `<button class="tile-btn small" data-v="${v}"><span class="pair" aria-hidden="true">${a}<i>×</i>${b}</span><b>${n}</b></button>`).join('')}</div>
         ${callout('A keyword matcher picks two animals, the blend point and the grit from your words. It stands in for a language model, makes no network call, and is deliberately simple.', 'vibeout')}`, { right: STAND })}`),

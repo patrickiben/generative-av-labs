@@ -63,6 +63,16 @@ with sync_playwright() as p:
     assert fresh.evaluate('ST.sampleMode')=='off' and fresh.evaluate('ST.sampleBuf') is None
     assert 'raw sample' in fresh.locator('#samp-status').text_content()
     print('PASS raw sample references request their original audio rather than reusing an unrelated open sample')
+    bundle_ok=fresh.evaluate("""()=>{
+        ST.importMode='osc';
+        applySampleBuffer(synthTestSample('bell'), 'Bell strike');
+        const b=serializeBundle();
+        ST.sampleMode='off'; ST.sampleBuf=null;
+        applyPatch(b);
+        return ST.sampleMode==='osc' && !!ST.sampleBuf && ST.sampleBuf.length>1000 && document.getElementById('samp-status').textContent.includes('restored from bundle');
+    }""")
+    assert bundle_ok
+    print('PASS portable sample bundle embeds PCM16 audio and restores the raw sample oscillator on load')
     assert not errors,errors
     b.close()
 srv.shutdown()

@@ -283,7 +283,9 @@ async function evalPop(list,target,outFit){ const P=list.length,D=list[0].length
 async function genopatch(target,onProgress){ const D=GP_D,big=(workerPool&&workerPool.length>=8),eff=(S.gp&&S.gp.effort)||'std',mul=eff==='fast'?0.5:eff==='deep'?2.2:1,P=Math.round((big?64:48)*(eff==='deep'?1.5:1)),G=Math.round((big?110:40)*mul),F=0.6,CR=0.9;
   let pop=[]; for(let i=0;i<P;i++){const g=new Float32Array(D);for(let d=0;d<D;d++)g[d]=Math.random();pop.push(g);} seedFromPeaks(pop,target);
   const fit=new Float64Array(P); await evalPop(pop,target,fit); let best=0; for(let i=1;i<P;i++)if(fit[i]<fit[best])best=i;
-  for(let gen=0;gen<G;gen++){ const trials=[];
+  for(let gen=0;gen<G;gen++){
+    if(S.gp&&S.gp.cancel) return {genome:pop[best],loss:fit[best],cancelled:true};
+    const trials=[];
     for(let i=0;i<P;i++){ let a,b,c; do{a=Math.floor(Math.random()*P)}while(a===i); do{b=Math.floor(Math.random()*P)}while(b===i||b===a); do{c=Math.floor(Math.random()*P)}while(c===i||c===a||c===b);
       const tr=new Float32Array(D),R=Math.floor(Math.random()*D);
       for(let d=0;d<D;d++) tr[d]=(Math.random()<CR||d===R)?clamp(pop[a][d]+F*(pop[b][d]-pop[c][d]),0,1):pop[i][d]; trials.push(tr); }
@@ -292,7 +294,7 @@ async function genopatch(target,onProgress){ const D=GP_D,big=(workerPool&&worke
     if(onProgress) onProgress(gen+1,G,fit[best],pop[best]);
     if(gen%4===0) await new Promise(r=>setTimeout(r,0));
   }
-  return {genome:pop[best],loss:fit[best]};
+  return {genome:pop[best],loss:fit[best],cancelled:false};
 }
 // biquad bandpass (RBJ) for time-domain resynthesis of the won patch
 function biquadBP(fc,Q,sr){ const w0=2*Math.PI*fc/sr,al=Math.sin(w0)/(2*Q),c=Math.cos(w0),a0=1+al;

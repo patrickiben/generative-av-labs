@@ -26,34 +26,123 @@
   const minSpan = (sr) => Math.max(4096 / sr, 0.25);
 
   /* ---------------- state ---------------- */
-  const DEF = { amount: 55, cutoff: 0, ceiling: 200, seed: 17, wet: 65, tilt: -6, target: 20, gain: 9, drive: 40, emix: 35, tamt: 60 };
+  const DEF = { amount: 55, cutoff: 0, ceiling: 200, seed: 17, character: 'balanced', wet: 65, tilt: -6, target: 20, gain: 9, drive: 40, emix: 35, tamt: 60 };
   const S = {
     mode: 'forge', prm: { ...DEF }, sel: null, drag: null, src: null, res: null, err: null, prog: null,
-    side: 'A', match: store.get('match', true), loop: store.get('loop', true), vol: store.get('volume', 0.8), runs: 0, wantPlay: false,
+    side: 'A', blind: { target: 'B', hits: 0, total: 0, revealed: false },
+    match: store.get('match', true), loop: store.get('loop', true), vol: store.get('volume', 0.8), runs: 0, wantPlay: false,
   };
 
   /* ---------------- the synthetic test sound ---------------- */
   function mulberry(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-  // plucked chords (Karplus-Strong) and breath noise, then a low-pass taper ending at 6 kHz: a dull recording made to order
-  function makeSynthetic() {
-    const sr = 44100, n = sr * 8, N = 1 << 19, rng = mulberry(20261103), cut = 6000;
+  const SYNTH_META = {
+    plucks: { name: 'Synthetic test sound', cut: 6000, note: 'Plucked chords & breath (6.0 kHz cutoff): listen on Δ for clean string overtones on attacks and gentle air between notes, without low-band bleed.' },
+    vocal: { name: 'Synthetic vocal phrase', cut: 5600, note: 'Vocal formant phrase (5.6 kHz cutoff): listen on B and Δ for upper vocal air and consonant sibilance continuation without harshness or vowel shift.' },
+    drums: { name: 'Synthetic drum kit', cut: 6100, note: 'Crisp drum kit & snare (6.1 kHz cutoff): compare Forge against Transient and Exciter on sharp snare wire attacks and hat ticks.' },
+    cymbals: { name: 'Synthetic cymbal wash', cut: 6300, note: 'Brushed cymbals & ride wash (6.3 kHz cutoff): high spectral flatness tests diffuse texture synthesis vs SBR phase shimmer.' },
+    pad: { name: 'Synthetic brass pad', cut: 5400, note: 'Warm analog brass pad (5.4 kHz cutoff): rich harmonic stack tests odd-multiple peak continuation above a low cutoff.' },
+  };
+  let curSynthMat = 'plucks';
+  // plucked chords (Karplus-Strong) and breath noise, or 4 additional band-limited acoustic textures
+  function makeSynthetic(kind) {
+    const mat = SYNTH_META[kind] ? kind : 'plucks';
+    curSynthMat = mat;
+    const sr = 44100, n = sr * 8, N = 1 << 19, rng = mulberry(20261103), cut = SYNTH_META[mat].cut;
     const L = new Float64Array(N), R = new Float64Array(N);
-    const CH = [[48, 55, 64, 67, 72], [45, 52, 60, 64, 69], [41, 48, 57, 60, 65], [43, 50, 59, 62, 67]];
-    for (let b = 0; b < 16; b++) {
-      CH[(b >> 2) % 4].forEach((m, j) => {
-        if (b % 2 && j > 2) return;
-        const f0 = 440 * 2 ** ((m - 69) / 12), P = Math.max(2, Math.round(sr / f0)), buf = new Float64Array(P);
-        for (let i = 0; i < P; i++) buf[i] = rng() * 2 - 1;
-        const s0 = Math.floor((b * 0.5 + j * 0.011) * sr), len = Math.min(n - s0, Math.floor(1.9 * sr));
-        const pan = 0.5 + 0.34 * Math.sin(j * 1.7 + b), amp = b % 4 === 0 ? 0.17 : 0.12;
-        for (let i = 0, p = 0; i < len; i++, p = (p + 1) % P) {
-          const v = buf[p];
-          buf[p] = 0.4985 * (v + buf[(p + 1) % P]);
-          L[s0 + i] += amp * v * (1 - pan); R[s0 + i] += amp * v * pan;
+    if (mat === 'vocal') {
+      const notes = [[0, 1.8, 196, [730, 1090, 2440]], [1.8, 3.6, 220, [530, 1840, 2480]], [3.6, 5.6, 246.94, [370, 2100, 2700]], [5.6, 7.8, 196, [660, 1180, 2520]]];
+      for (const [t0, t1, f0, F] of notes) {
+        const s0 = Math.floor(t0 * sr), s1 = Math.min(n, Math.floor(t1 * sr));
+        let ph = 0;
+        for (let i = s0; i < s1; i++) {
+          const t = (i - s0) / sr, dur = (s1 - s0) / sr;
+          const env = Math.min(1, t / 0.08) * Math.min(1, (dur - t) / 0.14);
+          const f = f0 * (1 + 0.005 * Math.sin(2 * Math.PI * 5.4 * t));
+          ph += f / sr;
+          let v = 0;
+          for (let h = 1; h <= 45; h++) {
+            const hf = f * h; if (hf > 12000) break;
+            let w = 0.08 / h;
+            for (const fc of F) { const d = (hf - fc) / (fc * 0.12); w += 0.9 / (1 + d * d); }
+            v += (w / Math.sqrt(h)) * Math.sin(2 * Math.PI * h * ph);
+          }
+          const sib = t < 0.07 ? (rng() * 2 - 1) * 0.18 * Math.sin((Math.PI * t) / 0.07) : (rng() * 2 - 1) * 0.025;
+          L[i] += env * (v * 0.22 + sib);
+          R[i] += env * (v * 0.21 + (rng() * 2 - 1) * (t < 0.07 ? 0.18 : 0.025));
         }
-      });
+      }
+    } else if (mat === 'drums') {
+      for (let hit = 0; hit < 32; hit++) {
+        const s0 = Math.floor(hit * 0.25 * sr), isKick = hit % 4 === 0, isSnare = hit % 4 === 2;
+        const len = Math.min(n - s0, Math.floor(0.24 * sr));
+        for (let i = 0; i < len; i++) {
+          const t = i / sr;
+          let vL = 0, vR = 0;
+          if (isKick) {
+            const f = 52 + 120 * Math.exp(-t * 36);
+            const k = Math.sin(2 * Math.PI * f * t) * Math.exp(-t * 9.5) * 0.65 + (rng() * 2 - 1) * Math.exp(-t * 85) * 0.22;
+            vL += k; vR += k;
+          }
+          if (isSnare) {
+            const body = (Math.sin(2 * Math.PI * 185 * t) + 0.5 * Math.sin(2 * Math.PI * 330 * t)) * Math.exp(-t * 22) * 0.35;
+            const wiresL = (rng() * 2 - 1) * Math.exp(-t * 14) * 0.42;
+            const wiresR = (rng() * 2 - 1) * Math.exp(-t * 14) * 0.42;
+            vL += body + wiresL; vR += body + wiresR;
+          }
+          const hatDecay = hit % 2 === 1 ? 12 : 34;
+          const hat = (Math.sin(2 * Math.PI * 3420 * t) * 0.3 + Math.sin(2 * Math.PI * 5180 * t) * 0.3 + (rng() * 2 - 1) * 0.7) * Math.exp(-t * hatDecay) * 0.24;
+          L[s0 + i] += vL + hat * 0.9; R[s0 + i] += vR + hat * 1.1;
+        }
+      }
+    } else if (mat === 'cymbals') {
+      const modes = [820, 1190, 1640, 2180, 2790, 3410, 4120, 4890, 5620, 6150];
+      for (let hit = 0; hit < 8; hit++) {
+        const s0 = Math.floor(hit * 1.0 * sr), len = Math.min(n - s0, Math.floor(1.4 * sr));
+        for (let i = 0; i < len; i++) {
+          const t = i / sr, env = Math.min(1, t / 0.004) * Math.exp(-t * 2.4);
+          let m = 0;
+          for (let k = 0; k < modes.length; k++) m += Math.sin(2 * Math.PI * modes[k] * t + k * 1.3 + 0.4 * Math.sin(2 * Math.PI * 180 * t)) / (1 + k * 0.25);
+          const brushL = (rng() * 2 - 1) * 0.38 + m * 0.14;
+          const brushR = (rng() * 2 - 1) * 0.38 - m * 0.14;
+          L[s0 + i] += brushL * env; R[s0 + i] += brushR * env;
+        }
+      }
+    } else if (mat === 'pad') {
+      const CH = [[48, 55, 62, 67, 71], [45, 52, 59, 64, 69], [41, 48, 55, 60, 64], [43, 50, 57, 62, 67]];
+      for (let b = 0; b < 4; b++) {
+        const s0 = Math.floor(b * 2.0 * sr), len = Math.min(n - s0, Math.floor(2.1 * sr));
+        CH[b].forEach((m, j) => {
+          const f0 = 440 * 2 ** ((m - 69) / 12), pan = 0.5 + 0.36 * Math.sin(j * 1.4 + b);
+          for (let i = 0; i < len; i++) {
+            const t = i / sr, dur = len / sr, env = Math.min(1, t / 0.18) * Math.min(1, (dur - t) / 0.22);
+            let s = 0;
+            for (let h = 1; h <= 36; h++) {
+              const hf = f0 * h; if (hf > 11000) break;
+              s += (Math.sin(2 * Math.PI * hf * t + j) + 0.5 * Math.sin(2 * Math.PI * hf * 1.003 * t)) / (h ** 0.85);
+            }
+            L[s0 + i] += s * env * 0.045 * (1 - pan); R[s0 + i] += s * env * 0.045 * pan;
+          }
+        });
+      }
+      for (let i = 0; i < n; i++) { L[i] += (rng() * 2 - 1) * 0.012; R[i] += (rng() * 2 - 1) * 0.012; }
+    } else {
+      const CH = [[48, 55, 64, 67, 72], [45, 52, 60, 64, 69], [41, 48, 57, 60, 65], [43, 50, 59, 62, 67]];
+      for (let b = 0; b < 16; b++) {
+        CH[(b >> 2) % 4].forEach((m, j) => {
+          if (b % 2 && j > 2) return;
+          const f0 = 440 * 2 ** ((m - 69) / 12), P = Math.max(2, Math.round(sr / f0)), buf = new Float64Array(P);
+          for (let i = 0; i < P; i++) buf[i] = rng() * 2 - 1;
+          const s0 = Math.floor((b * 0.5 + j * 0.011) * sr), len = Math.min(n - s0, Math.floor(1.9 * sr));
+          const pan = 0.5 + 0.34 * Math.sin(j * 1.7 + b), amp = b % 4 === 0 ? 0.17 : 0.12;
+          for (let i = 0, p = 0; i < len; i++, p = (p + 1) % P) {
+            const v = buf[p];
+            buf[p] = 0.4985 * (v + buf[(p + 1) % P]);
+            L[s0 + i] += amp * v * (1 - pan); R[s0 + i] += amp * v * pan;
+          }
+        });
+      }
+      for (let i = 0; i < n; i++) { const a = 0.02 * (0.65 + 0.35 * Math.sin((2 * Math.PI * 0.37 * i) / sr)); L[i] += a * (rng() * 2 - 1); R[i] += a * (rng() * 2 - 1); }
     }
-    for (let i = 0; i < n; i++) { const a = 0.02 * (0.65 + 0.35 * Math.sin((2 * Math.PI * 0.37 * i) / sr)); L[i] += a * (rng() * 2 - 1); R[i] += a * (rng() * 2 - 1); }
     const re = new Float64Array(N / 2 + 1), im = new Float64Array(N / 2 + 1), out = [];
     let peak = 0;
     for (const x of [L, R]) {
@@ -65,9 +154,9 @@
       DSP.irfft(re, im, x);
       for (let i = 0; i < n; i++) peak = Math.max(peak, Math.abs(x[i]));
     }
-    const g = 0.7 / peak;
+    const g = 0.7 / (peak || 1);
     for (const x of [L, R]) { const y = new Float32Array(n); for (let i = 0; i < n; i++) y[i] = x[i] * g; out.push(y); }
-    return { ch: out, sr, name: 'Synthetic test sound', origin: 'synthetic', format: 'Synthetic', rateFrom: 'synthetic', channelsInFile: 2 };
+    return { ch: out, sr, name: SYNTH_META[mat].name, synthMat: mat, origin: 'synthetic', format: 'Synthetic', rateFrom: 'synthetic', channelsInFile: 2 };
   }
 
   /* ---------------- reading files ---------------- */
@@ -277,7 +366,7 @@ onmessage = (e) => {
   }
   function paramsNow() {
     const P = S.prm;
-    return { mode: S.mode, amount: P.amount / 100, cutoff_hz: P.cutoff * 100, seed: S.mode === 'forge' ? P.seed : undefined, wet: P.wet / 100, tilt: P.tilt, target_hz: S.mode === 'forge' ? P.ceiling * 100 : P.target * 1000, gain_db: P.gain, drive: P.drive / 10, emix: P.emix / 100, tamt: P.tamt / 100, sel: S.sel ? [...S.sel] : null, measure: 'span' };
+    return { mode: S.mode, amount: P.amount / 100, cutoff_hz: P.cutoff * 100, seed: S.mode === 'forge' ? P.seed : undefined, character: S.mode === 'forge' ? (P.character || 'balanced') : undefined, wet: P.wet / 100, tilt: P.tilt, target_hz: S.mode === 'forge' ? P.ceiling * 100 : P.target * 1000, gain_db: P.gain, drive: P.drive / 10, emix: P.emix / 100, tamt: P.tamt / 100, sel: S.sel ? [...S.sel] : null, measure: 'span' };
   }
   function scheduleRun(ms) {
     clearTimeout(runT);
@@ -512,6 +601,7 @@ onmessage = (e) => {
     if (!bufB || bufB.key !== r.id) bufB = { key: r.id, b: mk(r.out) };
   }
   const bGain = () => (S.match && S.res ? S.res.metrics.gain : 1);
+  const audSide = () => (S.side === 'X' ? S.blind.target : S.side);
   function curPos() {
     if (!nodes) return 0;
     const len = bufA.len / S.src.sr, el = Math.max(0, AC.currentTime - startAt);
@@ -520,9 +610,9 @@ onmessage = (e) => {
   const absPos = () => bufA.n0 / S.src.sr + curPos();
   function startNodes(off) {
     stopNodes();
-    const sA = AC.createBufferSource(), sB = AC.createBufferSource(), gA = AC.createGain(), gB = AC.createGain();
+    const sA = AC.createBufferSource(), sB = AC.createBufferSource(), gA = AC.createGain(), gB = AC.createGain(), eff = audSide();
     sA.buffer = bufA.b; sB.buffer = bufB.b; sA.loop = sB.loop = S.loop;
-    gA.gain.value = S.side === 'A' ? 1 : S.side === 'D' ? -1 : 0; gB.gain.value = S.side === 'B' ? bGain() : S.side === 'D' ? 1 : 0;
+    gA.gain.value = eff === 'A' ? 1 : eff === 'D' ? -1 : 0; gB.gain.value = eff === 'B' ? bGain() : eff === 'D' ? 1 : 0;
     sA.connect(gA).connect(master); sB.connect(gB).connect(master);
     const t = AC.currentTime + 0.04;
     sA.start(t, off); sB.start(t, off); startAt = t - off;
@@ -552,13 +642,14 @@ onmessage = (e) => {
   const togglePlay = () => (nodes ? stop() : play());
   function flip(side) {
     S.side = side || (S.side === 'A' ? 'B' : 'A');
+    const eff = audSide();
     if (nodes) {
       const t = AC.currentTime;
-      nodes.gA.gain.setTargetAtTime(S.side === 'A' ? 1 : S.side === 'D' ? -1 : 0, t, 0.004);
-      nodes.gB.gain.setTargetAtTime(S.side === 'B' ? bGain() : S.side === 'D' ? 1 : 0, t, 0.004);
+      nodes.gA.gain.setTargetAtTime(eff === 'A' ? 1 : eff === 'D' ? -1 : 0, t, 0.004);
+      nodes.gB.gain.setTargetAtTime(eff === 'B' ? bGain() : eff === 'D' ? 1 : 0, t, 0.004);
     }
     engage(); renderSound(); renderGauges(); renderListen(); requestDraw();
-    announce(S.side === 'A' ? 'A, the source' : S.side === 'D' ? 'Added detail only, at its actual level' : 'B, the result');
+    announce(S.side === 'A' ? 'A, the source' : S.side === 'D' ? 'Added detail only, at its actual level' : S.side === 'X' ? 'X, blind trial' : 'B, the result');
   }
   function liveDb() {
     if (!an || !nodes) return null;
@@ -605,8 +696,20 @@ onmessage = (e) => {
     if (r.mode === 'forge' && r.info.reason) return r.info.amount === 0 ? 'Forge · zero amount, source unchanged' : r.info.headroom_gain < .01 ? 'Forge · no headroom for added detail' : 'Forge · no room above guard, source unchanged';
     return { forge: `Forge · synthesized above ${(r.fc / 1000).toFixed(1)} kHz`, floor: 'Floor · amplified, nothing added', transient: 'Transient · amplified, some new highs', exciter: 'Exciter · harmonics synthesized', sbr: `SBR · synthesized above ${(r.fc / 1000).toFixed(1)} kHz` }[r.mode];
   }
+  function cancelRun() {
+    clearTimeout(runT); runT = 0;
+    if (!inflight && !pending) return;
+    makeWorker();
+    if (S.src) WK.postMessage({ type: 'load', id: S.src.id, ch: S.src.ch, sr: S.src.sr });
+    S.prog = null; S.err = null;
+    renderProc();
+    $('proc-line').textContent = 'Processing cancelled.';
+    UI.toast('Processing cancelled.');
+  }
   function renderProc() {
     const c = $('chip-proc'), busy = !!(inflight || runT || pending), r = S.res;
+    const cancelBtn = $('proc-cancel');
+    if (cancelBtn) cancelBtn.hidden = !busy;
     if (S.err && !busy) { c.dataset.tone = 'bad'; $('chip-proc-text').textContent = `Could not process · ${S.err}`; }
     else if (busy) { c.dataset.tone = 'wait'; $('chip-proc-text').textContent = `Processing · ${Math.round(S.prog ? S.prog.pct : 0)} %`; }
     else if (r) { c.dataset.tone = 'good'; $('chip-proc-text').textContent = chipLine(r); }
@@ -617,7 +720,7 @@ onmessage = (e) => {
   function renderSound() {
     const c = $('chip-sound'), t = $('chip-sound-text');
     if (!(window.AudioContext || window.webkitAudioContext)) { c.dataset.tone = 'bad'; t.textContent = 'Sound · not supported'; }
-    else if (nodes) { c.dataset.tone = 'good'; t.textContent = `Playing ${S.side} · ${S.side === 'A' ? 'the source' : S.side === 'D' ? 'added detail only' : 'the result'}`; }
+    else if (nodes) { c.dataset.tone = 'good'; t.textContent = `Playing ${S.side} · ${S.side === 'A' ? 'the source' : S.side === 'D' ? 'added detail only' : S.side === 'X' ? 'blind trial' : 'the result'}`; }
     else if (S.wantPlay) { c.dataset.tone = 'wait'; t.textContent = 'Sound · waiting for the result'; }
     else { c.dataset.tone = 'idle'; t.textContent = AC ? `Stopped · ${S.side} chosen` : 'Sound · off'; }
     const p = $('listen-play');
@@ -635,7 +738,7 @@ onmessage = (e) => {
     $('g-cutoff').innerHTML = r ? kHz(r.fc) : '-';
     $('g-bw').innerHTML = r ? kHz(r.metrics.bw_after) : '-';
     $('g-side').textContent = S.side === 'D' ? 'Δ' : S.side;
-    $('g-side-name').textContent = S.side === 'A' ? 'source' : S.side === 'D' ? 'added detail' : 'result';
+    $('g-side-name').textContent = S.side === 'A' ? 'source' : S.side === 'D' ? 'added detail' : S.side === 'X' ? 'blind trial' : 'result';
     $('detail-button').setAttribute('aria-pressed', String(S.side === 'D'));
     const ab = $('ab-toggle');
     ab.setAttribute('aria-pressed', String(S.side === 'B'));
@@ -682,6 +785,7 @@ onmessage = (e) => {
     $('side-a').setAttribute('aria-pressed', String(S.side === 'A'));
     $('side-b').setAttribute('aria-pressed', String(S.side === 'B'));
     $('side-d').setAttribute('aria-pressed', String(S.side === 'D'));
+    if ($('blind-x')) $('blind-x').classList.toggle('on', S.side === 'X');
     $('side-b-cap').textContent = S.res ? (S.match ? `Matched, ${S.res.metrics.gain.toFixed(2)}×` : 'Not matched, as made') : 'Processing';
     const r = S.res;
     $('level-note').textContent = r ? `A ${r.kA.toFixed(1)} dB, B as made ${r.kB.toFixed(1)} dB, B as you hear it ${(r.kB + 20 * Math.log10(bGain())).toFixed(1)} dB: K-weighted mean square against full scale${r.selective ? ', over the range' : ''}. The white line is the level playing now, unweighted.` : '-';
@@ -862,13 +966,36 @@ onmessage = (e) => {
   const syncKnob = (k) => { const [id, vid, f] = KN[k]; $(id).value = S.prm[k]; $(vid).textContent = f(S.prm[k]); };
   Object.entries(KN).forEach(([k, [id]]) => $(id).addEventListener('input', () => { S.prm[k] = +$(id).value; syncKnob(k); engage(); renderEngine(); drawSheets(); scheduleRun(320); }));
   const GROUP = { forge: ['amount', 'cutoff', 'ceiling'], sbr: ['wet', 'tilt', 'target'], floor: ['gain'], exciter: ['drive', 'emix'], transient: ['tamt'] };
-  $('eng-reset').addEventListener('click', () => { GROUP[S.mode].forEach((k) => { S.prm[k] = DEF[k]; syncKnob(k); }); UI.syncAllRanges(); scheduleRun(0); renderEngine(); drawSheets(); });
+  function syncCharButtons() {
+    document.querySelectorAll('#forge-char button').forEach((b) => b.classList.toggle('on', b.dataset.char === (S.prm.character || 'balanced')));
+  }
+  document.querySelectorAll('#forge-char button').forEach((b) => b.addEventListener('click', () => {
+    S.prm.character = b.dataset.char || 'balanced';
+    syncCharButtons();
+    engage(); renderEngine(); drawSheets(); scheduleRun(40);
+  }));
+  $('eng-reset').addEventListener('click', () => {
+    GROUP[S.mode].forEach((k) => { S.prm[k] = DEF[k]; syncKnob(k); });
+    if (S.mode === 'forge') { S.prm.character = DEF.character; syncCharButtons(); }
+    UI.syncAllRanges(); scheduleRun(0); renderEngine(); drawSheets();
+  });
 
   const fileIn = $('file-input'), pick = () => fileIn.click();
   fileIn.addEventListener('change', () => { const f = fileIn.files[0]; fileIn.value = ''; openFile(f); });
   $('open-button').addEventListener('click', pick);
   $('src-open').addEventListener('click', pick);
-  $('src-synth').addEventListener('click', () => { setSource(makeSynthetic()); UI.toast('The synthetic test sound is loaded.'); });
+  function selectSynthMaterial(mat) {
+    const k = SYNTH_META[mat] ? mat : 'plucks';
+    setSource(makeSynthetic(k));
+    document.querySelectorAll('#synth-presets button, #listen-presets button').forEach((b) => b.classList.toggle('on', b.dataset.mat === k));
+    const note = SYNTH_META[k].note;
+    if ($('synth-mat-note')) $('synth-mat-note').textContent = `${note} Made in this page from a fixed seed, not a recording.`;
+    if ($('eval-note')) $('eval-note').textContent = note;
+    UI.toast(`Loaded ${SYNTH_META[k].name.toLowerCase()}.`);
+  }
+  $('src-synth').addEventListener('click', () => selectSynthMaterial(curSynthMat));
+  document.querySelectorAll('#synth-presets button, #listen-presets button').forEach((b) => b.addEventListener('click', () => selectSynthMaterial(b.dataset.mat)));
+  const pcBtn = $('proc-cancel'); if (pcBtn) pcBtn.addEventListener('click', cancelRun);
   $('sel-full').addEventListener('click', () => setSel(null));
   ['sel-t0', 'sel-t1'].forEach((id) => $(id).addEventListener('change', () => setSel($('sel-t0').value, $('sel-t1').value)));
 
@@ -879,6 +1006,33 @@ onmessage = (e) => {
   $('side-a').addEventListener('click', () => flip('A'));
   $('side-b').addEventListener('click', () => flip('B'));
   $('side-d').addEventListener('click', () => flip('D'));
+  function pickNewBlind() {
+    S.blind.target = Math.random() < 0.5 ? 'A' : 'B';
+    S.blind.revealed = false;
+  }
+  if ($('blind-x')) $('blind-x').addEventListener('click', () => {
+    if (S.blind.revealed) pickNewBlind();
+    flip('X');
+    if (!nodes) play();
+    if ($('blind-status')) $('blind-status').textContent = 'Auditioning X. Flip between A, B and X, then guess whether X is A or B.';
+  });
+  function guessBlind(choice) {
+    if (S.blind.revealed) pickNewBlind();
+    const ok = choice === S.blind.target;
+    S.blind.total++;
+    if (ok) S.blind.hits++;
+    S.blind.revealed = true;
+    const pct = Math.round((S.blind.hits / S.blind.total) * 100);
+    if ($('blind-score')) $('blind-score').textContent = `${S.blind.hits} / ${S.blind.total}`;
+    if ($('blind-status')) $('blind-status').textContent = `${ok ? 'Correct!' : 'Missed —'} X was ${S.blind.target} (${S.blind.target === 'A' ? 'Source' : 'Result'}). Score: ${S.blind.hits} / ${S.blind.total} (${pct}%).`;
+  }
+  if ($('blind-guess-a')) $('blind-guess-a').addEventListener('click', () => guessBlind('A'));
+  if ($('blind-guess-b')) $('blind-guess-b').addEventListener('click', () => guessBlind('B'));
+  if ($('blind-new')) $('blind-new').addEventListener('click', () => {
+    pickNewBlind();
+    flip('X');
+    if ($('blind-status')) $('blind-status').textContent = `New hidden X assigned. Score: ${S.blind.hits} / ${S.blind.total}.`;
+  });
   $('detail-button').addEventListener('click', () => { flip(S.side === 'D' ? 'A' : 'D'); if (!nodes) play(); });
   $('compare-open').addEventListener('click', () => { UI.openSheet('engine'); $('comparison-engines').open = true; $('comparison-engines').scrollIntoView({ block: 'nearest' }); });
   const updateSeed = (value) => { S.prm.seed = Math.max(0, Math.min(4294967295, Math.trunc(+value || 0))); $('forge-seed').value = S.prm.seed; scheduleRun(0); };
@@ -897,6 +1051,35 @@ onmessage = (e) => {
   $('export-wav').addEventListener('click', exportWav);
   $('export-png').addEventListener('click', exportPng);
   $('export-json').addEventListener('click', exportJson);
+  const psSave = $('preset-save'), psLoad = $('preset-load'), psFile = $('preset-file');
+  if (psSave) psSave.addEventListener('click', () => {
+    const payload = { app: 'Detail Forge Analog', v: 1, mode: S.mode, prm: { ...S.prm }, sel: S.sel ? [...S.sel] : null, synthMat: S.src && S.src.origin === 'synthetic' ? (S.src.synthMat || 'plucks') : null };
+    dlBlob(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), `${baseName()}_preset.json`);
+  });
+  if (psLoad && psFile) {
+    psLoad.addEventListener('click', () => psFile.click());
+    psFile.addEventListener('change', () => {
+      const f = psFile.files[0]; psFile.value = '';
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => {
+        try {
+          const p = JSON.parse(r.result);
+          if (!p || p.app !== 'Detail Forge Analog' || !p.prm) throw new Error('Not a Detail Forge Analog preset.');
+          Object.keys(KN).forEach((k) => { if (typeof p.prm[k] === 'number' && Number.isFinite(p.prm[k])) { S.prm[k] = p.prm[k]; syncKnob(k); } });
+          if (typeof p.prm.seed === 'number') { S.prm.seed = (p.prm.seed >>> 0); $('forge-seed').value = S.prm.seed; }
+          if (typeof p.prm.character === 'string') { S.prm.character = p.prm.character; syncCharButtons(); }
+          UI.syncAllRanges();
+          if (p.synthMat && SYNTH_META[p.synthMat] && (!S.src || S.src.origin === 'synthetic') && S.src.synthMat !== p.synthMat) selectSynthMaterial(p.synthMat);
+          if (p.mode && MODE_IDS.includes(p.mode)) setMode(p.mode, true);
+          if (Array.isArray(p.sel) && p.sel.length === 2) setSel(p.sel[0], p.sel[1]); else setSel(null);
+          scheduleRun(0);
+          UI.toast('Loaded preset settings.');
+        } catch (err) { UI.toast(`Could not load preset: ${err.message}`); }
+      };
+      r.readAsText(f);
+    });
+  }
   function toggleFs() {
     const d = document;
     if (d.fullscreenElement) { if (d.exitFullscreen) d.exitFullscreen(); }

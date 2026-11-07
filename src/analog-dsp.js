@@ -12,7 +12,7 @@
     const pmod = (a, b) => ((a % b) + b) % b;                       // Python's % for a positive divisor
     // Python's round() and C's lrintf: halves go to the even neighbor
     const roundEven = (v) => { const r = Math.round(v); return Math.abs(v % 1) === 0.5 && r % 2 !== 0 ? r - 1 : r; };
-    const DEFAULTS = { mode: 'forge', amount: 0.55, cutoff_hz: 0, gain_db: 9, drive: 4.0, emix: 0.35, tamt: 0.6, wet: 0.65, tilt: -6, target_hz: 20000 };
+    const DEFAULTS = { mode: 'forge', amount: 0.55, cutoff_hz: 0, character: 'balanced', gain_db: 9, drive: 4.0, emix: 0.35, tamt: 0.6, wet: 0.65, tilt: -6, target_hz: 20000 };
 
     /* ---------------- FFT: radix 2 in place, real transforms by the half-length trick ---------------- */
     const plans = new Map();
@@ -376,9 +376,16 @@
     function forgeDetail(ch, sr, o = {}) {
       const fc = o.fc ?? cutoffFromWelch(energyWelch(ch, sr), sr), amount = clip(o.amount ?? 0.55, 0, 1);
       const target = Math.min(o.target_hz ?? 20000, sr * 0.48), seed = (o.seed ?? 17) >>> 0;
+      const charKey = ['balanced', 'harmonic', 'air', 'crystalline'].includes(o.character) ? o.character : 'balanced';
+      const CHAR = {
+        balanced: { maxMult: 9, harmScale: 1.0, harmDecay: 1.15, noiseScale: 1.0, tiltExp: -1.2 },
+        harmonic: { maxMult: 11, harmScale: 1.55, harmDecay: 1.02, noiseScale: 0.42, tiltExp: -1.0 },
+        air: { maxMult: 7, harmScale: 0.48, harmDecay: 1.25, noiseScale: 1.55, tiltExp: -0.88 },
+        crystalline: { maxMult: 13, harmScale: 1.35, harmDecay: 0.9, noiseScale: 0.85, tiltExp: -0.78 },
+      }[charKey];
       const N = 2048, half = N / 2, hop = N / 4, df = sr / N, n = ch[0].length, w = hann(N);
       const startBin = Math.ceil((fc + Math.max(480, sr * 0.012)) / df), endBin = Math.floor(target / df);
-      const info = { fc, target_hz: target, amount, seed, algorithm: 'guarded-texture-v1', guard_transition_hz: Math.max(480, sr * 0.012), headroom_gain: 1, tiles: 0, texture_mean: 0 };
+      const info = { fc, target_hz: target, amount, seed, character: charKey, algorithm: 'guarded-texture-v1', guard_transition_hz: Math.max(480, sr * 0.012), headroom_gain: 1, tiles: 0, texture_mean: 0 };
       if (!amount || startBin >= endBin) return { out: ch.map((x) => x.slice()), info: { ...info, reason: !amount ? 'zero amount: unchanged source' : 'no room above the guard' } };
       const residual = ch.map((x) => {
         // Restart the same random stream for each channel: identical channels remain identical;
@@ -405,19 +412,19 @@
             // Continue resolved peaks. An odd multiplier carries channel polarity as well as phase.
             for (let k = lo + 1; k < high; k++) {
               if (mag[k] < mag[k - 1] || mag[k] <= mag[k + 1] || mag[k] ** 2 < sum * 0.001) continue;
-              for (let multiple = 3; multiple <= 9; multiple += 2) {
+              for (let multiple = 3; multiple <= CHAR.maxMult; multiple += 2) {
                 const targetBin = k * multiple;
                 if (targetBin < startBin || targetBin > endBin) continue;
-                const amp = mag[k] * (1 - texture * 0.7) / Math.pow(multiple, 1.15), phase = Math.atan2(im[k], re[k]) * multiple;
+                const amp = mag[k] * CHAR.harmScale * (1 - texture * 0.7) / Math.pow(multiple, CHAR.harmDecay), phase = Math.atan2(im[k], re[k]) * multiple;
                 for (let j = -1; j <= 1; j++) {
                   const b = targetBin + j; if (b < startBin || b > endBin) continue;
                   const a = amp * (j === 0 ? 1 : -0.5); rr[b] += a * Math.cos(phase); ri[b] += a * Math.sin(phase);
                 }
               }
             }
-            const noiseAmp = Math.sqrt(sum / Math.max(1, high - lo + 1)) * texture * (0.3 + 0.35 * onset);
+            const noiseAmp = Math.sqrt(sum / Math.max(1, high - lo + 1)) * texture * (0.3 + 0.35 * onset) * CHAR.noiseScale;
             for (let k = startBin; k <= endBin; k++) {
-              const seam = Math.min(1, (k - startBin) / 8, (endBin - k) / 8), tilt = (k * df / fc) ** -1.2;
+              const seam = Math.min(1, (k - startBin) / 8, (endBin - k) / 8), tilt = (k * df / fc) ** CHAR.tiltExp;
               // Time-local envelope and a phase tied to the source, shared across stereo channels.
               const sourceBin = lo + ((k - startBin) % Math.max(1, high - lo));
               const p = phases[k] + Math.atan2(im[sourceBin], re[sourceBin]);

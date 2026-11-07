@@ -11,7 +11,8 @@
   const RM = matchMedia('(prefers-reduced-motion: reduce)');
 
   const S = {
-    mode: 'field', shape: 0, shapeT: 0, formT: 0, morph: 0, perform: false, performT: 0,
+    mode: 'field', shape: 0, shapeT: 0, vortexT: 0, shellT: 0, formT: 0, morph: 0, perform: false, performT: 0,
+    picPreset: 'sunset', sndPreset: 'chord', palette: 0, demoStyle: 'pocket',
     yaw: 0.5, pitch: 1.02, dist: 3.25, autoRot: true, reaction: 1, glow: 1, trails: 0.8,
     tier: 256, fps: 60,
   };
@@ -27,7 +28,7 @@ in vec2 vUv;
 layout(location=0) out vec4 oPos;
 layout(location=1) out vec4 oVel;
 uniform sampler2D uPos,uVel,uSeed,uHist,uFluid,uN,uHomeA,uHomeB;
-uniform float uDt,uT,uHistX,uRiver,uForm,uMorph,uLoud;
+uniform float uDt,uT,uHistX,uRiver,uVortex,uShell,uForm,uMorph,uLoud;
 uniform float uKick,uSnare,uHat,uHatOpen,uTom,uTomPos,uCrash,uBlow;
 const float TAU=6.2831853;
 ${NOISE}
@@ -42,14 +43,19 @@ void main(){
   if(ring){
     float th=s.z*TAU+uT*.02;
     home=vec3(cos(th)*1.5,(s.x-.5)*.03,sin(th)*1.5);
-    home=mix(home,vec3(cos(th)*1.72,sin(th)*1.02,(s.x-.5)*.06),uRiver);
+    vec3 vtx=vec3(cos(th)*1.52,sin(th*3.)*.24,sin(th)*1.52);
+    vec3 shl=vec3(cos(th)*1.38,sin(th*4.)*.32,sin(th)*1.38);
+    home=mix(mix(mix(home,vec3(cos(th)*1.72,sin(th)*1.02,(s.x-.5)*.06),uRiver),vtx,uVortex),shl,uShell);
     k=7.;
   }else if(dust){
     float th=s.z*TAU*3.+a*5.;
     float r=.15+1.6*sqrt(a);
     vec3 g=vec3(cos(th)*r,(b-.5)*(.1+.46*a),sin(th)*r);
     vec3 riv=vec3((a-.5)*3.6,(b-.5)*1.9,(s.z-.5)*1.1);
-    home=mix(g,riv,uRiver);
+    vec3 vtx=vec3(cos(th)*r,(b-.5)*.85,sin(th)*r);
+    float dph=acos(clamp(1.-2.*b,-.99,.99));
+    vec3 shl=vec3(sin(dph)*cos(th),cos(dph),sin(dph)*sin(th))*(.35+1.35*sqrt(a));
+    home=mix(mix(mix(g,riv,uRiver),vtx,uVortex),shl,uShell);
     k=.9;
   }else{
     // Older sound blurs as it winds outward, so bright bands dissolve instead of sweeping past at the hit rate.
@@ -64,7 +70,16 @@ void main(){
     g.y+=amp*.3*(1.-a*.4)*(s.z>.5?1.:-1.);
     // River: newest on the right, low at the bottom, salience toward you.
     vec3 riv=vec3(mix(1.72,-1.72,a),(b-.5)*1.72,(s.z-.5)*(.05+.42*a)+amp*.42);
-    home=mix(g,riv,uRiver);
+    // Vortex: toroidal helix where time winds around the ring and frequency wraps around the minor tube.
+    float phi=a*1.75*TAU+uT*.05, psi=(b-.5)*TAU+a*TAU*3.5;
+    float rTube=.18+.22*a+amp*.24, rMaj=1.08+rTube*cos(psi);
+    vec3 vtx=vec3(cos(phi)*rMaj,rTube*sin(psi)+(s.z-.5)*.06,sin(phi)*rMaj);
+    // Shell: spherical harmonic Chladni shell where frequency sets latitude and nodal lobes breathe with amplitude.
+    float shPhi=acos(clamp(1.-2.*b,-.98,.98)), shTh=a*3.*TAU+s.z*TAU*.35+uT*.06;
+    float cym=sin(4.*shPhi)*cos(3.*shTh)+.55*cos(6.*shPhi)*sin(4.*shTh);
+    float shR=(.48+.72*pow(a,.65))*(1.+.16*cym)+amp*.32;
+    vec3 shl=vec3(sin(shPhi)*cos(shTh),cos(shPhi)+.14*cym,sin(shPhi)*sin(shTh))*shR;
+    home=mix(mix(mix(g,riv,uRiver),vtx,uVortex),shl,uShell);
     k=mix(11.,1.9,a);
   }
   if(uForm>.001){
@@ -100,7 +115,7 @@ precision highp sampler2D;
 uniform sampler2D uPos,uSeed,uHist,uColA,uColB;
 uniform mat4 uVP;
 uniform int uSize;
-uniform float uPxK,uI,uHistX,uForm,uMorph,uT,uLoud,uKick,uHat,uHatOpen,uRide,uCrash;
+uniform float uPxK,uI,uHistX,uForm,uMorph,uT,uLoud,uKick,uHat,uHatOpen,uRide,uCrash,uPalette;
 out vec3 vC;
 vec3 hsl(float h,float s,float l){vec3 k=mod(vec3(0.,8.,4.)+h*12.,12.);float a=s*min(l,1.-l);return vec3(l)-a*max(vec3(-1.),min(min(k-3.,9.-k),vec3(1.)));}
 void main(){
@@ -114,6 +129,10 @@ void main(){
   // Law: hue follows log-frequency (low warm, high cool), saturation follows tonalness, value follows salience.
   float hue=.66*b;
   vec3 law=hsl(hue,.42+.5*ton,.42+.34*amp);
+  if(uPalette>.5&&uPalette<1.5)law=hsl(fract(.02+.14*b),.78+.2*ton,.38+.42*amp);
+  else if(uPalette>=1.5&&uPalette<2.5)law=hsl(fract(.36+.22*b),.72+.25*ton,.38+.4*amp);
+  else if(uPalette>=2.5&&uPalette<3.5)law=hsl(fract(.82+.32*b),.85,.44+.36*amp);
+  else if(uPalette>=3.5)law=vec3(.46+.44*amp)*mix(vec3(.88,.91,1.),vec3(1.,.96,.9),b);
   float val=dust?(.085+uLoud*.12):(.06+pow(amp,1.45)*2.3);
   val*=1.-a*.42;
   if(ring){law=vec3(.82,.84,1.);val=.34+.5*uLoud;}
@@ -135,7 +154,7 @@ void main(){
 }`;
   const POINT_FS = FS_HEAD.replace('in vec2 vUv;\n', '') + `
 in vec3 vC;
-void main(){vec2 q=gl_PointCoord-.5;float g=exp(-dot(q,q)*13.);o=vec4(vC*g,1.);}`;
+void main(){vec2 q=gl_PointCoord-.5;float d2=dot(q,q);float g=exp(-d2*14.)+.18*exp(-d2*3.8);o=vec4(vC*g,1.);}`;
 
   const TRAIL_FS = FS_HEAD + `
 uniform sampler2D uPts,uPrev;uniform float uFade,uT;uniform vec2 uC;
@@ -147,7 +166,7 @@ void main(){
 
   // Painterly gas and far stars under the particles. Band energy feeds it; it is never empty, so the page breathes at rest.
   const GAS_FS = FS_HEAD + `
-uniform sampler2D uN,uTrail;uniform vec2 uRes,uC;uniform float uRiverGas,uT,uTilt,uScale,uLow,uMid,uHigh,uLoud,uKick,uSnare,uHat,uHatOpen,uRide,uCrash,uForm,uYaw;
+uniform sampler2D uN,uTrail;uniform vec2 uRes,uC;uniform float uRiverGas,uT,uTilt,uScale,uLow,uMid,uHigh,uLoud,uKick,uSnare,uHat,uHatOpen,uRide,uCrash,uForm,uYaw,uPalette;
 ${NOISE}
 const mat2 R=mat2(.8,.6,-.6,.8);
 float fbm(vec2 p){float a=.5,s=0.;for(int i=0;i<5;i++){s+=a*vn(p);p=R*p*2.03+1.7;a*=.5;}return s;}
@@ -166,6 +185,10 @@ void main(){
   float dens=smoothstep(.34,.84,n1)*fall*(1.-uRiverGas*.45);
   float dens2=smoothstep(.4,.9,n2)*fall;
   vec3 warm=vec3(.60,.18,.27),violet=vec3(.27,.20,.72),teal=vec3(.10,.46,.44);
+  if(uPalette>.5&&uPalette<1.5){warm=vec3(.82,.32,.10);violet=vec3(.62,.18,.12);teal=vec3(.88,.62,.18);}
+  else if(uPalette>=1.5&&uPalette<2.5){warm=vec3(.08,.52,.38);violet=vec3(.08,.28,.58);teal=vec3(.18,.78,.58);}
+  else if(uPalette>=2.5&&uPalette<3.5){warm=vec3(.82,.12,.56);violet=vec3(.36,.12,.78);teal=vec3(.08,.68,.82);}
+  else if(uPalette>=3.5){warm=vec3(.38,.40,.46);violet=vec3(.28,.32,.40);teal=vec3(.34,.38,.44);}
   vec3 g=violet*dens*(.5+.85*uMid+.3*uLoud);
   g+=warm*dens2*(.26+1.05*uLow+.1*uKick);
   g+=teal*smoothstep(.42,.95,fbm(q*1.5+w*3.+9.))*fall*(.3+1.1*uHigh+.1*uHat);
@@ -193,13 +216,31 @@ void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){v
     <div class="gauge hero"><span class="k">Tempo</span><span class="v" id="g-hero">--</span></div>
     <div class="gauge"><span class="k">Level</span><span class="v" id="g-level">--</span></div>`;
 
+  const stageBar = `
+    <div id="stage-field-bar" class="row-actions" style="margin:0">
+      <button class="pill on" data-shape="0">Galaxy</button>
+      <button class="pill" data-shape="1">River</button>
+      <button class="pill" data-shape="2">Vortex</button>
+      <button class="pill" data-shape="3">Shell</button>
+    </div>
+    <div id="stage-form-bar" class="row-actions" style="margin:0;align-items:center" hidden>
+      <label class="stage-slider"><span>Picture → Sound</span><input type="range" id="stage-morph" min="0" max="100" value="0" aria-label="Picture to sound morph"><b id="stage-morph-v">0%</b></label>
+      <button class="pill" id="stage-perform">Sweep: off</button>
+      <button class="pill" id="stage-hear">Hear cloud</button>
+    </div>`;
+
   const spaceSheet = `
     <div id="field-opts">
       <div class="field"><span>Shape of time</span><div class="row-actions" id="shape-row">
-        <button class="pill on" data-shape="0">Galaxy</button><button class="pill" data-shape="1">River</button></div></div>
-      <p class="note">Galaxy: now is at the core and the last twelve seconds wind outward. River: now is on the right.</p>
+        <button class="pill on" data-shape="0">Galaxy</button><button class="pill" data-shape="1">River</button><button class="pill" data-shape="2">Vortex</button><button class="pill" data-shape="3">Shell</button></div></div>
+      <label class="field" style="margin-top:8px">Demo drum groove<select id="demo-style"><option value="pocket">Pocket (3-section)</option><option value="breakbeat">Breakbeat (136 BPM)</option><option value="techno">Techno 4×4 (128 BPM)</option><option value="polymeter">IDM 7/8 (118 BPM)</option></select></label>
+      <p class="note">Galaxy: now is at the core and the last twelve seconds wind outward. River: now is on the right. Vortex: time winds around a toroidal helix. Shell: harmonic nodal sphere.</p>
     </div>
     <div id="form-opts" hidden>
+      <div class="controls-grid" style="padding:0 0 6px">
+        <label class="field">Built-in picture<select id="form-pic-preset"><option value="sunset">Sunset ridge</option><option value="galaxy">Spiral galaxy</option><option value="lattice">Crystal lattice</option><option value="aurora">Aurora curtains</option><option value="mandala">Sacred mandala</option></select></label>
+        <label class="field">Built-in sound<select id="form-snd-preset"><option value="chord">Harmonic chord</option><option value="bells">Bell cascade</option><option value="pulse">Rhythmic pulse</option><option value="arpeggio">Pentatonic arpeggio</option><option value="drone">Subharmonic drone</option></select></label>
+      </div>
       <div class="row-actions">
         <button class="pill" id="form-image">Choose a picture</button>
         <button class="pill" id="form-sound">Choose a sound</button>
@@ -212,14 +253,17 @@ void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){v
       <div class="row-actions">
         <button class="pill" id="form-perform">Slow sweep: off</button>
         <button class="pill" id="form-hear">Hear this cloud</button>
+        <button class="pill" id="form-update" hidden>Update audition</button>
+        <button class="pill" id="form-wav">Save audio (.wav)</button>
         <button class="pill" id="form-ply">Save cloud (.ply)</button>
       </div>
-      <p class="note">The picture lifts by a stated rule: brightness sets depth. It is not a reconstructed scene. A controller's mod wheel (CC1) also moves the slider.</p>
+      <p class="note">The picture lifts by a stated rule: brightness sets depth. While listening, moving the slider refreshes the audition live at the current loop position.</p>
     </div>
     <details open><summary>Look</summary><div class="controls-grid" style="padding:10px 0 0">
       <label class="field"><div class="row"><span>Reaction to hits</span><b id="react-v"></b></div><input type="range" id="react" min="0" max="200"></label>
       <label class="field"><div class="row"><span>Trails</span><b id="trail-v"></b></div><input type="range" id="trail" min="0" max="100"></label>
       <label class="field"><div class="row"><span>Glow</span><b id="glow-v"></b></div><input type="range" id="glow" min="0" max="200"></label>
+      <label class="field">Color palette<select id="palette"><option value="0">Spectrum (default)</option><option value="1">Solar corona</option><option value="2">Bioluminescent</option><option value="3">Cyberpunk neon</option><option value="4">Monochrome silver</option></select></label>
       <label class="field">Particles<select id="tier"><option value="auto">Automatic</option><option value="128">16,384</option><option value="256">65,536</option><option value="512">262,144</option></select></label>
       <label class="check" style="margin:0"><input type="checkbox" id="auto-rot" checked> Turn slowly</label>
     </div></details>`;
@@ -227,7 +271,7 @@ void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){v
   const about = `
     <p class="sheet-intro">Parametric synesthesia: every link below is a stated rule, not a learned embedding, and there is no model.</p>
     <table class="maptable"><tbody>
-      <tr><th>Time</th><td>Now at the core, winding out over about twelve seconds. In River, now is on the right.</td></tr>
+      <tr><th>Time</th><td>Now at the core, winding out over about twelve seconds. In River, now is on the right. In Vortex, time winds around a torus.</td></tr>
       <tr><th>Frequency</th><td>Hue: low is warm, high is cool. Low sits on the inner side of each arm, or at the bottom of the river.</td></tr>
       <tr><th>Loudness</th><td>Brightness, and lift out of the plane.</td></tr>
       <tr><th>Tonalness</th><td>Saturation. A pitched drum is more colored than a noisy one.</td></tr>
@@ -239,7 +283,7 @@ void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){v
       <tr><th>Ride</th><td>A fine shimmer across the field.</td></tr>
       <tr><th>Outer ring</th><td>A fixed reference that marks the twelve-second edge.</td></tr>
     </tbody></table>
-    <p class="note">Keys: <b>J K L</b> kick, snare, hat · <b>U I O</b> toms · <b>P</b> crash · <b>;</b> ride · <b>D</b> demo · <b>C</b> connect · <b>F</b> full screen · <b>H</b> hide controls. Drag to turn, scroll to zoom.</p>`;
+    <p class="note">Keys: <b>J K L</b> kick, snare, hat · <b>U I O</b> toms · <b>P</b> crash · <b>;</b> ride · <b>1 2 3</b> shapes · <b>D</b> demo · <b>C</b> connect · <b>F</b> full screen · <b>H</b> hide controls. Drag to turn, scroll to zoom.</p>`;
 
   const kit = createKit();
   const brand = '<svg viewBox="0 0 24 28" aria-hidden="true"><circle cx="12" cy="14" r="2.2"/><path d="M12 14c5-1 7 2 6 5s-7 5-11 1-3-12 3-14 12 2 12 9"/></svg>';
@@ -247,8 +291,9 @@ void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){v
     id: 'nebula', name: 'Nebula', brand, kit,
     modes: [{ id: 'field', label: 'Field' }, { id: 'form', label: 'Form' }], mode: 'field', modeLabel: 'What the particles follow',
     onMode: (m) => setMode(m),
+    onKey: (_e, key) => { if (S.mode === 'field' && (key === '1' || key === '2' || key === '3' || key === '4')) selectShape(+key - 1); },
     intro: { eyebrow: 'Nebula · the last twelve seconds of your playing', title: 'Every hit stays a while.', subtitle: 'Plug in your kit, or run the demo. No helper app, no server.' },
-    hud,
+    stageBar, hud,
     truth: 'Parametric synesthesia: stated mappings, not a learned embedding, and no model. Audio and MIDI stay in this browser.',
     sheets: [{ id: 'space', label: 'Space', icon: 'sliders', title: 'Shape the space.', intro: 'These change how it looks. They never change what the page measures.', html: spaceSheet }],
     about, canvas: () => cv, snapshot: (done) => { wantSnap = done; }, quality: () => `${N.toLocaleString()} particles`,
@@ -368,8 +413,61 @@ void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){v
     }
     return resampleCloud(pts, M);
   }
-  function builtInPicture() {
+  function builtInPicture(kind) {
+    const k = kind || S.picPreset || 'sunset';
     const c = document.createElement('canvas'); c.width = 440; c.height = 300; const g = c.getContext('2d');
+    if (k === 'galaxy') {
+      g.fillStyle = '#070a1c'; g.fillRect(0, 0, 440, 300);
+      for (let arm = 0; arm < 2; arm++) {
+        for (let i = 0; i < 420; i++) {
+          const u = i / 420, th = u * 10.5 + arm * Math.PI, r = 8 + u * 135;
+          const x = 220 + Math.cos(th) * r * 1.25, y = 150 + Math.sin(th) * r * 0.82;
+          g.fillStyle = `hsla(${Math.round(280 - u * 160)}, 85%, ${Math.round(82 - u * 38)}%, ${0.85 - u * 0.45})`;
+          g.beginPath(); g.arc(x, y, 2.2 + (1 - u) * 5.5, 0, 7); g.fill();
+        }
+      }
+      return c;
+    }
+    if (k === 'lattice') {
+      g.fillStyle = '#090e22'; g.fillRect(0, 0, 440, 300);
+      for (let y = 24; y < 280; y += 28) {
+        for (let x = 28; x < 420; x += 28) {
+          const dx = (x - 220) / 200, dy = (y - 150) / 140, d = Math.hypot(dx, dy);
+          const hue = Math.round(180 + 140 * Math.sin(d * 5)), l = Math.round(45 + 40 * Math.cos(d * 4));
+          g.fillStyle = `hsl(${hue}, 82%, ${l}%)`;
+          g.fillRect(x - 7, y - 7, 14, 14);
+        }
+      }
+      return c;
+    }
+    if (k === 'aurora') {
+      g.fillStyle = '#060c18'; g.fillRect(0, 0, 440, 300);
+      for (let band = 0; band < 4; band++) {
+        for (let x = 0; x < 440; x += 3) {
+          const u = x / 440, y0 = 65 + band * 42 + Math.sin(u * 9 + band * 1.4) * 28 + Math.cos(u * 21) * 10;
+          const grad = g.createLinearGradient(x, y0 - 45, x, y0 + 55);
+          const hue = 135 + band * 32 + Math.sin(u * 6) * 18;
+          grad.addColorStop(0, 'rgba(0,0,0,0)');
+          grad.addColorStop(0.5, `hsla(${Math.round(hue)}, 90%, 62%, 0.65)`);
+          grad.addColorStop(1, 'rgba(0,0,0,0)');
+          g.fillStyle = grad; g.fillRect(x, y0 - 45, 3, 100);
+        }
+      }
+      return c;
+    }
+    if (k === 'mandala') {
+      g.fillStyle = '#0b0818'; g.fillRect(0, 0, 440, 300);
+      for (let ring = 1; ring <= 6; ring++) {
+        const petals = ring * 6, rad = ring * 21;
+        for (let p = 0; p < petals; p++) {
+          const a = (p / petals) * Math.PI * 2 + (ring % 2) * 0.25;
+          const x = 220 + Math.cos(a) * rad, y = 150 + Math.sin(a) * rad;
+          g.fillStyle = `hsla(${(ring * 48 + p * 12) % 360}, 85%, ${80 - ring * 5}%, 0.85)`;
+          g.beginPath(); g.arc(x, y, 4 + (7 - ring) * 1.2, 0, 7); g.fill();
+        }
+      }
+      return c;
+    }
     const bg = g.createLinearGradient(0, 0, 0, 300); bg.addColorStop(0, '#1b1440'); bg.addColorStop(0.55, '#a8456e'); bg.addColorStop(0.72, '#ffb066'); bg.addColorStop(0.73, '#2a1a2e'); bg.addColorStop(1, '#100b1c');
     g.fillStyle = bg; g.fillRect(0, 0, 440, 300);
     g.fillStyle = '#ffe0a6'; g.beginPath(); g.arc(220, 200, 42, 0, 7); g.fill();
@@ -389,8 +487,42 @@ void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){v
     }
     return { atoms, dur };
   }
-  function builtInSound() {
-    const r = mulberry(4242), atoms = [];
+  function builtInSound(kind) {
+    const k = kind || S.sndPreset || 'chord';
+    const r = mulberry(k === 'bells' ? 8181 : k === 'pulse' ? 6060 : 4242), atoms = [];
+    if (k === 'bells') {
+      const notes = [261.63, 329.63, 392.0, 523.25, 659.25, 783.99, 1046.5];
+      for (let i = 0; i < 520; i++) {
+        const step = i % 12, t = (step * 0.48 + r() * 0.22) % 6, f0 = notes[step % notes.length], ratio = [1, 2, 2.76, 4.1][i % 4];
+        atoms.push({ time: t, f: f0 * ratio, amp: Math.max(0.12, (1 - (i % 4) * 0.22) * (0.6 + 0.4 * r())), ton: 0.92 });
+      }
+      return { atoms, dur: 6 };
+    }
+    if (k === 'pulse') {
+      for (let i = 0; i < 520; i++) {
+        const beat = Math.floor(r() * 16), t = (beat * 0.375 + r() * 0.06) % 6;
+        const f = beat % 4 === 0 ? 65 + r() * 90 : beat % 2 === 0 ? 220 + r() * 680 : 1800 + r() * 5200;
+        atoms.push({ time: t, f, amp: 0.45 + 0.55 * r(), ton: beat % 4 === 0 ? 0.75 : 0.35 });
+      }
+      return { atoms, dur: 6 };
+    }
+    if (k === 'arpeggio') {
+      const scale = [196.0, 220.0, 261.63, 293.66, 329.63, 392.0, 440.0, 523.25, 587.33, 659.25];
+      for (let i = 0; i < 520; i++) {
+        const step = i % 24, t = ((step / 24) * 6 + r() * 0.08) % 6, f0 = scale[(step * 3 + Math.floor(i / 24)) % scale.length];
+        const h = 1 + (i % 3);
+        atoms.push({ time: t, f: f0 * h, amp: Math.max(0.15, (0.95 - (h - 1) * 0.28) * (0.65 + 0.35 * r())), ton: 0.9 });
+      }
+      return { atoms, dur: 6 };
+    }
+    if (k === 'drone') {
+      const roots = [55, 82.41, 110, 164.81, 220];
+      for (let i = 0; i < 520; i++) {
+        const t = r() * 6, root = roots[i % roots.length], h = 1 + Math.floor(r() * 8);
+        atoms.push({ time: t, f: root * h * (1 + (r() - 0.5) * 0.008), amp: Math.max(0.14, (1 - h / 10) * (0.6 + 0.4 * r())), ton: 0.88 });
+      }
+      return { atoms, dur: 6 };
+    }
     for (let i = 0; i < 520; i++) { const t = r() * 6, h = 1 + Math.floor(r() * r() * 14); atoms.push({ time: t, f: 110 * h, amp: Math.max(0.1, 1 - h / 15) * (0.55 + 0.45 * r()), ton: 0.8 }); }
     return { atoms, dur: 6 };
   }
@@ -438,6 +570,7 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
     F.busy = false;
     writeTargets();
     $('form-status').textContent = `Picture: ${F.pictureName}. Sound: ${F.soundName}. ${n.toLocaleString()} points matched in ${Math.round(res.ms)} ms.`;
+    if (hearSrc) refreshHearAudition(true);
     if (F.again) { F.again = false; liftMatch(); }
   }
   function writeTargets() {
@@ -459,16 +592,36 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
   function setMode(m) {
     S.mode = m;
     $('field-opts').hidden = m !== 'field'; $('form-opts').hidden = m !== 'form';
+    if ($('stage-field-bar')) $('stage-field-bar').hidden = m !== 'field';
+    if ($('stage-form-bar')) $('stage-form-bar').hidden = m !== 'form';
     if (m === 'form') {
       if (!F.A) liftMatch();
-      shell.toast('Form: choose your own picture and sound under Space.');
+      shell.toast('Form: slide Picture → Sound on stage, or choose your own under Space.');
     }
     kit.noteLane('mode', m);
   }
-  function setMorph(t) { S.morph = clamp(t, 0, 1); const r = $('morph'); r.value = Math.round(S.morph * 100); shell.syncRange(r); $('morph-v').textContent = `${Math.round(S.morph * 100)}%`; }
+  function setMorph(t) {
+    S.morph = clamp(t, 0, 1);
+    const pct = Math.round(S.morph * 100);
+    const r = $('morph'); if (r) { r.value = pct; shell.syncRange(r); }
+    if ($('morph-v')) $('morph-v').textContent = `${pct}%`;
+    const sr = $('stage-morph'); if (sr) { sr.value = pct; shell.syncRange(sr); }
+    if ($('stage-morph-v')) $('stage-morph-v').textContent = `${pct}%`;
+    scheduleHearRefresh();
+  }
   $('morph').addEventListener('input', (e) => { S.perform = false; syncPerform(); setMorph(+e.target.value / 100); });
-  function syncPerform() { $('form-perform').textContent = `Slow sweep: ${S.perform ? 'on' : 'off'}`; $('form-perform').classList.toggle('on', S.perform); }
-  $('form-perform').addEventListener('click', () => { S.perform = !S.perform; S.performT = 0; syncPerform(); });
+  if ($('stage-morph')) $('stage-morph').addEventListener('input', (e) => { S.perform = false; syncPerform(); setMorph(+e.target.value / 100); });
+  function syncPerform() {
+    $('form-perform').textContent = `Slow sweep: ${S.perform ? 'on' : 'off'}`;
+    $('form-perform').classList.toggle('on', S.perform);
+    if ($('stage-perform')) {
+      $('stage-perform').textContent = `Sweep: ${S.perform ? 'on' : 'off'}`;
+      $('stage-perform').classList.toggle('on', S.perform);
+    }
+  }
+  const togglePerform = () => { S.perform = !S.perform; S.performT = 0; syncPerform(); };
+  $('form-perform').addEventListener('click', togglePerform);
+  if ($('stage-perform')) $('stage-perform').addEventListener('click', togglePerform);
   const formRequests = { picture: 0, sound: 0 };
   $('form-image').addEventListener('click', () => $('form-image-file').click());
   $('form-sound').addEventListener('click', () => $('form-sound-file').click());
@@ -518,13 +671,9 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
     }
     return out;
   }
-  let hearCtx = null, hearSrc = null;
-  $('form-hear').addEventListener('click', () => {
-    if (!F.A) return;
-    if (hearSrc) { try { hearSrc.stop(); } catch (e) { /* ended */ } hearSrc = null; $('form-hear').textContent = 'Hear this cloud'; return; }
-    hearCtx = hearCtx || new (window.AudioContext || window.webkitAudioContext)();
-    hearCtx.resume();
-    const rate = hearCtx.sampleRate, dur = 6, t = S.morph, lf0 = Math.log(40), lf1 = Math.log(rate / 2), atoms = [], stride = Math.max(1, Math.floor(F.n / 1800));
+  let hearCtx = null, hearSrc = null, hearEpoch = 0, hearMorph = -1, hearTimer = null, hearRebuilds = 0;
+  function renderCloudWav(t, rate, dur) {
+    const lf0 = Math.log(40), lf1 = Math.log(rate / 2), atoms = [], stride = Math.max(1, Math.floor(F.n / 1800));
     for (let i = 0; i < F.n; i += stride) {
       const a = F.A[i], X = F.X, p = [0, 1, 2].map((k) => a.p[k] + t * (X[i * 6 + k] - a.p[k])), c = [0, 1, 2].map((k) => a.c[k] + t * (X[i * 6 + 3 + k] / CW - a.c[k]));
       const mx = Math.max(...c) / 255, mn = Math.min(...c) / 255;
@@ -533,9 +682,88 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
     const wav = synthAtoms(atoms, dur, rate, 777);
     let pk = 0; for (let i = 0; i < wav.length; i++) pk = Math.max(pk, Math.abs(wav[i]));
     if (pk > 0) for (let i = 0; i < wav.length; i++) wav[i] *= 0.7 / pk;
+    return wav;
+  }
+  function syncHearButtons(on) {
+    $('form-hear').textContent = on ? 'Stop listening' : 'Hear this cloud';
+    $('form-hear').classList.toggle('on', on);
+    if ($('stage-hear')) {
+      $('stage-hear').textContent = on ? 'Stop listening' : 'Hear cloud';
+      $('stage-hear').classList.toggle('on', on);
+    }
+    if ($('form-update')) $('form-update').hidden = !on;
+  }
+  function refreshHearAudition(force) {
+    if (!F.A || !hearCtx || (!hearSrc && !force)) return;
+    const dur = 6, rate = hearCtx.sampleRate, t = S.morph;
+    const nowT = hearCtx.currentTime;
+    const offset = hearSrc ? ((nowT - hearEpoch) % dur + dur) % dur : 0;
+    const wav = renderCloudWav(t, rate, dur);
     const buf = hearCtx.createBuffer(1, wav.length, rate); buf.getChannelData(0).set(wav);
-    hearSrc = hearCtx.createBufferSource(); hearSrc.buffer = buf; hearSrc.loop = true; hearSrc.connect(hearCtx.destination); hearSrc.start();
-    $('form-hear').textContent = 'Stop listening';
+    const nextSrc = hearCtx.createBufferSource();
+    nextSrc.buffer = buf; nextSrc.loop = true; nextSrc.connect(hearCtx.destination);
+    if (hearSrc) { try { hearSrc.stop(); } catch (e) { /* ended */ } }
+    nextSrc.start(0, offset);
+    hearSrc = nextSrc;
+    hearEpoch = nowT - offset;
+    hearMorph = t;
+    hearRebuilds++;
+    syncHearButtons(true);
+  }
+  function scheduleHearRefresh() {
+    if (!hearSrc) return;
+    if (Math.abs(S.morph - hearMorph) < 0.025) return;
+    if (hearTimer) return;
+    hearTimer = setTimeout(() => { hearTimer = null; if (hearSrc) refreshHearAudition(false); }, 140);
+  }
+  function toggleHear() {
+    if (!F.A) return;
+    if (hearSrc) {
+      clearTimeout(hearTimer); hearTimer = null;
+      try { hearSrc.stop(); } catch (e) { /* ended */ }
+      hearSrc = null;
+      syncHearButtons(false);
+      return;
+    }
+    hearCtx = hearCtx || new (window.AudioContext || window.webkitAudioContext)();
+    hearCtx.resume();
+    refreshHearAudition(true);
+  }
+  $('form-hear').addEventListener('click', toggleHear);
+  if ($('stage-hear')) $('stage-hear').addEventListener('click', toggleHear);
+  if ($('form-update')) $('form-update').addEventListener('click', () => {
+    if (!F.A) return;
+    hearCtx = hearCtx || new (window.AudioContext || window.webkitAudioContext)();
+    hearCtx.resume();
+    refreshHearAudition(true);
+    shell.toast(`Audition refreshed at ${Math.round(S.morph * 100)}%`);
+  });
+  if ($('form-pic-preset')) $('form-pic-preset').addEventListener('change', (e) => {
+    formRequests.picture++;
+    S.picPreset = e.target.value;
+    F.picture = null;
+    F.pictureName = `built-in (${e.target.options[e.target.selectedIndex].text.toLowerCase()})`;
+    liftMatch();
+  });
+  if ($('form-snd-preset')) $('form-snd-preset').addEventListener('change', (e) => {
+    formRequests.sound++;
+    S.sndPreset = e.target.value;
+    F.sound = null;
+    F.soundName = `built-in (${e.target.options[e.target.selectedIndex].text.toLowerCase()})`;
+    liftMatch();
+  });
+  if ($('form-wav')) $('form-wav').addEventListener('click', () => {
+    if (!F.A) return;
+    const rate = 44100, dur = 6, t = S.morph, wav = renderCloudWav(t, rate, dur);
+    const L = wav.length, buf = new ArrayBuffer(44 + L * 2), dv = new DataView(buf);
+    const wr = (o, s) => { for (let i = 0; i < s.length; i++) dv.setUint8(o + i, s.charCodeAt(i)); };
+    wr(0, 'RIFF'); dv.setUint32(4, 36 + L * 2, true); wr(8, 'WAVE'); wr(12, 'fmt ');
+    dv.setUint32(16, 16, true); dv.setUint16(20, 1, true); dv.setUint16(22, 1, true);
+    dv.setUint32(24, rate, true); dv.setUint32(28, rate * 2, true); dv.setUint16(32, 2, true); dv.setUint16(34, 16, true);
+    wr(36, 'data'); dv.setUint32(40, L * 2, true);
+    for (let i = 0; i < L; i++) dv.setInt16(44 + i * 2, Math.round(clamp(wav[i], -1, 1) * 32767), true);
+    const u = URL.createObjectURL(new Blob([buf], { type: 'audio/wav' })), l = document.createElement('a');
+    l.href = u; l.download = `nebula-cloud-t${Math.round(t * 100)}.wav`; l.click(); setTimeout(() => URL.revokeObjectURL(u), 4000);
   });
   $('form-ply').addEventListener('click', () => {
     if (!F.A) return;
@@ -553,13 +781,18 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
   });
 
   /* ---- sheet controls ---- */
+  function selectShape(sh, fromReplay) {
+    S.shape = sh;
+    document.querySelectorAll('[data-shape]').forEach((x) => x.classList.toggle('on', +x.dataset.shape === sh));
+    if (!fromReplay) kit.noteLane('shape', S.shape);
+  }
   $('shape-row').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-shape]'); if (!b) return;
-    S.shape = +b.dataset.shape;
-    document.querySelectorAll('#shape-row button').forEach((x) => x.classList.toggle('on', x === b));
-    kit.noteLane('shape', S.shape);
+    const b = e.target.closest('[data-shape]'); if (b) selectShape(+b.dataset.shape);
   });
-  kit.on('lane', (l) => { if (l.name === 'shape') S.shape = l.value; else if (l.name === 'mode') shell.setMode(l.value); });
+  if ($('stage-field-bar')) $('stage-field-bar').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-shape]'); if (b) selectShape(+b.dataset.shape);
+  });
+  kit.on('lane', (l) => { if (l.name === 'shape') selectShape(l.value, true); else if (l.name === 'mode') shell.setMode(l.value); });
   const bind = (id, get, set, fmt, lab) => { const r = $(id); r.value = get(); shell.syncRange(r); $(lab).textContent = fmt(+r.value); r.addEventListener('input', () => { shell.syncRange(r); set(+r.value); $(lab).textContent = fmt(+r.value); }); };
   bind('react', () => S.reaction * 100, (v) => { S.reaction = v / 100; }, (v) => `${Math.round(v)}%`, 'react-v');
   bind('trail', () => S.trails * 100, (v) => { S.trails = v / 100; }, (v) => `${Math.round(v)}%`, 'trail-v');
@@ -567,6 +800,8 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
   let tierAuto = true;
   $('tier').addEventListener('change', (e) => { tierAuto = e.target.value === 'auto'; if (!tierAuto) buildParticles(+e.target.value); });
   $('auto-rot').addEventListener('change', (e) => { S.autoRot = e.target.checked; });
+  if ($('palette')) $('palette').addEventListener('change', (e) => { S.palette = +e.target.value || 0; });
+  if ($('demo-style')) $('demo-style').addEventListener('change', (e) => { S.demoStyle = e.target.value; kit.setDemoStyle(e.target.value); });
 
   /* drag to turn, wheel to zoom */
   let dragging = null;
@@ -585,7 +820,9 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
       shell.frame(now);
       if (!G || gl.isContextLost()) return;
       const dt = Math.min(1 / 30, dtMs / 1000), env = kit.env;
-      S.shapeT += (S.shape - S.shapeT) * Math.min(1, dt / 0.9);
+      S.shapeT += ((S.shape === 1 ? 1 : 0) - S.shapeT) * Math.min(1, dt / 0.9);
+      S.vortexT += ((S.shape === 2 ? 1 : 0) - S.vortexT) * Math.min(1, dt / 0.9);
+      S.shellT += ((S.shape === 3 ? 1 : 0) - S.shellT) * Math.min(1, dt / 0.9);
       S.formT += ((S.mode === 'form' && F.A ? 1 : 0) - S.formT) * Math.min(1, dt / 0.8);
       if (S.perform) { S.performT += dt; setMorph(0.5 - 0.5 * Math.cos((S.performT / 24) * Math.PI * 2)); }
 
@@ -644,7 +881,7 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
         G.bindTex(6, tHomeA || tSeed); G.bindTex(7, tHomeB || tSeed);
         G.use(pSim, {
           uPos: 0, uVel: 1, uSeed: 2, uHist: 3, uFluid: 4, uN: 5, uHomeA: 6, uHomeB: 7,
-          uDt: quiet ? 1 / 30 : dt, uT: now / 1000, uHistX: histX, uRiver: S.shapeT, uForm: S.formT, uMorph: S.morph, uLoud: kit.loud,
+          uDt: quiet ? 1 / 30 : dt, uT: now / 1000, uHistX: histX, uRiver: S.shapeT, uVortex: S.vortexT, uShell: S.shellT, uForm: S.formT, uMorph: S.morph, uLoud: kit.loud,
           uKick: quiet ? 0 : env.kick, uSnare: quiet ? 0 : env.snare, uHat: quiet ? 0 : env.hat, uHatOpen: env.hatOpen, uTom: quiet ? 0 : env.tom, uTomPos: env.tomPos, uCrash: quiet ? 0 : env.crash, uBlow: blow,
         });
         G.draw();
@@ -658,7 +895,7 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
       const dens = Math.sqrt(65536 / N);
       G.use(pPoint, {
         uPos: 0, uSeed: 1, uHist: 2, uColA: 3, uColB: 4, uVP: VP, uSize: size, uPxK: rh * 0.0058 * Math.pow(dens, 0.5), uI: (0.92 * dens * dens * 0.8 + 0.12) * (1 - 0.5 * S.shapeT * (1 - S.formT)), uHistX: histX,
-        uForm: S.formT, uMorph: S.morph, uT: now / 1000, uLoud: kit.loud, uKick: env.kick, uHat: env.hat, uHatOpen: env.hatOpen, uRide: env.ride, uCrash: env.crash,
+        uForm: S.formT, uMorph: S.morph, uT: now / 1000, uLoud: kit.loud, uKick: env.kick, uHat: env.hat, uHatOpen: env.hatOpen, uRide: env.ride, uCrash: env.crash, uPalette: S.palette,
       });
       gl.drawArrays(gl.POINTS, 0, N);
       gl.disable(gl.BLEND);
@@ -678,7 +915,7 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
       const scale = (3.25 / (dist * fit)) * (1 / 1.25);
       G.use(pGas, {
         uN: 0, uTrail: 1, uRiverGas: S.shapeT, uRes: [rw, rh], uC: c, uT: now / 1000, uTilt: Math.sin(pitch) * (1 - S.shapeT) + S.shapeT, uScale: scale, uYaw: yaw,
-        uLow: S.gasL, uMid: S.gasM, uHigh: S.gasH, uLoud: S.gasV, uKick: env.kick, uSnare: env.snare, uHat: env.hat, uHatOpen: env.hatOpen, uRide: env.ride, uCrash: env.crash, uForm: S.formT,
+        uLow: S.gasL, uMid: S.gasM, uHigh: S.gasH, uLoud: S.gasV, uKick: env.kick, uSnare: env.snare, uHat: env.hat, uHatOpen: env.hatOpen, uRide: env.ride, uCrash: env.crash, uForm: S.formT, uPalette: S.palette,
       });
       G.draw();
 
@@ -748,6 +985,7 @@ else{const t0=performance.now();const X=slicedOT(m.X,m.Y,m.n);postMessage({id:m.
 
   window.__app = {
     S, kit, F, recordLuma,
+    get hearState() { return { playing: !!hearSrc, morph: hearMorph, rebuilds: hearRebuilds }; },
     get N() { return N; },
     pixel() {
       const c = document.createElement('canvas'); c.width = 32; c.height = 18;
