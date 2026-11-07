@@ -477,10 +477,93 @@ void main(){
     membrane(X, Y, Math.min(W, H) * 0.075, ((p.hue % 360) + 360) % 360, p, now, ST.pad ? 1 : 0.55);
   }
 
+  const eeg = typeof createEEGDrive === 'function' ? createEEGDrive() : null;
+  let bioAuto = false, bioDemo = false, bioMode = 'pad2d';
+  function renderChimeraBio() {
+    if (!eeg) return;
+    const q = eeg.state, sens = q.sensors || {};
+    if ($('chimera-bio-toggle')) {
+      $('chimera-bio-toggle').textContent = `Bio timbre: ${bioAuto ? 'on' : 'off'}`;
+      $('chimera-bio-toggle').classList.toggle('on', bioAuto);
+      $('chimera-bio-toggle').setAttribute('aria-pressed', String(bioAuto));
+    }
+    if ($('chimera-bio-demo')) {
+      $('chimera-bio-demo').textContent = `Synthetic preview: ${bioDemo ? 'on' : 'off'}`;
+      $('chimera-bio-demo').classList.toggle('on', bioDemo);
+      $('chimera-bio-demo').setAttribute('aria-pressed', String(bioDemo));
+    }
+    document.querySelectorAll('[data-cbio]').forEach((b) => {
+      const on = b.dataset.cbio === bioMode;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    if ($('chimera-bio-status')) {
+      const se = sens.eeg || {}, sf = sens.fnirs || {}, sp = sens.prv || {}, ss = sens.stillness || {};
+      const parts = [
+        `EEG ${se.score != null ? `${se.score}/100` : '-'}`,
+        `fNIRS ${sf.od != null ? `${sf.od >= 0 ? '+' : ''}${sf.od.toFixed(3)} OD` : '-'}`,
+        `PRV ${sp.rmssd != null ? `${Math.round(sp.rmssd)} ms` : '-'}`,
+        `Stillness ${ss.score != null ? `${ss.score}/100` : '-'}`,
+      ];
+      $('chimera-bio-status').textContent = bioAuto
+        ? `${bioDemo ? 'Synthetic preview' : 'Muse S Athena'} · ${bioMode === 'pad2d' ? '2D Pad (EEG X × fNIRS Y)' : (q.activeLabel || bioMode.toUpperCase())} active · ${parts.join(' · ')}`
+        : 'Modulate the 4-corner animal Morph pad or Garden macro hands-free using Muse S / Athena EEG, fNIRS optical, PRV, IMU stillness, or synthetic preview.';
+    }
+  }
+  if ($('chimera-bio-toggle')) $('chimera-bio-toggle').addEventListener('click', () => {
+    bioAuto = !bioAuto;
+    if (bioAuto && eeg && eeg.state.phase === 'disconnected') bioDemo = true;
+    renderChimeraBio();
+  });
+  if ($('chimera-bio-demo')) $('chimera-bio-demo').addEventListener('click', () => {
+    bioDemo = !bioDemo;
+    if (bioDemo && !bioAuto) bioAuto = true;
+    renderChimeraBio();
+  });
+  document.querySelectorAll('[data-cbio]').forEach((b) => b.addEventListener('click', () => {
+    bioMode = b.dataset.cbio;
+    if (eeg && bioMode !== 'pad2d') eeg.setSensorMode(bioMode);
+    if (!bioAuto) {
+      bioAuto = true;
+      if (eeg && eeg.state.phase === 'disconnected') bioDemo = true;
+    }
+    renderChimeraBio();
+  }));
+
   let lumaRec = null, wantPoster = false, lastFrame = performance.now();
   function render(now) {
     requestAnimationFrame(render);
     const dt = Math.min(0.1, (now - lastT) / 1000); lastT = now;
+    if (eeg) {
+      eeg.tick(dt, bioDemo && bioAuto);
+      if (bioAuto && !dragging) {
+        const sens = eeg.state.sensors || {};
+        const step = Math.min(1, dt * 2.6);
+        if (mode === 'morph') {
+          if (bioMode === 'pad2d') {
+            const tx = clamp((sens.eeg && sens.eeg.drive) || 0, 0, 1);
+            const ty = clamp((sens.fnirs && sens.fnirs.drive) || 0, 0, 1);
+            padSet(ST.uv.u + (tx - ST.uv.u) * step, ST.uv.v + (ty - ST.uv.v) * step);
+          } else {
+            const td = clamp(eeg.activeDrive(bioMode), 0, 1);
+            if (ST.pad) padSet(ST.uv.u + (td - ST.uv.u) * step, ST.uv.v);
+            else {
+              ST.t = clamp(ST.t + (td - ST.t) * step, 0, 1);
+              const m = $('morph'); if (m) m.value = ST.t * 100;
+              if ($('v-morph')) $('v-morph').textContent = ST.t.toFixed(2);
+              updateChips(); applyLive();
+            }
+          }
+        } else {
+          const td = clamp(eeg.activeDrive(bioMode === 'pad2d' ? 'fusion' : bioMode), 0, 1);
+          ST.macro = clamp(ST.macro + (td - ST.macro) * step, 0, 1);
+          const mc = $('macro'); if (mc) mc.value = Math.round(ST.macro * 100);
+          if ($('v-macro')) $('v-macro').textContent = `${Math.round(ST.macro * 100)} %`;
+          if (typeof applyMacro === 'function') applyMacro(ST.macro);
+        }
+      }
+      if (frames % 10 === 0) renderChimeraBio();
+    }
     measureTick();
     tick(now);
     const p = morphedPatch();

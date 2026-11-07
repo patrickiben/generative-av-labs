@@ -30,6 +30,7 @@
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-weight: 400; overflow: hidden; -webkit-font-smoothing: antialiased; }
 button, input, select { font: inherit; }
@@ -78,9 +79,15 @@ body.playing .intro { opacity: 0; transform: translateY(-10px); }
 .gauge.hero .v { font-size: clamp(44px, 5vw, 66px); font-weight: 200; letter-spacing: -2px; line-height: 1; }
 .gauge.hero .v small { display: none; }
 
-#hit-strip { display: flex; gap: 12px; align-items: center; justify-content: center; }
-.hitdot { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 9px; letter-spacing: 1.4px; color: var(--muted); }
+#hit-strip { display: flex; gap: 10px; align-items: center; justify-content: center; }
+.hitdot { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 9px; letter-spacing: 1.4px; color: var(--muted); padding: 4px 7px; border-radius: 10px; border: 1px solid transparent; transition: background 0.18s, border-color 0.18s, color 0.18s; }
+.hitdot:hover { background: var(--soft); border-color: var(--line); color: var(--ink); }
 .hitdot i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); opacity: 0.16; box-shadow: 0 0 calc(var(--l, 0) * 18px) var(--accent); }
+.stage-bar { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass); backdrop-filter: blur(14px); box-shadow: 0 8px 30px var(--shadow); }
+.stage-bar .pill { padding: 6px 13px; font-size: 11px; }
+.stage-bar .stage-slider { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--muted); }
+.stage-bar .stage-slider input[type="range"] { width: clamp(120px, 18vw, 200px); }
+.stage-bar .stage-slider b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
 
 .badges { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; align-items: center; }
 .source-badge, .chip { display: inline-flex; gap: 8px; align-items: center; font-size: 11px; color: var(--ink); border: 1px solid var(--line); border-radius: 20px; background: rgba(20, 24, 40, 0.68); padding: 8px 12px; backdrop-filter: blur(8px); }
@@ -201,7 +208,7 @@ table.maptable th { color: var(--ink); font-weight: 500; white-space: nowrap; }
 @media (max-height: 640px) {
   .intro { display: none; }
   .truth { display: none; }
-  #hit-strip { display: none; }
+  #hit-strip, .stage-bar { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
@@ -276,6 +283,10 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
       <a class="app-card" href="nebula.html" id="card-nebula">
         <img src="docs/nebula.jpg" alt="A spiral of colored particles glowing inside violet and teal gas" width="1440" height="900">
         <div class="body"><h2>Nebula</h2><p>The last twelve seconds of your playing hang in the air. Every hit is born at the core and winds outward, and each drum stirs the field its own way.</p><span class="go">Open Nebula →</span></div>
+      </a>
+      <a class="app-card" href="biofeedback-nebula.html" id="card-biofeedback-nebula">
+        <img src="docs/biofeedback-nebula.jpg" alt="A 3D particle nebula with a luminous breathing ring and biofeedback gauges" width="1440" height="900">
+        <div class="body"><h2>Biofeedback Nebula</h2><p>Nebula joined with Body Signal Labs and Muse S / Athena 5-mode headband automation (EEG balance, fNIRS slow optical density, forehead PRV, IMU stillness, and 4-sensor fusion). Inferred arousal warms the gas, paced breathing gathers particles into a harmonic torus, and optimal transport morphs pictures into sound.</p><span class="go">Open Biofeedback Nebula →</span></div>
       </a>
       <a class="app-card" href="enter.html" id="card-enter">
         <img src="docs/enter.jpg" alt="A painted lake at sunset between dark pine banks, seen as a depth relief" width="1440" height="900">

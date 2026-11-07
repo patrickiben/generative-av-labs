@@ -124,7 +124,8 @@
         <p class="hint" id="sel-status">The whole sound. Drag across the spectrograms to choose a stretch, and a click clears it.</p>
         ${callout('Only the range is processed, with 50 ms crossfades at the seams, and the rest stays untouched. The numbers are measured on the range itself.')}`, { right: '<button class="pill small" id="sel-full">Whole sound</button>' })}
       ${card('Test sound', `${row('Synthetic test sound', 'Plucked chords and breath noise, cut off above 6 kHz', '<button class="pill" id="src-synth">Load it</button>')}
-        ${callout('Made in this page from a fixed seed, to stand in for a dull recording. It is not a recording of anything.')}`, { right: SYNTH })}
+        ${row('Evaluation material', 'Band-limited synthetic test signals across 5 acoustic textures', '<div class="seg" id="synth-presets" role="group" aria-label="Synthetic test materials"><button data-mat="plucks" class="on">Plucks</button><button data-mat="vocal">Vocal</button><button data-mat="drums">Drums</button><button data-mat="cymbals">Cymbals</button><button data-mat="pad">Brass pad</button></div>')}
+        ${callout('Made in this page from a fixed seed, to stand in for a dull recording across tonal, transient, vocal and diffuse textures. None is a recording of anything.', 'synth-mat-note')}`, { right: SYNTH })}
       ${dcard('What this browser can open', `<ul>
           <li><b>WAV and AIFF</b> are read straight from the file, sample for sample: 8 to 32-bit PCM and 32 or 64-bit float.</li>
           <li><b>FLAC, MP3, M4A and Ogg</b> are decoded by the browser at the rate in the file's own header, so the browser does not resample them. Opus always decodes at 48 kHz, its own rate.</li>
@@ -142,6 +143,7 @@
           ${knob('k-amount', 'Amount of invented detail', 'v-amount', 0, 100, 55, '55 %')}
           ${knob('k-cutoff', 'Protect the original band below', 'v-cutoff', 0, 200, 0, 'Auto · estimated')}
           ${knob('k-ceiling', 'Detail ceiling', 'v-ceiling', 40, 220, 200, '20.0 kHz')}
+          ${row('Synthesis character', 'Balance harmonic peak continuation against diffuse onset air', '<div class="seg" id="forge-char" role="group" aria-label="Synthesis character"><button data-char="balanced" class="on">Balanced</button><button data-char="harmonic">Harmonic</button><button data-char="air">Velvet air</button><button data-char="crystalline">Crystalline</button></div>')}
           <div class="set-row"><div><b>Texture seed</b><span>Repeat a result or try a new fine texture.</span></div><div class="range-in"><input id="forge-seed" type="number" min="0" max="4294967295" step="1" value="17" aria-label="Texture seed"><button class="pill small" id="new-seed">New</button></div></div>
           <p class="hint">Auto estimates the source cutoff; it cannot know what was lost. Drag the guard to override it. The original samples stay underneath the new layer. A finite transition above the guard limits low-band leakage. There is no upsampling: if the source rate leaves no room above the guard, the sound passes through unchanged.</p>
         </div>
@@ -158,7 +160,7 @@
         <div class="knobs" data-for="transient" hidden>${knob('k-tamt', 'Attack amount', 'v-tamt', 10, 100, 60, '60 %')}</div>
         <div class="bar" aria-hidden="true"><i id="proc-bar"></i></div>
         <p class="hint" id="proc-line" role="status">-</p>
-        ${callout('-', 'engine-note')}`, { right: '<button class="pill small" id="eng-reset">Defaults</button>' })}
+        ${callout('-', 'engine-note')}`, { right: '<div class="btn-row" style="margin:0"><button class="pill small" id="proc-cancel" hidden>Cancel</button><button class="pill small" id="eng-reset">Defaults</button></div>' })}
       ${card('Detail map', `<canvas class="viz" id="engine-viz" role="img" aria-label="A picture of what the chosen engine does" style="height:150px"></canvas>
         <p class="hint" id="engine-viz-note">-</p>`, { hid: 'engine-viz-title', right: '<span class="cstate" id="engine-state"></span>' })}
       ${dcard('Compare with classic effects', `<p class="hint">These are reference effects from the original Analog app. Forge is the source-anchored detail workflow.</p><div class="tiles four">${MODES.filter(m => m.id !== 'forge').map(m => `<button class="tile-btn eng" data-mode="${m.id}" aria-pressed="false">${svg(m.id)}<b>${m.name}</b><span class="cap">${m.cap}</span>${m.kind === 'amp' ? AMP : SYN}</button>`).join('')}</div>`, { id: 'comparison-engines' })}`, true),
@@ -172,6 +174,10 @@
       </div>
       ${card('Level, K-weighted', `<canvas class="viz" id="level-viz" role="img" aria-label="The K-weighted level of A, of B as made, and of B as you hear it, with the level playing now" style="height:112px"></canvas>
         <p class="hint" id="level-note">-</p>`, { right: tag('live', 'BS.1770') })}
+      ${card('Evaluation suite', `${row('Switch test material', 'Compare A, B and Δ across tonal, vocal, transient and diffuse textures', '<div class="seg" id="listen-presets" role="group" aria-label="Switch synthetic test material"><button data-mat="plucks" class="on">Plucks</button><button data-mat="vocal">Vocal</button><button data-mat="drums">Drums</button><button data-mat="cymbals">Cymbals</button><button data-mat="pad">Brass pad</button></div>')}
+        ${callout('Plucked chords & breath (6.0 kHz cutoff): listen on Δ for clean string overtones on attacks and gentle air between notes, without low-band bleed.', 'eval-note')}`, { right: SYNTH })}
+      ${card('Blind X check', `${row('Audition X without knowing which side it is', 'X is secretly assigned to A (Source) or B (Result, loudness-matched). Flip between A, B and X, then guess which side X is.', '<div class="btn-row" style="margin:0"><button class="pill small" id="blind-x">Hear X</button><button class="pill small" id="blind-guess-a">X is A</button><button class="pill small" id="blind-guess-b">X is B</button><button class="pill small" id="blind-new">New X</button></div>')}
+        <p class="hint" id="blind-status" role="status">Press Hear X to audition the hidden side, then guess A or B.</p>`, { right: '<span class="tag" id="blind-score">0 / 0</span>' })}
       ${card('Settings', `${row('Match loudness', 'B is scaled by the BS.1770 gain, so brighter is never mistaken for louder', sw('match', 'Match loudness', true))}
         ${row('Loop', 'Repeat the range, or the whole sound', sw('loop', 'Loop', true))}
         <div class="vol">${knob('vol', 'Volume', 'vol-val', 0, 100, 80, '80 %')}</div>`)}
@@ -201,6 +207,9 @@
         <button class="tile-btn" id="export-json">${svg('table')}<b>Numbers</b><span class="cap">Settings and measures</span></button>
       </div>
       <p class="hint" id="keep-status" role="status">Nothing saved yet.</p>
+      ${card('Settings preset', `<div class="btn-row"><button class="pill" id="preset-save">Save preset (.json)</button><button class="pill" id="preset-load">Load preset</button></div>
+        <input type="file" id="preset-file" accept="application/json,.json" hidden>
+        <p class="hint">Saves the current engine, Forge and comparison settings, and time range so you can re-apply the exact chain later.</p>`)}
       ${card('Take it further', `<p class="hint lead">Save the WAV, then open it in <a href="nebula.html">Nebula</a>, whose Form mode turns a sound into a particle cloud, or in <a href="chimera.html">Chimera Synth</a>, which grows a seed from a sound or plays it as a voice.</p>`)}
       ${callout('The WAV is 24-bit at the source\'s own rate: the whole sound, with the range enhanced if you chose one, written sample for sample as the desktop app writes it.')}`),
 

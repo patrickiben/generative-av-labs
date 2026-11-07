@@ -18,12 +18,13 @@ This pass covers Nebula, Enter, Chimera Synth, Detail Forge Analog and Displacer
 
 Detail Forge Analog's existing source-preservation, residual-only audition and guarded-synthesis checks remain part of validation. This pass did not identify a further confirmed Forge defect.
 
-## Next improvements worth doing
+## Completed expansions & QC refinements (2026-11-07)
 
-1. **Editable Displacer projects.** Save both source sounds, blend/effect settings and the cloud view together, then reopen the exact working state. Current WAV/image/point exports capture results, not a resumable project.
-2. **Cancellable fitting and analysis.** Give longer Genopatch/model jobs a visible Cancel control and a clear relationship to the current source or seed. Request ordering prevents stale results; cancellation would also avoid wasting compute and make experimentation easier.
-3. **Portable Chimera sample patches.** Offer an optional bundle that includes raw oscillator samples. Plain patches and links should stay small and continue to disclose external sample dependencies.
-4. **Live Nebula Form audition.** The current sound audition is a snapshot of the cloud/morph when playback starts. Refresh it as the visible blend moves, or expose an explicit Update audition action so sight and sound stay easy to compare.
-5. **A listening evaluation of Forge.** Compare level-matched originals/results on speech, percussion, cymbals and sustained tones, including the added layer alone. Numerical integrity establishes preservation and bounds; it does not establish that invented texture improves every recording.
+1. **Editable Displacer projects (`.displacer.json`).** Saves both source sounds (embedded as 16-bit PCM), blend/effect settings, 3D cloud view, and any grown Genopatch voice together, then reopens the exact working state. Also added 3 built-in sound pairs (`Sung ah × Glass bells`, `Bowed cello × Rain & chimes`, `Throat drone × FM crystal harp`).
+2. **Cancellable fitting, casting, and analysis.** Added visible Cancel/Stop controls across Enter's 3D print casting (`#cast-cancel`), Chimera Synth's Genopatch search (`#gp-cancel`), Detail Forge Analog's worker processing (`#proc-cancel`), and Displacer's Genopatch search (`#gp-cancel`).
+3. **Portable Chimera sample bundles (`.bundle.json`).** Added `#patch-save-bundle` (`serializeBundle()`) to embed mono PCM16 raw oscillator audio directly inside `.bundle.json` files while keeping plain `.patch.json` files and share links compact. Added built-in synthetic test samples (`Throat drone`, `Bell strike`, `Vowel choir`).
+4. **Live Nebula Form audition & WAV export.** Refreshes the playing Form cloud buffer smoothly when the morph slider moves, exposes `#form-update` (`Update audition`) and `#form-wav` (`Save audio (.wav)`), adds built-in picture and sound presets, adds a 3rd 3D topology (`Vortex`), and introduces **Biofeedback Nebula** (`biofeedback-nebula.html`) uniting Nebula's 3D particle/fluid/OT engine with Body Signal Labs' heart-rate and Muse S EEG controls.
+5. **Multi-material listening evaluation in Detail Forge Analog.** Added 5 band-limited synthetic evaluation materials (`Plucks`, `Vocal`, `Drums`, `Cymbals`, `Brass pad`) accessible in both the Source and Listen sheets, with material-specific listening notes alongside level-matched A/B and residual-only (`Hear added layer`) audition, plus `.analog.json` settings preset save/load.
+6. **Enter per-quad relief tearing & PLY export.** Fixed per-vertex relief tearing in `RELIEF_VS` by evaluating `tearMetric` per quad and collapsing torn quads cleanly without diagonal stray triangles, added selectable built-in painted scenes and harmonic sound worlds, and added colored binary `.ply` point-cloud sculpture export alongside watertight `.stl`.
 
-Measured checks and remaining hardware limitations are in [VALIDATION.md](VALIDATION.md). Changes are in the draft pull request; this review does not imply deployment.
+Measured checks and remaining hardware limitations are in [VALIDATION.md](VALIDATION.md).

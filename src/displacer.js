@@ -22,10 +22,11 @@
     fx: { sat: { on: false, drive: 0.4, type: 'soft', mix: 0.85 }, trans: { on: false, attack: 0.35, sustain: 0 }, gran: { on: false, density: 18, size: 80, pitch: 0, spray: 0.3, reverse: 0, mix: 0.7 } },
     gp: { source: 'blend', effort: 'std', best: null, bestLoss: 0, target: null, running: false, keys: false },
     space: { cloud: 'ab', depth: 0.55, size: 1, sway: true, yaw: 0.32, pitch: 0.16, dist: 2.75, phase: 0 },
-    sweep: false, sweepT: 0, perform: false, scope: innerWidth >= 1100,
+    sweep: false, sweepT: 0, bioAuto: false, bioDemo: false, eegBusy: false, perform: false, scope: innerWidth >= 1100,
     tMid: 0.5, tView: 0.5,   // what the stage shows: it follows t through two short glides, so fast scrubbing cannot flash the screen
   };
   const E = DisplacerEngine.createEngine(S);
+  const eeg = typeof createEEGDrive === 'function' ? createEEGDrive() : null;
 
   /* ---------- the worker: sound blends, atoms and sliced OT, off the main thread ---------- */
   let worker = null, seq = 0;
@@ -61,6 +62,123 @@
       const s0 = Math.round(n * 0.5 * rate);
       R.forEach(([r, a], j) => { const w = (2 * Math.PI * f * r) / rate, d = 1.6 + j * 1.4; for (let i = 0; s0 + i < L; i++) out[s0 + i] += a * Math.exp((-d * i) / rate) * Math.sin(w * i) * Math.min(1, i / 40); });
     });
+    return finish(out, rate);
+  }
+  function synthCello() {
+    const rate = 22050, L = rate * 3, out = new Float32Array(L), notes = [98, 110, 130.8, 146.8], body = [[240, 55], [520, 95], [1350, 210]];
+    let ph = 0;
+    for (let i = 0; i < L; i++) {
+      const t = i / rate, k = Math.min(notes.length - 1, Math.floor(t / 0.75)), u = (t % 0.75) / 0.75, prev = notes[Math.max(0, k - 1)];
+      const f0 = (prev + (notes[k] - prev) * Math.min(1, u * 6)) * (1 + 0.008 * Math.sin(2 * Math.PI * 5.6 * t));
+      ph += (2 * Math.PI * f0) / rate;
+      let v = 0;
+      for (let h = 1; h * f0 < 5500; h++) { const f = h * f0; let g = 0.25; body.forEach(([c, b]) => { g += Math.exp(-0.5 * ((f - c) / b) ** 2); }); v += (g / Math.pow(h, 0.92)) * Math.sin(h * ph + 0.15 * h); }
+      out[i] = v * Math.sin(Math.PI * Math.min(1, u * 1.1));
+    }
+    return finish(out, rate);
+  }
+  function synthChimes() {
+    const rate = 22050, L = rate * 3, out = new Float32Array(L), notes = [1046.5, 1318.5, 1568, 1975.5, 1174.7, 1760, 2093, 1396.9];
+    const r = E.mulberry32(707);
+    notes.forEach((f, n) => {
+      const s0 = Math.round(n * 0.36 * rate);
+      [[1, 1], [2.41, 0.48], [4.12, 0.28], [6.55, 0.15]].forEach(([ratio, a], j) => {
+        const w = (2 * Math.PI * f * ratio) / rate, d = 2.2 + j * 1.6;
+        for (let i = 0; s0 + i < L; i++) out[s0 + i] += a * Math.exp((-d * i) / rate) * Math.sin(w * i) * Math.min(1, i / 30);
+      });
+    });
+    for (let i = 0; i < L; i++) out[i] += (r() * 2 - 1) * 0.025 * (0.5 + 0.5 * Math.sin((2 * Math.PI * i) / (rate * 0.9)));
+    return finish(out, rate);
+  }
+  function synthThroat() {
+    const rate = 22050, L = rate * 3, out = new Float32Array(L);
+    for (let i = 0; i < L; i++) {
+      const t = i / rate, f0 = 73.4 * (1 + 0.005 * Math.sin(2 * Math.PI * 3.8 * t));
+      const f2 = 660 + 440 * (0.5 + 0.5 * Math.sin(2 * Math.PI * 0.45 * t));
+      let s = 0;
+      for (let h = 1; h <= 28; h++) {
+        const fh = f0 * h, g1 = Math.exp(-0.5 * ((fh - 290) / 60) ** 2), g2 = 1.45 * Math.exp(-0.5 * ((fh - f2) / 55) ** 2);
+        s += ((0.18 + g1 + g2) / Math.pow(h, 0.65)) * Math.sin(2 * Math.PI * fh * t);
+      }
+      out[i] = Math.tanh(s * 0.65);
+    }
+    return finish(out, rate);
+  }
+  function synthCrystalHarp() {
+    const rate = 22050, L = rate * 3, out = new Float32Array(L), notes = [523.25, 659.25, 783.99, 987.77, 1174.66, 1567.98];
+    notes.forEach((f, n) => {
+      const s0 = Math.round(n * 0.46 * rate);
+      for (let i = 0; i + s0 < L; i++) {
+        const dt = i / rate, mod = 2.4 * Math.exp(-dt * 4.5) * Math.sin(2 * Math.PI * f * 3.01 * dt);
+        out[s0 + i] += Math.exp(-dt * 1.9) * Math.sin(2 * Math.PI * f * dt + mod) * Math.min(1, i / 50);
+      }
+    });
+    return finish(out, rate);
+  }
+  function synthBrass() {
+    const rate = 22050, L = rate * 3, out = new Float32Array(L), chord = [110, 164.81, 220, 277.18];
+    for (let i = 0; i < L; i++) {
+      const t = i / rate, swell = Math.min(1, t / 0.35) * Math.exp(-0.25 * Math.max(0, t - 0.5));
+      const cutoff = 320 + 2600 * Math.pow(swell, 1.5);
+      let s = 0;
+      for (const f0 of chord) {
+        for (let h = 1; h * f0 < 6500; h++) {
+          const fh = h * f0 * (1 + 0.003 * Math.sin(2 * Math.PI * 4.8 * t + h));
+          const roll = 1 / (1 + Math.pow(fh / cutoff, 2.4));
+          s += (roll / Math.pow(h, 0.75)) * Math.sin(2 * Math.PI * fh * t);
+        }
+      }
+      out[i] = Math.tanh(s * swell * 0.32);
+    }
+    return finish(out, rate);
+  }
+  function synthBowedGlass() {
+    const rate = 22050, L = rate * 3, out = new Float32Array(L), modes = [587.33, 880, 1396.91, 2093];
+    for (let i = 0; i < L; i++) {
+      const t = i / rate;
+      let s = 0;
+      modes.forEach((f, idx) => {
+        const env = Math.sin(Math.PI * Math.min(1, Math.max(0, (t - idx * 0.18) / (2.8 - idx * 0.15))));
+        const shimmer = 1 + 0.004 * Math.sin(2 * Math.PI * (5.2 + idx * 0.7) * t);
+        s += Math.max(0, env) * (0.65 / (1 + idx * 0.35)) * (Math.sin(2 * Math.PI * f * shimmer * t) + 0.25 * Math.sin(2 * Math.PI * f * 2.76 * t));
+      });
+      out[i] = s;
+    }
+    return finish(out, rate);
+  }
+  function synthTaiko() {
+    const rate = 22050, L = rate * 3, out = new Float32Array(L), hits = [0, 0.65, 1.3, 1.62, 1.95, 2.4];
+    const r = E.mulberry32(909);
+    hits.forEach((ht, idx) => {
+      const s0 = Math.round(ht * rate), fBase = idx % 2 === 0 ? 68 : 92;
+      for (let i = 0; s0 + i < L; i++) {
+        const dt = i / rate;
+        if (dt > 0.75) break;
+        const f = fBase + 55 * Math.exp(-dt * 28);
+        const body = Math.exp(-dt * 5.2) * (Math.sin(2 * Math.PI * f * dt) + 0.4 * Math.sin(2 * Math.PI * f * 1.58 * dt));
+        const slap = Math.exp(-dt * 42) * (r() * 2 - 1) * 0.35;
+        out[s0 + i] += (body + slap) * (idx === 3 ? 0.65 : 1);
+      }
+    });
+    return finish(out, rate);
+  }
+  function synthChoirCluster() {
+    const rate = 22050, L = rate * 3, out = new Float32Array(L), notes = [196, 246.94, 293.66, 369.99, 440];
+    const formants = [[650, 90], [1180, 120], [2650, 180]];
+    for (let i = 0; i < L; i++) {
+      const t = i / rate;
+      let s = 0;
+      notes.forEach((f0, vIdx) => {
+        const f = f0 * (1 + 0.005 * Math.sin(2 * Math.PI * (4.4 + vIdx * 0.35) * t + vIdx));
+        for (let h = 1; h * f < 6000; h++) {
+          const fh = h * f;
+          let g = 0.08;
+          for (const [fc, bw] of formants) g += Math.exp(-0.5 * ((fh - fc) / bw) ** 2);
+          s += (g / Math.pow(h, 0.85)) * Math.sin(2 * Math.PI * fh * t + h * 0.4 + vIdx);
+        }
+      });
+      out[i] = s * Math.sin(Math.PI * (t / 3));
+    }
     return finish(out, rate);
   }
   function finish(out, rate) {
@@ -99,12 +217,24 @@
         <div class="src-info"><strong>${w} <span id="sheet-name-${w}"></span></strong><p class="why" id="sheet-info-${w}"></p></div>
         <button class="pill" data-pick="${w}">Choose ${w}</button></div>`).join('')}
     </div>
-    <div class="row-actions"><button class="pill" id="swap">Swap A and B</button><button class="pill" id="builtin-audio">Built-in sounds</button></div>
+    <div class="row-actions"><button class="pill" id="swap">Swap A and B</button><select id="builtin-pair" aria-label="Built-in sound pair"><option value="default">Sung ah × Glass bells</option><option value="cello-chimes">Bowed cello × Rain &amp; chimes</option><option value="throat-harp">Throat drone × FM crystal harp</option><option value="brass-glass">Analog brass × Bowed glass</option><option value="taiko-choir">Taiko pulse × Choir cluster</option></select><button class="pill" id="builtin-audio">Built-in sounds</button></div>
     <p class="note">Two sounds. Drop files anywhere on the page. Each one uses its first six seconds. Files are decoded in this browser and never uploaded.</p>
     <div class="field"><span>Method</span><div class="row-actions" id="method-row" style="margin-top:4px">
       <button class="pill" data-m="ot">OT displacement</button><button class="pill" data-m="mp">MP hybrid</button><button class="pill" data-m="xfade">Crossfade</button></div></div>
     <p class="note" id="method-caption"></p>
     <label class="field"><div class="row"><span>From A to B</span><b id="t2-val">0.50</b></div><input type="range" id="t2" min="0" max="1000" value="500"></label>
+    <div class="field" id="disp-bio-field"><span>Headband / biofeedback mod-wheel</span>
+      <div class="row-actions" id="disp-bio-row" style="margin-top:4px;flex-wrap:wrap">
+        <button class="pill" id="disp-bio-toggle" aria-pressed="false" title="Drive the optimal-transport blend position t from Muse S / Athena headband sensors">Bio mod: off</button>
+        <button class="pill" id="disp-bio-demo" aria-pressed="false" title="Run a labeled synthetic EEG + fNIRS + PRV + Stillness preview">Synthetic preview: off</button>
+        <button class="pill on" data-athena="eeg" aria-pressed="true">EEG</button>
+        <button class="pill" data-athena="fnirs" aria-pressed="false">fNIRS</button>
+        <button class="pill" data-athena="prv" aria-pressed="false">PRV</button>
+        <button class="pill" data-athena="stillness" aria-pressed="false">Stillness</button>
+        <button class="pill" data-athena="fusion" aria-pressed="false">Fusion</button>
+      </div>
+      <p class="note" id="disp-bio-status" style="margin-top:6px">Modulate t hands-free with your Muse S / Athena headband (EEG balance, fNIRS optical, optical PRV, IMU stillness, or 4-sensor fusion) or try the synthetic preview.</p>
+    </div>
     <div class="sig-title"><span>Transport scope · the map, drawn</span><span id="scope-means"></span></div>
     <canvas class="sig-canvas" id="scope-big" width="1400" height="440" role="img" aria-label="Distributions of A, B and the blend, with the transport map"></canvas>
     <p class="note">Teal is A, pink is B, violet is the blend. Under transport the violet hump slides from A to B as you move the slider, and its mean slides in a straight line. Under crossfade it is two fixed humps trading height. The thin rays are the map itself.</p>
@@ -130,13 +260,14 @@
   const patchSheet = `
     <div class="row-actions" style="margin-top:0"><div class="seg small" id="gp-src" role="group" aria-label="What to fit"><button data-s="blend" aria-pressed="true">The blend</button><button data-s="A" aria-pressed="false">A</button><button data-s="B" aria-pressed="false">B</button></div>
       <select id="gp-effort" aria-label="Effort"><option value="fast">Fast</option><option value="std" selected>Standard</option><option value="deep">Deep</option></select>
-      <button class="pill primary" id="gp-grow">Grow a patch</button></div>
+      <button class="pill primary" id="gp-grow">Grow a patch</button><button class="pill" id="gp-cancel" hidden>Stop search</button></div>
     <div class="statgrid" style="margin-top:14px">
       <div class="stat"><span class="k">Match</span><span class="v" id="gp-match">-</span><span class="n">spectrum correlation</span></div>
       <div class="stat"><span class="k">Search</span><span class="v" id="gp-stat">idle</span><span class="n" id="gp-cores">-</span></div>
     </div>
     <canvas class="sig-canvas" id="gp-spec" width="1400" height="380" role="img" aria-label="Target spectrum, the grown patch's spectrum and the gap between them"></canvas>
-    <div class="row-actions"><button class="pill" id="gp-play">Play</button><button class="pill" id="gp-ab">Target, then patch</button><button class="pill" id="gp-wav">Save its sound (.wav)</button><button class="pill" id="gp-json">Save the patch (.json)</button></div>
+    <div class="row-actions"><button class="pill" id="gp-play">Play</button><button class="pill" id="gp-ab">Target, then patch</button><button class="pill" id="gp-wav">Save its sound (.wav)</button><button class="pill" id="gp-json">Save the patch (.json)</button><button class="pill" id="gp-load-json">Load patch (.json)</button></div>
+    <input type="file" id="gp-patch-file" accept="application/json,.json" hidden>
     <div class="gpkb" id="gpkb" aria-label="Patch keyboard"></div>
     <p class="note">With this sheet open, keys Z to M and Q to U play the patch, two octaves around its pitch.</p>
     <label class="check"><input type="checkbox" id="gp-keys"> Play the patch from a MIDI keyboard, with middle C as its root</label>
@@ -156,7 +287,9 @@
     <p class="note" id="save-what"></p>
     <div class="row-actions"><button class="pill" id="save-cloud">Cloud (.ply)</button><button class="pill" id="save-splats">Splats (.ply)</button><button class="pill" id="save-atoms">Atoms (.wav)</button></div>
     <p class="note">Cloud .ply is plain points with color, read by TouchDesigner (Point File In), Blender and CloudCompare. Splats .ply is the 3D Gaussian splat format for SuperSplat or PlayCanvas. Both hold the cloud at the slider's position. macOS Preview shows them as flat squares.</p>
-    <div class="row-actions"><button class="pill" id="save-stage">A picture of the stage</button></div>
+    <div class="row-actions"><button class="pill" id="save-project">Save project (.displacer.json)</button><button class="pill" id="load-project">Open project</button><button class="pill" id="save-stage">A picture of the stage</button></div>
+    <input type="file" id="project-file" accept="application/json,.json" hidden>
+    <p class="note">A project file saves both sounds, the blend method, effects, 3D cloud settings, and any grown patch so you can reopen and keep editing later.</p>
     <p class="note" id="save-status" role="status">Files are made here and handed to your browser's downloads. The blend holds the exact result; the stage adds glow.</p>`;
 
   const about = `
@@ -259,7 +392,7 @@ T_t(x) = (1 - t) * x + t * Q_q(F_p(x))
     <div id="spectrogram-guide" class="chrome" hidden>
       <div class="spec-heading"><span>THE BLEND · SPECTROGRAM</span><strong id="spec-pair"></strong></div>
       <div id="spec-frequencies"></div><div id="spec-times"></div>
-      <span class="spec-key">Time → · frequency ↑ · brighter = stronger</span>
+      <span class="spec-key" id="spec-cursor">Time → · frequency ↑ · brighter = stronger</span>
     </div>
     <div id="scope-card" class="chrome" hidden><canvas id="scope" width="560" height="300" role="img" aria-label="Transport scope"></canvas>
       <div class="scope-key"><span class="ka">A</span><span class="kb">B</span><span class="km">blend</span><span id="scope-mini"></span></div></div>
@@ -705,6 +838,14 @@ void main(){
       const dt = dtMs / 1000;
       frameIdx++;
       if (frameIdx % 30 === 0) measureSafe();
+      if (eeg) {
+        eeg.tick(dt, S.bioDemo && S.bioAuto);
+        if (S.bioAuto) {
+          const targetT = clamp(eeg.activeDrive(), 0, 1);
+          setT(S.t + (targetT - S.t) * Math.min(1, dt * 2.4), 'bio');
+        }
+        if (frameIdx % 10 === 0) renderDispBio();
+      }
       if (S.sweep) { S.sweepT += dt; setT(0.5 - 0.5 * Math.cos((S.sweepT / 24) * Math.PI * 2), 'sweep'); }
       // Two 0.1 s glides in a row: a hand's drag feels as it did through one 0.15 s glide, but scrubbing back and forth
       // several times a second moves the atoms about half as far, which keeps the cloud under the flash limit.
@@ -879,7 +1020,9 @@ void main(){
   }
   async function gpGrow() {
     if (S.gp.running) return;
-    S.gp.running = true; $('gp-grow').textContent = 'Growing'; $('gp-grow').disabled = true; $('gp-stat').textContent = 'starting';
+    S.gp.running = true; S.gp.cancel = false;
+    $('gp-grow').textContent = 'Growing'; $('gp-grow').disabled = true; $('gp-stat').textContent = 'starting';
+    const cancelBtn = $('gp-cancel'); if (cancelBtn) cancelBtn.hidden = false;
     try {
       const tg = await gpTarget(); if (!tg) throw new Error('there is no target sound yet');
       const target = E.specDescriptor(tg.data, tg.rate); S.gp.target = target;
@@ -892,10 +1035,13 @@ void main(){
       });
       S.gp.best = res.genome; S.gp.bestLoss = res.loss;
       const bd = E.candSpec(res.genome, target); drawGP(target, bd);
-      $('gp-match').textContent = `${Math.round(Math.max(0, E.specCorr(bd, target)) * 100)}%`; $('gp-stat').textContent = 'grown';
-      shell.toast('Patch grown. Play it from your computer keys, the keyboard below or a MIDI keyboard.');
+      $('gp-match').textContent = `${Math.round(Math.max(0, E.specCorr(bd, target)) * 100)}%`;
+      $('gp-stat').textContent = res.cancelled ? 'stopped' : 'grown';
+      shell.toast(res.cancelled ? 'Search stopped. Kept the best patch found so far.' : 'Patch grown. Play it from your computer keys, the keyboard below or a MIDI keyboard.');
     } catch (err) { $('gp-stat').textContent = 'failed'; shell.toast(`The patch could not grow: ${err.message}`); }
-    S.gp.running = false; $('gp-grow').textContent = 'Grow a patch'; $('gp-grow').disabled = false;
+    S.gp.running = false; S.gp.cancel = false;
+    $('gp-grow').textContent = 'Grow a patch'; $('gp-grow').disabled = false;
+    if (cancelBtn) cancelBtn.hidden = true;
   }
   function gpNote(semis, vel) {
     if (!S.gp.best) { shell.toast('Grow a patch first.'); return; }
@@ -914,6 +1060,25 @@ void main(){
   $('gp-src').addEventListener('click', (e) => { const b = e.target.closest('[data-s]'); if (!b) return; S.gp.source = b.dataset.s; document.querySelectorAll('#gp-src button').forEach((x) => x.setAttribute('aria-pressed', String(x === b))); });
   $('gp-effort').addEventListener('change', (e) => { S.gp.effort = e.target.value; });
   $('gp-grow').addEventListener('click', gpGrow);
+  if ($('gp-cancel')) $('gp-cancel').addEventListener('click', () => { S.gp.cancel = true; });
+  if ($('gp-load-json')) $('gp-load-json').addEventListener('click', () => $('gp-patch-file').click());
+  if ($('gp-patch-file')) $('gp-patch-file').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try {
+      const p = JSON.parse(await f.text());
+      if (!Array.isArray(p.genome) || p.genome.length < 16) throw new Error('not a valid Genopatch file');
+      S.gp.best = new Float64Array(p.genome.slice(0, 16));
+      S.gp.bestLoss = typeof p.loss === 'number' ? p.loss : 0;
+      const tg = await gpTarget();
+      if (tg) {
+        const target = E.specDescriptor(tg.data, tg.rate); S.gp.target = target;
+        const bd = E.candSpec(S.gp.best, target); drawGP(target, bd);
+        $('gp-match').textContent = `${Math.round(Math.max(0, E.specCorr(bd, target)) * 100)}%`;
+      }
+      $('gp-stat').textContent = 'loaded';
+      shell.toast(`Loaded patch from ${f.name}.`);
+    } catch (err) { shell.toast(`Could not load patch: ${err.message}`); }
+  });
   $('gp-play').addEventListener('click', () => gpNote(0));
   $('gp-ab').addEventListener('click', async () => {
     if (!S.gp.best) { shell.toast('Grow a patch first.'); return; }
@@ -1020,6 +1185,129 @@ void main(){
   $('gp-wav').addEventListener('click', () => { if (!S.gp.best) { shell.toast('Grow a patch first.'); return; } const rate = S.audRate || 44100; download(new Blob([E.encodeWav(E.applyFX(E.synthFromPatch(S.gp.best, 2, rate, 0), rate), rate)], { type: 'audio/wav' }), `genopatch_${S.gp.source}.wav`); });
   $('gp-json').addEventListener('click', () => { if (!S.gp.best) { shell.toast('Grow a patch first.'); return; } download(new Blob([JSON.stringify({ v: 1, app: 'displacer-genopatch', source: S.gp.source, loss: S.gp.bestLoss, genome: Array.from(S.gp.best), params: E.gpParams(S.gp.best) }, null, 2)], { type: 'application/json' }), `genopatch_${S.gp.source}.patch.json`); });
 
+  /* ---------- editable Displacer projects (.displacer.json) ---------- */
+  function encodePcm16(f32) {
+    if (!f32 || !f32.length) return '';
+    const pcm = new Int16Array(f32.length);
+    for (let i = 0; i < f32.length; i++) {
+      const s = clamp(f32[i], -1, 1);
+      pcm[i] = s < 0 ? Math.round(s * 32768) : Math.round(s * 32767);
+    }
+    const bytes = new Uint8Array(pcm.buffer);
+    let bin = '';
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    return btoa(bin);
+  }
+  function decodePcm16(b64) {
+    if (!b64) return null;
+    const bin = atob(b64), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const pcm = new Int16Array(bytes.buffer, bytes.byteOffset, bytes.byteLength >> 1);
+    const f32 = new Float32Array(pcm.length);
+    for (let i = 0; i < pcm.length; i++) f32[i] = pcm[i] / 32768;
+    return f32;
+  }
+  function serializeProject() {
+    return {
+      v: 1,
+      app: 'displacer-project',
+      view: S.view,
+      t: S.t,
+      method: S.method,
+      phasemode: S.phasemode,
+      xlaw: S.xlaw,
+      mpMix: S.mpMix,
+      scope: S.scope,
+      fx: JSON.parse(JSON.stringify(S.fx)),
+      space: { cloud: S.space.cloud, depth: S.space.depth, size: S.space.size, sway: S.space.sway, yaw: S.space.yaw, pitch: S.space.pitch, dist: S.space.dist },
+      gp: {
+        source: S.gp.source,
+        effort: S.gp.effort,
+        keys: S.gp.keys,
+        best: S.gp.best ? Array.from(S.gp.best) : null,
+        bestLoss: S.gp.bestLoss,
+      },
+      sources: {
+        A: S.srcA ? { name: S.names.A, built: !!S.built.A, rate: S.srcA.rate, pcm16: encodePcm16(S.srcA.data) } : null,
+        B: S.srcB ? { name: S.names.B, built: !!S.built.B, rate: S.srcB.rate, pcm16: encodePcm16(S.srcB.data) } : null,
+      },
+    };
+  }
+  async function applyProject(p) {
+    if (!p || p.app !== 'displacer-project') throw new Error('not a Displacer project file');
+    stopSweep();
+    if (p.sources && p.sources.A && p.sources.A.pcm16 && p.sources.B && p.sources.B.pcm16) {
+      sourceRequests.A++; sourceRequests.B++;
+      S.srcA = { data: decodePcm16(p.sources.A.pcm16), rate: p.sources.A.rate || 22050 };
+      S.srcB = { data: decodePcm16(p.sources.B.pcm16), rate: p.sources.B.rate || 22050 };
+      S.names.A = p.sources.A.name || 'Sound A';
+      S.names.B = p.sources.B.name || 'Sound B';
+      S.built.A = !!p.sources.A.built;
+      S.built.B = !!p.sources.B.built;
+      E.prepAudio();
+    }
+    if (['ot', 'mp', 'xfade'].includes(p.method)) S.method = p.method;
+    if (['dominant', 'pv'].includes(p.phasemode)) { S.phasemode = p.phasemode; $('phasemode').value = p.phasemode; }
+    if (['ep', 'lin'].includes(p.xlaw)) { S.xlaw = p.xlaw; $('xlaw').value = p.xlaw; }
+    if (typeof p.mpMix === 'number') { S.mpMix = clamp(p.mpMix, 0, 1); const mv = Math.round(S.mpMix * 100); $('mpmix').value = mv; $('mpmix-v').textContent = `${mv}%`; shell.syncRange($('mpmix')); }
+    if (typeof p.scope === 'boolean') { S.scope = p.scope; $('scope-on').checked = p.scope; }
+    if (p.fx) {
+      ['sat', 'trans', 'gran'].forEach((m) => { if (p.fx[m]) Object.assign(S.fx[m], p.fx[m]); $(`fx-${m}-on`).checked = !!S.fx[m].on; });
+      $('fx-sat-type').value = S.fx.sat.type || 'soft';
+      FXK.forEach(([m, k, scale, fmt]) => { const r = $(`fx-${m}-${k}`); r.value = Math.round(S.fx[m][k] * scale); $(`fx-${m}-${k}-v`).textContent = fmt(S.fx[m][k]); shell.syncRange(r); });
+      fxChanged();
+    }
+    if (p.space) {
+      if (['ab', 'A', 'B'].includes(p.space.cloud)) S.space.cloud = p.space.cloud;
+      if (typeof p.space.depth === 'number') { S.space.depth = p.space.depth; $('depth').value = Math.round(S.space.depth * 100); $('depth-v').textContent = S.space.depth.toFixed(2); shell.syncRange($('depth')); }
+      if (typeof p.space.size === 'number') { S.space.size = p.space.size; $('size').value = Math.round(S.space.size * 100); $('size-v').textContent = `${Math.round(S.space.size * 100)}%`; shell.syncRange($('size')); }
+      if (typeof p.space.sway === 'boolean') { S.space.sway = p.space.sway; $('sway').checked = p.space.sway; }
+      if (typeof p.space.yaw === 'number') S.space.yaw = p.space.yaw;
+      if (typeof p.space.pitch === 'number') S.space.pitch = p.space.pitch;
+      if (typeof p.space.dist === 'number') S.space.dist = p.space.dist;
+      syncCloud();
+    }
+    if (p.gp) {
+      if (['blend', 'A', 'B'].includes(p.gp.source)) {
+        S.gp.source = p.gp.source;
+        document.querySelectorAll('#gp-src button').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.s === S.gp.source)));
+      }
+      if (['fast', 'std', 'deep'].includes(p.gp.effort)) { S.gp.effort = p.gp.effort; $('gp-effort').value = p.gp.effort; }
+      if (typeof p.gp.keys === 'boolean') { S.gp.keys = p.gp.keys; $('gp-keys').checked = p.gp.keys; }
+      if (Array.isArray(p.gp.best) && p.gp.best.length >= 16) {
+        S.gp.best = new Float64Array(p.gp.best.slice(0, 16));
+        S.gp.bestLoss = typeof p.gp.bestLoss === 'number' ? p.gp.bestLoss : 0;
+        const tg = await gpTarget();
+        if (tg) {
+          const target = E.specDescriptor(tg.data, tg.rate); S.gp.target = target;
+          const bd = E.candSpec(S.gp.best, target); drawGP(target, bd);
+          $('gp-match').textContent = `${Math.round(Math.max(0, E.specCorr(bd, target)) * 100)}%`;
+        }
+        $('gp-stat').textContent = 'loaded';
+      } else {
+        S.gp.best = null; S.gp.bestLoss = 0; drawGP(null); $('gp-match').textContent = '-'; $('gp-stat').textContent = 'idle';
+      }
+    }
+    if (['flat', 'space'].includes(p.view)) setView(p.view);
+    syncMethod();
+    setT(typeof p.t === 'number' ? p.t : 0.5);
+    S.lastRender = null; S.audDirty = true;
+    sourcesChanged();
+  }
+  if ($('save-project')) $('save-project').addEventListener('click', () => {
+    download(new Blob([JSON.stringify(serializeProject(), null, 2)], { type: 'application/json' }), `${tag()}.displacer.json`);
+  });
+  if ($('load-project')) $('load-project').addEventListener('click', () => $('project-file').click());
+  if ($('project-file')) $('project-file').addEventListener('change', async (e) => {
+    const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+    try {
+      const p = JSON.parse(await f.text());
+      await applyProject(p);
+      shell.toast(`Opened project ${f.name}.`);
+    } catch (err) { shell.toast(`Could not open project: ${err.message}`); }
+  });
+
   /* ---------- controls ---------- */
   shell.bindRange('t', (v) => { stopSweep(); setT(v / 1000); });
   shell.bindRange('t2', (v) => { stopSweep(); setT(v / 1000); });
@@ -1035,14 +1323,79 @@ void main(){
   bindPct('depth', () => S.space.depth * 100, (v) => { S.space.depth = v / 100; }, (v) => (v / 100).toFixed(2));
   bindPct('size', () => S.space.size * 100, (v) => { S.space.size = v / 100; }, (v) => `${Math.round(v)}%`);
   $('sway').addEventListener('change', (e) => { S.space.sway = e.target.checked; });
-  function stopSweep() { if (S.sweep) { S.sweep = false; $('sweep').checked = false; } }
-  $('sweep').addEventListener('change', (e) => { S.sweep = e.target.checked; S.sweepT = Math.acos(clamp(1 - 2 * S.t, -1, 1)) / (2 * Math.PI) * 24; });
+  function stopSweep() {
+    if (S.sweep) { S.sweep = false; $('sweep').checked = false; }
+    if (S.bioAuto) { S.bioAuto = false; renderDispBio(); }
+  }
+  $('sweep').addEventListener('change', (e) => { if (e.target.checked) S.bioAuto = false; S.sweep = e.target.checked; S.sweepT = Math.acos(clamp(1 - 2 * S.t, -1, 1)) / (2 * Math.PI) * 24; renderDispBio(); });
+  if ($('disp-bio-toggle')) $('disp-bio-toggle').addEventListener('click', () => {
+    S.bioAuto = !S.bioAuto;
+    if (S.bioAuto) {
+      if (S.sweep) { S.sweep = false; $('sweep').checked = false; }
+      if (eeg && eeg.state.phase === 'disconnected') S.bioDemo = true;
+    }
+    renderDispBio();
+  });
+  if ($('disp-bio-demo')) $('disp-bio-demo').addEventListener('click', () => {
+    S.bioDemo = !S.bioDemo;
+    if (S.bioDemo && !S.bioAuto) {
+      S.bioAuto = true;
+      if (S.sweep) { S.sweep = false; $('sweep').checked = false; }
+    }
+    renderDispBio();
+  });
+  document.querySelectorAll('[data-athena]').forEach((b) => b.addEventListener('click', () => {
+    if (!eeg) return;
+    eeg.setSensorMode(b.dataset.athena);
+    if (!S.bioAuto) S.bioAuto = true;
+    renderDispBio();
+  }));
+  function renderDispBio() {
+    if (!eeg) return;
+    const q = eeg.state, sm = q.sensorMode || 'eeg', sens = q.sensors || {};
+    if ($('disp-bio-toggle')) {
+      $('disp-bio-toggle').textContent = `Bio mod: ${S.bioAuto ? 'on' : 'off'}`;
+      $('disp-bio-toggle').classList.toggle('on', S.bioAuto);
+      $('disp-bio-toggle').setAttribute('aria-pressed', String(S.bioAuto));
+    }
+    if ($('disp-bio-demo')) {
+      $('disp-bio-demo').textContent = `Synthetic preview: ${S.bioDemo ? 'on' : 'off'}`;
+      $('disp-bio-demo').classList.toggle('on', S.bioDemo);
+      $('disp-bio-demo').setAttribute('aria-pressed', String(S.bioDemo));
+    }
+    document.querySelectorAll('[data-athena]').forEach((b) => {
+      const on = b.dataset.athena === sm;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    if ($('disp-bio-status')) {
+      const se = sens.eeg || {}, sf = sens.fnirs || {}, sp = sens.prv || {}, ss = sens.stillness || {};
+      const parts = [
+        `EEG ${se.score != null ? `${se.score}/100` : '-'}`,
+        `fNIRS ${sf.od != null ? `${sf.od >= 0 ? '+' : ''}${sf.od.toFixed(3)} OD` : '-'}`,
+        `PRV ${sp.rmssd != null ? `${Math.round(sp.rmssd)} ms` : '-'}`,
+        `Stillness ${ss.score != null ? `${ss.score}/100` : '-'}`,
+      ];
+      $('disp-bio-status').textContent = S.bioAuto
+        ? `${S.bioDemo ? 'Synthetic preview' : 'Muse S Athena'} · ${q.activeLabel || sm.toUpperCase()} driving t = ${S.t.toFixed(2)} · ${parts.join(' · ')}`
+        : 'Modulate t hands-free with your Muse S / Athena headband (EEG balance, fNIRS optical, optical PRV, IMU stillness, or 4-sensor fusion) or try the synthetic preview.';
+    }
+  }
   $('swap').addEventListener('click', () => {
     [S.srcA, S.srcB] = [S.srcB, S.srcA]; if (S.srcA && S.srcB) E.prepAudio(); S.lastRender = null; S.audDirty = true;
     const n = S.names, b = S.built; [n.A, n.B] = [n.B, n.A]; [b.A, b.B] = [b.B, b.A];
     sourcesChanged();
   });
-  $('builtin-audio').addEventListener('click', () => loadBuiltIn());
+  function loadBuiltInPair(pair) {
+    sourceRequests.A++; sourceRequests.B++;
+    if (pair === 'cello-chimes') { setAudio('A', synthCello(), 'Bowed cello', true); setAudio('B', synthChimes(), 'Rain & chimes', true); }
+    else if (pair === 'throat-harp') { setAudio('A', synthThroat(), 'Throat drone', true); setAudio('B', synthCrystalHarp(), 'FM crystal harp', true); }
+    else if (pair === 'brass-glass') { setAudio('A', synthBrass(), 'Analog brass', true); setAudio('B', synthBowedGlass(), 'Bowed glass', true); }
+    else if (pair === 'taiko-choir') { setAudio('A', synthTaiko(), 'Taiko pulse', true); setAudio('B', synthChoirCluster(), 'Choir cluster', true); }
+    else { setAudio('A', synthVoice(), 'Sung ah', true); setAudio('B', synthBells(), 'Glass bells', true); }
+  }
+  if ($('builtin-pair')) $('builtin-pair').addEventListener('change', (e) => loadBuiltInPair(e.target.value));
+  $('builtin-audio').addEventListener('click', () => loadBuiltInPair($('builtin-pair') ? $('builtin-pair').value : 'default'));
   ['A', 'B'].forEach((w) => {
     $(`file-${w}`).addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; loadFile(f, w); });
     $(`slot-${w}`).addEventListener('click', () => $(`file-${w}`).click());
@@ -1065,9 +1418,31 @@ void main(){
     else await loadFile(files[0], e.clientX > innerWidth / 2 ? 'B' : 'A');
   });
 
-  /* drag to turn the cloud, scroll to move closer */
+  /* drag to turn the cloud, scroll to move closer; hover in spectrogram view to read time, frequency and pitch */
+  const NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+  function hzToNote(hz) {
+    const m = Math.round(69 + 12 * Math.log2(Math.max(20, hz) / 440));
+    return `${NOTE_NAMES[((m % 12) + 12) % 12]}${Math.floor(m / 12) - 1}`;
+  }
   cv.addEventListener('pointerdown', (e) => { if (S.view !== 'space') return; dragging = { x: e.clientX, y: e.clientY }; cv.setPointerCapture(e.pointerId); moved(); });
-  cv.addEventListener('pointermove', (e) => { if (!dragging) return; S.space.yaw += (e.clientX - dragging.x) * 0.006; S.space.pitch = clamp(S.space.pitch + (e.clientY - dragging.y) * 0.004, -1.2, 1.2); dragging = { x: e.clientX, y: e.clientY }; });
+  cv.addEventListener('pointermove', (e) => {
+    if (S.view === 'flat' && $('spec-cursor') && S.lastRender) {
+      const g = $('spectrogram-guide');
+      if (g && !g.hidden) {
+        const r = g.getBoundingClientRect();
+        const u = clamp((e.clientX - r.left) / Math.max(1, r.width), 0, 1);
+        const v = clamp(1 - (e.clientY - r.top) / Math.max(1, r.height), 0, 1);
+        const dur = S.lastRender.data.length / (S.lastRender.rate || 22050);
+        const hi = (S.lastRender.rate || 22050) / 2;
+        const hz = 40 * Math.pow(hi / 40, v);
+        const hzTxt = hz >= 1000 ? `${(hz / 1000).toFixed(2)} kHz` : `${Math.round(hz)} Hz`;
+        $('spec-cursor').textContent = `Cursor: ${(u * dur).toFixed(2)} s · ${hzTxt} (${hzToNote(hz)}) · brighter = stronger`;
+      }
+    }
+    if (!dragging) return;
+    S.space.yaw += (e.clientX - dragging.x) * 0.006; S.space.pitch = clamp(S.space.pitch + (e.clientY - dragging.y) * 0.004, -1.2, 1.2); dragging = { x: e.clientX, y: e.clientY };
+  });
+  cv.addEventListener('pointerleave', () => { if ($('spec-cursor')) $('spec-cursor').textContent = 'Time → · frequency ↑ · brighter = stronger'; });
   cv.addEventListener('pointerup', () => { dragging = null; });
   cv.addEventListener('pointercancel', () => { dragging = null; });
   cv.addEventListener('wheel', (e) => { if (S.view !== 'space') return; e.preventDefault(); S.space.dist = clamp(S.space.dist * Math.exp(e.deltaY * 0.0009), 1.4, 7); }, { passive: false });
@@ -1140,7 +1515,7 @@ void main(){
   }
 
   window.__app = {
-    S, kit, E, recordLuma, setT, setView, setMethod, loadFile, buildSpace,
+    S, kit, E, recordLuma, setT, setView, setMethod, loadFile, buildSpace, serializeProject, applyProject, loadBuiltInPair,
     get spaceN() { return spaceN; }, get spaceReady() { return spaceKey === wantKey() && !spaceBusy; }, get flat() { return { w: flatW, h: flatH, spec: flatSpec, ready: flatReady }; },
     get busy() { return !$('busy').hidden; }, get safe() { return safe; }, get playing() { return playSrc ? playKind : ''; }, currentRender,
     get audition() { return { playing: !!playSrc, pending: auditionPending, t: playBlendT, key: playKey, position: playSrc && AC ? AC.currentTime - playStart : 0, duration: playDur }; },

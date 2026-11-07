@@ -30,6 +30,7 @@
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-weight: 400; overflow: hidden; -webkit-font-smoothing: antialiased; }
 button, input, select { font: inherit; }
@@ -78,9 +79,15 @@ body.playing .intro { opacity: 0; transform: translateY(-10px); }
 .gauge.hero .v { font-size: clamp(44px, 5vw, 66px); font-weight: 200; letter-spacing: -2px; line-height: 1; }
 .gauge.hero .v small { display: none; }
 
-#hit-strip { display: flex; gap: 12px; align-items: center; justify-content: center; }
-.hitdot { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 9px; letter-spacing: 1.4px; color: var(--muted); }
+#hit-strip { display: flex; gap: 10px; align-items: center; justify-content: center; }
+.hitdot { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 9px; letter-spacing: 1.4px; color: var(--muted); padding: 4px 7px; border-radius: 10px; border: 1px solid transparent; transition: background 0.18s, border-color 0.18s, color 0.18s; }
+.hitdot:hover { background: var(--soft); border-color: var(--line); color: var(--ink); }
 .hitdot i { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); opacity: 0.16; box-shadow: 0 0 calc(var(--l, 0) * 18px) var(--accent); }
+.stage-bar { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; padding: 6px 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--glass); backdrop-filter: blur(14px); box-shadow: 0 8px 30px var(--shadow); }
+.stage-bar .pill { padding: 6px 13px; font-size: 11px; }
+.stage-bar .stage-slider { display: flex; align-items: center; gap: 10px; font-size: 11px; color: var(--muted); }
+.stage-bar .stage-slider input[type="range"] { width: clamp(120px, 18vw, 200px); }
+.stage-bar .stage-slider b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
 
 .badges { display: flex; flex-wrap: wrap; gap: 7px; justify-content: center; align-items: center; }
 .source-badge, .chip { display: inline-flex; gap: 8px; align-items: center; font-size: 11px; color: var(--ink); border: 1px solid var(--line); border-radius: 20px; background: rgba(20, 24, 40, 0.68); padding: 8px 12px; backdrop-filter: blur(8px); }
@@ -201,7 +208,7 @@ table.maptable th { color: var(--ink); font-weight: 500; white-space: nowrap; }
 @media (max-height: 640px) {
   .intro { display: none; }
   .truth { display: none; }
-  #hit-strip { display: none; }
+  #hit-strip, .stage-bar { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: 0.001s !important; transition-duration: 0.001s !important; }
@@ -264,7 +271,7 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
 <div class="site-wrap">
   <header class="site-head">
     <a class="site-brand" href="./"><svg viewBox="0 0 24 28" aria-hidden="true"><circle cx="12" cy="14" r="9"/><circle cx="12" cy="14" r="3"/></svg>Generative AV Labs</a>
-    <nav class="site-nav" aria-label="Pages"><a href="nebula.html">Nebula</a><a href="chimera.html">Chimera Synth</a><a href="analog.html">Analog</a><a href="displacer.html">Displacer</a></nav>
+    <nav class="site-nav" aria-label="Pages"><a href="nebula.html">Nebula</a><a href="biofeedback-nebula.html">Biofeedback Nebula</a><a href="enter.html">Enter</a><a href="chimera.html">Chimera Synth</a><a href="analog.html">Analog</a><a href="displacer.html">Displacer</a></nav>
   </header>
   <main class="guide">
     <div class="hero-title">
@@ -341,6 +348,26 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
       </table>
     </section>
 
+    <section id="biofeedback-nebula">
+      <h2>Biofeedback Nebula</h2>
+      <p>Biofeedback Nebula joins Nebula's 3D particle and fluid engine with the body-signal and EEG controls from Body Signal Labs. Heart rate and drum hits are measured when a sensor reports them; arousal, EEG control, and breathing clarity are personal heuristics and game proxies, never medical measurements.</p>
+      <ul>
+        <li><b>Watch.</b> Autonomic Telemetry's <code>multivariate-1</code> engine scores your shift from a 120-second personal reference. A higher inferred index warms and widens the nebula gas, shifts the core toward crimson-amber, and sends radial waves on each beat.</li>
+        <li><b>Field.</b> Choose <b>Drums</b>, <b>Brainwaves</b>, or <b>Heart</b> as the field driver across the Galaxy, River, and Vortex topologies. Brainwaves uses the 0–100 Muse S EEG balance game control (or synthetic demo preview) to gather scattered particles into a luminous spiral.</li>
+        <li><b>Train.</b> Follow the expanding and contracting breathing ring (4.5–7 breaths/min). Heart-rate swing at the pacer's frequency increases Clarity (0–1), gathering turbulent dust into a coherent harmonic torus and blooming into a supernova dawn after 60 seconds above target.</li>
+        <li><b>Form.</b> Morphs between a picture and a sound by 6D sliced optimal transport, with live audition, WAV export, and optional Bio morph driven by EEG balance or arousal.</li>
+      </ul>
+    </section>
+
+    <section id="enter">
+      <h2>Enter</h2>
+      <p>Enter lets you walk into a 2D picture as a 3D depth relief, fly through a sound's time-frequency atoms, and cast those atoms into a printable 3D sculpture (STL or PLY).</p>
+      <ul>
+        <li><b>Picture world.</b> Choose a built-in painted scene with an exact depth map, or load your own picture. For your own picture, depth is a learned monocular estimate (Depth Anything V2 Small) downloaded only when you ask, and labeled on screen.</li>
+        <li><b>Sound world &amp; Print.</b> Choose a built-in harmonic world or load an audio file to fly through its Gabor atoms and cast them into a watertight STL mesh or colored PLY cloud.</li>
+      </ul>
+    </section>
+
     <section id="chimera">
       <h2>Chimera Synth</h2>
       <p>Chimera is the synth here. A MIDI keyboard or the computer keys play it, and it never listens to an audio input. Tested in Chrome on a Mac with a virtual MIDI port. <b>No real keyboard has played it yet.</b></p>
@@ -348,7 +375,7 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
         <li><b>Connecting.</b> A USB MIDI keyboard plugs straight in, and a keyboard with a 5-pin MIDI OUT needs a USB-MIDI interface. The sound plays through the computer's output.</li>
         <li><b>Notes.</b> Middle C is the root, and every channel plays the same way. From the computer, Z to M and Q to U play two octaves.</li>
         <li><b>Status.</b> Sound reads off, ready, playing, or paused by the browser, which starts sound only after a click. MIDI reads not connected, waiting, permission denied, no device, open with no notes, live, or disconnected. The demo says the page is playing itself.</li>
-        <li><b>Files.</b> Samples are decoded in the browser. Chrome and Firefox open WAV, MP3, M4A, FLAC and Ogg but not AIFF or CAF, so convert those first. Safari opens all of them, but has no Web MIDI.</li>
+        <li><b>Patches &amp; bundles.</b> Plain <code>.patch.json</code> files and share links stay compact and store settings plus the 20-gene voice. When using a raw sample oscillator, <b>Save sample bundle (.bundle.json)</b> embeds the mono PCM16 audio directly in the file so the patch reopens self-contained anywhere. Built-in synthetic samples (Throat drone, Bell strike, Vowel choir) are also included for testing.</li>
       </ul>
     </section>
 
@@ -356,7 +383,7 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
       <h2>Detail Forge Analog</h2>
       <p>Analog adds plausible fine texture while keeping the source as an anchor. Forge analyzes local peaks, noise texture and attacks, builds a separate high-frequency layer and guards the original band before adding it. This is procedural synthesis, not recovered audio or a neural model. Floor, Exciter, Transient and SBR remain comparison controls. <b>No outside listener has judged the new synthesis yet.</b></p>
       <ul>
-        <li><b>Files.</b> WAV and AIFF are read straight from the file. FLAC, MP3, M4A and Ogg are decoded by the browser at the rate in the file's own header, so it does not resample them, and the Source sheet says which happened. Up to 10 minutes and two channels.</li>
+        <li><b>Files &amp; evaluation suite.</b> WAV and AIFF are read straight from the file. FLAC, MP3, M4A and Ogg are decoded by the browser at the rate in the file's own header, so it does not resample them, and the Source sheet says which happened. Up to 10 minutes and two channels. Five built-in band-limited test materials (Plucks, Vocal, Drums, Cymbals, Brass pad) let you evaluate how Forge handles sustained formants, transients, and metallic shimmer.</li>
         <li><b>Forge.</b> Choose the detail amount, protected-band cutoff, upper synthesis limit and texture seed. Auto cutoff is an estimate; you can override it. The guard has a finite transition above that cutoff. A file with no room below its Nyquist frequency passes through unchanged; this version does not increase its sample rate.</li>
         <li><b>Range.</b> Drag across the spectrograms to enhance one stretch, with 50 ms crossfades at the seams. The numbers are measured on that stretch, which fixes a window the desktop app measured in the wrong place.</li>
         <li><b>Listening.</b> A and B play from the same instant, and Space flips between them. B uses a BS.1770-style loudness match for comparison. <b>Hear added layer</b> or D auditions result minus source at its actual level, without loudness matching that difference.</li>
@@ -367,7 +394,8 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
       <h2>Displacer</h2>
       <p>Displacer blends two sounds from files, so it needs no kit and listens to no input. Tested in Chrome on a Mac, with MIDI fed through the page's own parser. <b>No real controller has driven it yet.</b></p>
       <ul>
-        <li><b>Audio first.</b> The opening view is a spectrogram with time and frequency axes. Atoms · 3D opens the optional cloud. Hear plays the blend; moving the slider or mod wheel replaces it at the same playback position when the new render completes. The visual sweep holds still when you request a fixed blend; Save a sweep makes the audible journey.</li>
+        <li><b>Audio first.</b> The opening view is a spectrogram with time and frequency axes, with three built-in sound pairs (Sung ah × Glass bells, Bowed cello × Rain &amp; chimes, Throat drone × FM crystal harp). Atoms · 3D opens the optional cloud. Hear plays the blend; moving the slider or mod wheel replaces it at the same playback position when the new render completes. The visual sweep holds still when you request a fixed blend; Save a sweep makes the audible journey.</li>
+        <li><b>Projects &amp; exports.</b> Save the blend or sweep as WAV, export the 3D cloud or Gaussian splats as binary PLY, or save an editable <code>.displacer.json</code> project that embeds both source sounds, blend settings, effects, 3D cloud view, and any grown Genopatch voice.</li>
         <li><b>The mod wheel.</b> CC1 moves the slider from A at 0 to B at 127, as in the desktop app. Any MIDI controller with a mod wheel works.</li>
         <li><b>A MIDI keyboard.</b> With a patch grown and its box ticked, the keyboard plays the patch, with middle C as its root.</li>
         <li><b>Files.</b> Decoded in the browser and never uploaded. Chrome opens WAV, MP3, M4A, FLAC and Ogg, and the page reads AIFF itself. CAF is refused with its name. A sound uses its first six seconds.</li>

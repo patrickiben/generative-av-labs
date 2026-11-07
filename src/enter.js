@@ -25,7 +25,7 @@
     print: 'A stated mapping with no model: time along the base, pitch up, loudness as size. Grow World and Make 3D Object stay in the desktop app.',
   };
   const S = {
-    world: 'sound', fov: 70, look: 0.22, inv: false, free: false, drift: true, react: 1, glow: 1, depth: 42, tear: 145, lastInput: -1e9, moved: false,
+    world: 'sound', fov: 70, look: 0.22, inv: false, free: false, drift: true, flight: 'drift', reliefStyle: 0, react: 1, glow: 1, depth: 42, tear: 145, lastInput: -1e9, moved: false,
     seg: 512, scale: 1, cast: { dist: 3.9, ry: 0.6, rx: -0.12, auto: true },
   };
   const cams = {
@@ -143,29 +143,58 @@ const ivec2 C[6]=ivec2[6](ivec2(0,0),ivec2(1,0),ivec2(0,1),ivec2(1,0),ivec2(1,1)
 float dAt(ivec2 p){p=clamp(p,ivec2(0),ivec2(uDsize)-1);return texelFetch(uDmap,p,0).r;}
 float dBil(vec2 uv){vec2 c=uv*uDsize-.5;ivec2 i0=ivec2(floor(c));vec2 f=fract(c);return mix(mix(dAt(i0),dAt(i0+ivec2(1,0)),f.x),mix(dAt(i0+ivec2(0,1)),dAt(i0+ivec2(1,1)),f.x),f.y);}
 void main(){
-  int q=gl_VertexID/6,c=gl_VertexID%6;vec2 g=vec2(ivec2(q%uSeg,q/uSeg)+C[c])/float(uSeg);
+  int q=gl_VertexID/6,c=gl_VertexID%6;
+  ivec2 qCell=ivec2(q%uSeg,q/uSeg);
+  vec2 g=vec2(qCell+C[c])/float(uSeg);
   vec2 duv=vec2(g.x,1.-g.y);vUv=duv;
   float d=dBil(duv);vD=d;
   vec2 px=1./uDsize;
   float gx=abs(dBil(duv+vec2(px.x*2.,0.))-dBil(duv-vec2(px.x*2.,0.)));
   float gy=abs(dBil(duv+vec2(0.,px.y*2.))-dBil(duv-vec2(0.,px.y*2.)));
-  vEdge=clamp((gx+gy)*6.,0.,1.);
+  // Evaluate tear per-quad so all 6 vertices of a torn quad collapse together instead of stretching across the screen.
+  vec2 qCenter=(vec2(qCell)+.5)/float(uSeg);
+  vec2 cuv=vec2(qCenter.x,1.-qCenter.y);
+  float cgx=abs(dBil(cuv+vec2(px.x*2.,0.))-dBil(cuv-vec2(px.x*2.,0.)));
+  float cgy=abs(dBil(cuv+vec2(0.,px.y*2.))-dBil(cuv-vec2(0.,px.y*2.)));
+  float qs=1./float(uSeg);
+  float d00=dBil(vec2(qCenter.x-qs*.5,1.-(qCenter.y-qs*.5)));
+  float d10=dBil(vec2(qCenter.x+qs*.5,1.-(qCenter.y-qs*.5)));
+  float d01=dBil(vec2(qCenter.x-qs*.5,1.-(qCenter.y+qs*.5)));
+  float d11=dBil(vec2(qCenter.x+qs*.5,1.-(qCenter.y+qs*.5)));
+  float qSpan=max(max(d00,d10),max(d01,d11))-min(min(d00,d10),min(d01,d11));
+  float tearMetric=max(cgx+cgy,qSpan*1.35);
+  vEdge=clamp(max(gx+gy,tearMetric)*6.,0.,1.);
   float dn=max(d,.02),Z=1./dn,Znorm=(Z-1.)/49.;
   float D=uCamZ+Znorm*uDscale*uCamZ*.75,k=D/uCamZ;
   vec3 p=vec3((g-.5)*uPlane*k,-(D-uCamZ));
   gl_Position=uVP*vec4(p,1.);
-  if(uTearT>0.&&(gx+gy)>uTearT)gl_Position=vec4(2.,2.,2.,1.);
+  if(uTearT>0.&&tearMetric>uTearT)gl_Position=vec4(2.,2.,2.,1.);
 }`;
   const RELIEF_FS = `#version 300 es
 precision highp float;
 precision highp sampler2D;
-uniform sampler2D uMap,uSpec;uniform vec4 uW[8];uniform float uT,uHat,uHatOpen,uRide,uCrash,uSpecK;
+uniform sampler2D uMap,uSpec;uniform vec4 uW[8];uniform float uT,uHat,uHatOpen,uRide,uCrash,uSpecK,uStyle;
 in vec2 vUv;in float vD;in float vEdge;out vec4 o;
 ${HSL}
 float h12(vec2 p){vec3 q=fract(vec3(p.xyx)*.1031);q+=dot(q,q.yzx+33.33);return fract((q.x+q.y)*q.z);}
 void main(){
   vec3 c=texture(uMap,vUv).rgb;
   c=mix(c,c*.55,vEdge*.35);
+  if(uStyle>.5&&uStyle<1.5){
+    float cont=smoothstep(.045,.0,abs(fract(vD*22.)-.5)-.43);
+    float maj=smoothstep(.055,.0,abs(fract(vD*5.5)-.5)-.44);
+    c=mix(c*.85,vec3(.28,.88,.76),cont*.55+maj*.45);
+  }else if(uStyle>=1.5&&uStyle<2.5){
+    float gx=dFdx(vD)*140.,gy=dFdy(vD)*140.;
+    vec3 nrm=normalize(vec3(-gx,-gy,1.));
+    float sun=clamp(dot(nrm,normalize(vec3(.65,.45,.6))),0.,1.);
+    c=mix(c*vec3(.55,.48,.68),c*vec3(1.35,1.02,.72)+vec3(.18,.09,.02),sun);
+  }else if(uStyle>=2.5){
+    float luma=dot(c,vec3(.2126,.7152,.0722));
+    float grid=max(smoothstep(.035,.0,abs(fract(vUv.x*48.)-.5)-.44),smoothstep(.035,.0,abs(fract(vUv.y*32.)-.5)-.44));
+    float cont=smoothstep(.04,.0,abs(fract(vD*18.)-.5)-.43);
+    c=mix(vec3(.03,.08,.22)+vec3(.1,.28,.55)*luma,vec3(.45,.86,1.),max(grid*.55,cont*.75));
+  }
   vec2 bd=min(vUv,1.-vUv);c*=smoothstep(0.,.012,min(bd.x,bd.y));
   float band=1.-vD,lv=texture(uSpec,vec2(band,.5)).r;
   c*=1.+lv*lv*uSpecK*1.5+uCrash*.2;
@@ -261,6 +290,7 @@ void main(){
         <button class="pill" id="snd-builtin">Use the built-in sound</button>
         <input type="file" id="snd-file" class="visually-hidden" accept="audio/*" tabindex="-1" aria-hidden="true">
       </div>
+      <label class="field" style="margin-top:9px">Built-in sound world<select id="snd-preset"><option value="pulse">Rhythmic harmonic pulse</option><option value="choir">Cathedral harmonic choir</option><option value="subterranean">Subterranean pulse &amp; crystal rain</option></select></label>
       <p class="world-readout" id="snd-status" role="status"></p>
       <label class="check" style="margin:0"><input type="checkbox" id="snd-hear"> Hear the field. An artistic mix of this sound, placed in space. It is not where the sound came from.</label>
       <p class="note">Walking along X walks through the sound, from its start to its end. The floor is the same sound laid out as terrain.</p>
@@ -271,6 +301,10 @@ void main(){
         <button class="pill" id="pic-sample">Estimate depth on the painting</button>
         <button class="pill" id="pic-painted" hidden>Back to the painted scene</button>
         <input type="file" id="pic-file" class="visually-hidden" accept="image/*" tabindex="-1" aria-hidden="true">
+      </div>
+      <div class="controls-grid" style="padding:9px 0 0">
+        <label class="field">Built-in painted scene<select id="pic-preset"><option value="lake">Sunset pine lake</option><option value="canyon">Red rock canyon arches</option><option value="cathedral">Starlit alpine cathedral</option></select></label>
+        <label class="field">Relief surface style<select id="pic-style"><option value="0">True color</option><option value="1">Topographic contours</option><option value="2">Golden hour relief</option><option value="3">Blueprint grid</option></select></label>
       </div>
       <p class="world-readout" id="pic-status" role="status"></p>
       <div class="model-card" id="model-card" data-tone="idle">
@@ -296,7 +330,10 @@ void main(){
       <label class="field" style="margin-top:9px">Detail<select id="cast-detail"><option value="64">Coarse, grid of 64</option><option value="96" selected>Medium, grid of 96</option><option value="128">Fine, grid of 128</option></select></label>
       <div class="row-actions">
         <button class="pill primary" id="cast-go">Cast this sound</button>
+        <button class="pill" id="cast-cancel" hidden>Cancel</button>
         <button class="pill" id="cast-stl" disabled>Download STL</button>
+        <button class="pill" id="cast-ply" disabled>Download PLY</button>
+        <button class="pill" id="cast-obj" disabled>Download OBJ</button>
         <button class="pill" id="cast-hear" disabled>Hear the sculpture</button>
       </div>
       <p class="world-readout" id="cast-status" role="status">Nothing cast yet.</p>
@@ -307,6 +344,7 @@ void main(){
       <label class="field"><div class="row"><span>Look speed</span><b id="k-look-v"></b></div><input type="range" id="k-look" min="4" max="180"></label>
       <label class="field"><div class="row"><span>Field of view</span><b id="k-fov-v"></b></div><input type="range" id="k-fov" min="45" max="100"></label>
       <label class="field"><div class="row"><span>Glow</span><b id="k-glow-v"></b></div><input type="range" id="k-glow" min="0" max="200"></label>
+      <label class="field">Camera flight path<select id="k-flight"><option value="drift">Manual + idle drift</option><option value="orbit">Cinema orbit</option><option value="sweep">Figure-8 sweep</option></select></label>
       <label class="check" style="margin:0"><input type="checkbox" id="k-inv"> Invert vertical look</label>
       <label class="check" style="margin:0"><input type="checkbox" id="k-free"> Free look: push the cursor from the center to turn</label>
       <label class="check" style="margin:0"><input type="checkbox" id="k-drift" checked> Drift when nobody is steering</label>
@@ -451,12 +489,27 @@ void main(){
     const l = Math.hypot(...acc); if (l > 0) for (let i = 0; i < 3; i++) acc[i] = (acc[i] / l) * sp;
     const k = 1 - Math.exp(-dt * 8);
     for (let i = 0; i < 3; i++) { c.vel[i] += (acc[i] - c.vel[i]) * k; c.pos[i] += c.vel[i] * dt; }
-    // Nobody steering: a slow drift shows the depth and keeps the world alive.
-    if (S.drift && !RM.matches && now - S.lastInput > 14000 && !$('world-sheet').open) {
-      const t = now / 1000, q = 1 - Math.exp(-dt * 0.5);
+    // Nobody steering (or an active camera flight mode is chosen): a slow drift shows the depth and keeps the world alive.
+    const activeFlight = S.flight === 'orbit' || S.flight === 'sweep';
+    if ((activeFlight || (S.drift && now - S.lastInput > 14000)) && !RM.matches && !dragging && l === 0 && !$('world-sheet').open) {
+      const t = now / 1000, q = 1 - Math.exp(-dt * (activeFlight ? 1.4 : 0.5));
       let g;
-      if (S.world === 'sound') g = { p: [-FS * 0.82 + Math.sin(t * 0.06) * FS * 0.3, -3 + Math.sin(t * 0.13) * 5, FS * 0.28 + Math.sin(t * 0.09) * 6], yaw: -Math.PI / 2 + Math.sin(t * 0.07) * 0.24, pitch: -0.1 + Math.sin(t * 0.11) * 0.07 };
-      else { const camZ = P ? P.camZ : 8.5, x = Math.sin(t * 0.17) * (P ? P.planeW : 12) * 0.045, y = Math.sin(t * 0.13) * (P ? P.planeH : 10) * 0.03, z = camZ * (0.84 + 0.1 * Math.sin(t * 0.11)); g = { p: [x, y, z], yaw: Math.atan2(x, z) * 0.75, pitch: -Math.atan2(y, z) * 0.75 }; }
+      if (S.world === 'sound') {
+        if (S.flight === 'orbit') {
+          const ang = t * 0.14;
+          g = { p: [Math.cos(ang) * FS * 0.95, -2 + Math.sin(t * 0.22) * 4.5, Math.sin(ang) * FS * 0.72], yaw: Math.atan2(-Math.cos(ang), -Math.sin(ang)), pitch: -0.08 + Math.sin(t * 0.18) * 0.08 };
+        } else if (S.flight === 'sweep') {
+          g = { p: [Math.sin(t * 0.14) * FS * 0.9, -2.5 + Math.cos(t * 0.28) * 5.2, Math.sin(t * 0.28) * FS * 0.45], yaw: -Math.PI / 2 + Math.cos(t * 0.14) * 0.42, pitch: -0.08 + Math.sin(t * 0.2) * 0.1 };
+        } else {
+          g = { p: [-FS * 0.82 + Math.sin(t * 0.06) * FS * 0.3, -3 + Math.sin(t * 0.13) * 5, FS * 0.28 + Math.sin(t * 0.09) * 6], yaw: -Math.PI / 2 + Math.sin(t * 0.07) * 0.24, pitch: -0.1 + Math.sin(t * 0.11) * 0.07 };
+        }
+      } else {
+        const camZ = P ? P.camZ : 8.5, spMul = S.flight === 'orbit' ? 1.85 : S.flight === 'sweep' ? 2.2 : 1;
+        const x = Math.sin(t * 0.17 * spMul) * (P ? P.planeW : 12) * (activeFlight ? 0.09 : 0.045);
+        const y = Math.sin(t * (S.flight === 'sweep' ? 0.34 : 0.13) * spMul) * (P ? P.planeH : 10) * (activeFlight ? 0.055 : 0.03);
+        const z = camZ * (0.84 + 0.1 * Math.sin(t * 0.11 * spMul));
+        g = { p: [x, y, z], yaw: Math.atan2(x, z) * 0.75, pitch: -Math.atan2(y, z) * 0.75 };
+      }
       for (let i = 0; i < 3; i++) c.pos[i] += (g.p[i] - c.pos[i]) * q;
       c.yaw += (g.yaw - c.yaw) * q; c.pitch += (g.pitch - c.pitch) * q;
     }
@@ -494,7 +547,34 @@ void main(){
     gasTarget.l = clamp((band[0] / n) * 1.6, 0.05, 0.6); gasTarget.m = clamp((band[1] / n) * 1.6, 0.05, 0.6); gasTarget.h = clamp((band[2] / n) * 1.6, 0.05, 0.6); gasTarget.v = (gasTarget.l + gasTarget.m + gasTarget.h) / 3;
     if (G && gl && tHist) { G.bindTex(0, tHist); gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1); gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, HIST_W, BANDS, gl.RG, gl.UNSIGNED_BYTE, fieldHist); }
   }
-  function builtInSound() {
+  function builtInSound(kind) {
+    const k = kind || (typeof S === 'object' && S.sndPreset) || 'pulse';
+    if (k === 'choir') {
+      const r = mulberry(8484), atoms = [], dur = 12;
+      const chords = [[110, 164.81, 220, 277.18, 329.63, 440, 659.25], [98, 146.83, 196, 246.94, 293.66, 392, 587.33], [130.81, 196, 261.63, 329.63, 392, 523.25, 783.99], [110, 164.81, 246.94, 329.63, 440, 659.25, 987.77]];
+      for (let s = 0; s < 96; s++) {
+        const t = (s / 96) * dur, ch = chords[Math.floor(s / 24) % chords.length];
+        ch.forEach((f, i) => {
+          for (let h = 1; h <= 3; h++) {
+            if (r() < 0.72) atoms.push({ time: clamp(t + (r() - 0.5) * 0.14, 0, dur - 0.01), f: f * h * (1 + (r() - 0.5) * 0.004), amp: (0.62 - i * 0.05) * (0.75 / h) * (0.65 + 0.35 * r()), ton: 0.94 });
+          }
+        });
+      }
+      return { atoms, dur, rate: 44100 };
+    }
+    if (k === 'subterranean') {
+      const r = mulberry(5151), atoms = [], dur = 12;
+      for (let i = 0; i < 420; i++) {
+        const t = (i / 420) * dur, sub = i % 3 !== 0;
+        if (sub) {
+          const f = (55 + 27.5 * Math.sin(t * 0.8)) * [1, 1.5, 2, 3][i % 4];
+          atoms.push({ time: clamp(t + (r() - 0.5) * 0.08, 0, dur - 0.01), f, amp: 0.52 + 0.44 * r(), ton: 0.88 });
+        } else {
+          atoms.push({ time: r() * dur, f: 2400 + Math.pow(r(), 1.4) * 9200, amp: 0.25 + 0.55 * r(), ton: 0.48 + 0.4 * r() });
+        }
+      }
+      return { atoms, dur, rate: 44100 };
+    }
     const r = mulberry(4242), atoms = [], dur = 12, bpm = 104, st = 60 / bpm / 4;
     for (let s = 0; s * st < dur; s++) {
       const t = s * st, b = s % 16;
@@ -609,22 +689,38 @@ void main(){
   $('snd-hear').addEventListener('change', rebuildVoices);
 
   /* ---------- the picture world's data ---------- */
+  if ($('snd-preset')) $('snd-preset').addEventListener('change', (e) => {
+    soundSeq++; S.sndPreset = e.target.value;
+    const b = builtInSound(S.sndPreset), label = `Built-in sound (${e.target.options[e.target.selectedIndex].text.toLowerCase()}): a synthesized pattern, not your audio`;
+    setField(b.atoms, b.dur, b.rate, label, false); updateSource();
+    if (S.world === 'print' && $('cast-source').value === 'builtin') castNow();
+  });
   let P = null, tMap = null, tDepth = null;
   const depth = EnterDepth.create(onModelState);
   let pending = null, pictureSeq = 0;
-  function paintScene(W, H) {
+  function paintScene(W, H, kind) {
+    const sceneKind = kind || S.picPreset || 'lake';
     const c = document.createElement('canvas'); c.width = W; c.height = H;
     const g = c.getContext('2d'), img = g.createImageData(W, H), px = img.data, dep = new Float32Array(W * H);
-    const r = mulberry(70417), tbl = new Float32Array(2048); for (let i = 0; i < 2048; i++) tbl[i] = r();
+    const seed0 = sceneKind === 'canyon' ? 91213 : sceneKind === 'cathedral' ? 31415 : 70417;
+    const r = mulberry(seed0), tbl = new Float32Array(2048); for (let i = 0; i < 2048; i++) tbl[i] = r();
     const n1 = (x) => { const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f); return tbl[i & 2047] * (1 - u) + tbl[(i + 1) & 2047] * u; };
     const fbm = (x, oct) => { let a = 0.5, s = 0; for (let o = 0; o < oct; o++) { s += a * n1(x); x = x * 2.03 + 17.3; a *= 0.5; } return s; };
-    const ramp = (t) => { const S0 = [[0, 12, 16, 48], [0.33, 40, 31, 98], [0.56, 120, 58, 124], [0.74, 224, 112, 96], [0.86, 255, 190, 124], [1, 255, 226, 176]]; for (let i = 1; i < S0.length; i++) if (t <= S0[i][0]) { const a = S0[i - 1], b = S0[i], u = (t - a[0]) / (b[0] - a[0]); return [a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u, a[3] + (b[3] - a[3]) * u]; } return [255, 226, 176]; };
-    const water = 0.69, sunX = 0.63 * W, sunY = 0.58 * H, sunR = 0.062 * H, A = W / H;
+    const ramp = (t) => {
+      const S0 = sceneKind === 'canyon'
+        ? [[0, 18, 12, 38], [0.32, 74, 28, 66], [0.58, 178, 68, 64], [0.76, 242, 138, 72], [0.88, 255, 204, 118], [1, 255, 236, 184]]
+        : sceneKind === 'cathedral'
+        ? [[0, 6, 12, 32], [0.35, 14, 42, 68], [0.58, 26, 112, 108], [0.76, 76, 186, 154], [0.9, 168, 234, 212], [1, 224, 248, 242]]
+        : [[0, 12, 16, 48], [0.33, 40, 31, 98], [0.56, 120, 58, 124], [0.74, 224, 112, 96], [0.86, 255, 190, 124], [1, 255, 226, 176]];
+      for (let i = 1; i < S0.length; i++) if (t <= S0[i][0]) { const a = S0[i - 1], b = S0[i], u = (t - a[0]) / (b[0] - a[0]); return [a[1] + (b[1] - a[1]) * u, a[2] + (b[2] - a[2]) * u, a[3] + (b[3] - a[3]) * u]; }
+      return [255, 226, 176];
+    };
+    const water = sceneKind === 'canyon' ? 0.72 : 0.69, sunX = (sceneKind === 'cathedral' ? 0.48 : 0.63) * W, sunY = 0.58 * H, sunR = 0.062 * H, A = W / H;
     const L = [
-      { y: 0.60, amp: 0.05, f: 2.6, d: 0.035, near: 0.05, seed: 11, pine: 0 }, { y: 0.615, amp: 0.085, f: 3.5, d: 0.05, near: 0.14, seed: 37, pine: 0 },
-      { y: 0.64, amp: 0.11, f: 4.3, d: 0.07, near: 0.28, seed: 91, pine: 0 }, { y: 0.67, amp: 0.13, f: 5.5, d: 0.10, near: 0.44, seed: 151, pine: 0.006 },
+      { y: 0.60, amp: sceneKind === 'cathedral' ? 0.11 : 0.05, f: 2.6, d: 0.035, near: 0.05, seed: 11, pine: 0 }, { y: 0.615, amp: sceneKind === 'cathedral' ? 0.14 : 0.085, f: 3.5, d: 0.05, near: 0.14, seed: 37, pine: 0 },
+      { y: 0.64, amp: 0.11, f: 4.3, d: 0.07, near: 0.28, seed: 91, pine: 0 }, { y: 0.67, amp: 0.13, f: 5.5, d: 0.10, near: 0.44, seed: 151, pine: sceneKind === 'canyon' ? 0 : 0.006 },
     ];
-    const bank = [{ side: 0, x1: 0.42, y: 0.78, amp: 0.34, f: 3.4, d: 0.42, near: 0.82, seed: 211, pine: 0.022 }, { side: 1, x1: 0.62, y: 0.86, amp: 0.3, f: 3.0, d: 0.62, near: 0.92, seed: 271, pine: 0.034 }, { side: 0, x1: 0.26, y: 0.98, amp: 0.34, f: 4.6, d: 1.0, near: 1, seed: 331, pine: 0.05 }];
+    const bank = [{ side: 0, x1: 0.42, y: 0.78, amp: 0.34, f: 3.4, d: 0.42, near: 0.82, seed: 211, pine: sceneKind === 'canyon' ? 0.004 : 0.022 }, { side: 1, x1: 0.62, y: 0.86, amp: 0.3, f: 3.0, d: 0.62, near: 0.92, seed: 271, pine: sceneKind === 'canyon' ? 0.004 : 0.034 }, { side: 0, x1: 0.26, y: 0.98, amp: 0.34, f: 4.6, d: 0.88, near: 1, seed: 331, pine: sceneKind === 'canyon' ? 0.005 : 0.05 }];
     const ridge = (l, x) => { const u = x / W; return l.y - l.amp * (fbm(u * l.f * A + l.seed, 5) - 0.32) - (l.pine ? l.pine * Math.pow(Math.abs(2 * n1(u * 150 * A + l.seed) - 1), 1.4) + l.pine * 0.5 * Math.pow(n1(u * 380 * A), 3) : 0); };
     const hor = new Float32Array(W * L.length); for (let k = 0; k < L.length; k++) for (let x = 0; x < W; x++) hor[x + k * W] = ridge(L[k], x);
     const set = (i, cc) => { px[i * 4] = cc[0]; px[i * 4 + 1] = cc[1]; px[i * 4 + 2] = cc[2]; px[i * 4 + 3] = 255; };
@@ -635,7 +731,8 @@ void main(){
       const out = [base[0] + 255 * glow * 0.8, base[1] + 190 * glow * 0.8, base[2] + 120 * glow * 0.75];
       if (plain) return out;
       const sx = 3.6 / W, wx = fbm2(x * sx * 1.1 + 40, y * sx * 4, 3) * 2.4, cl = fbm2(x * sx + wx, y * sx * 5.4 + wx * 0.7 + 9, 6), band = Math.max(0, Math.min(1, (cl - 0.46) / 0.26)), lit = Math.pow(Math.min(1, v * 1.25), 1.6);
-      const tint = [36 + 214 * lit, 26 + 96 * lit, 74 + 44 * lit]; for (let k = 0; k < 3; k++) out[k] += (tint[k] - out[k]) * band * (0.28 + 0.42 * lit);
+      const tint = sceneKind === 'cathedral' ? [40 + 90 * lit, 180 + 60 * lit, 160 + 70 * lit] : [36 + 214 * lit, 26 + 96 * lit, 74 + 44 * lit];
+      for (let k = 0; k < 3; k++) out[k] += (tint[k] - out[k]) * band * (0.28 + 0.42 * lit);
       if (d < sunR) { const e = Math.min(1, (sunR - d) / 3); out[0] += 255 * e; out[1] += 225 * e; out[2] += 170 * e; }
       return out;
     };
@@ -650,7 +747,9 @@ void main(){
           for (let k = 0; k < L.length; k++) {
             const top = hor[x + k * W];
             if (yn >= top) {
-              const t = Math.min(1, (yn - top) / 0.14), near = L[k].near, hazeC = skyAt(x, Math.max(0, (top - 0.02) * H), true), dark = [30 - 18 * near, 26 - 14 * near, 62 - 34 * near], mist = (1 - near) * (0.5 + 0.5 * t) * 0.82;
+              const t = Math.min(1, (yn - top) / 0.14), near = L[k].near, hazeC = skyAt(x, Math.max(0, (top - 0.02) * H), true);
+              const dark = sceneKind === 'canyon' ? [78 - 34 * near, 34 - 16 * near, 28 - 12 * near] : sceneKind === 'cathedral' ? [22 - 10 * near, 38 - 18 * near, 68 - 30 * near] : [30 - 18 * near, 26 - 14 * near, 62 - 34 * near];
+              const mist = (1 - near) * (0.5 + 0.5 * t) * 0.82;
               cc = [dark[0] + (hazeC[0] - dark[0]) * mist, dark[1] + (hazeC[1] - dark[1]) * mist, dark[2] + (hazeC[2] - dark[2]) * mist];
               d = L[k].d * (0.9 + 0.1 * t);
             }
@@ -677,15 +776,18 @@ void main(){
         const top = b.y - b.amp * Math.pow(edge, 0.62) - (b.pine * (Math.pow(Math.abs(2 * n1(u * 46 * A + b.seed) - 1), 1.2) + 0.35 * Math.pow(n1(u * 130 * A + b.seed), 2))) * Math.min(1, edge * 4) + (fbm(u * b.f * 4 + b.seed, 3) - 0.3) * 0.05;
         for (let y = Math.max(0, Math.floor(top * H)); y < H; y++) {
           const i = x + y * W, t = Math.min(1, (y / H - top) / 0.2), rim = Math.exp(-Math.abs(x - sunX) / (0.45 * W)) * Math.exp(-(y / H - top) * 90) * (1.2 - b.near);
-          set(i, [14 - 9 * b.near * t + 170 * rim, 11 - 6 * b.near * t + 96 * rim, 30 - 16 * b.near * t + 62 * rim]);
-          dep[i] = b.d * (0.93 + 0.07 * t);
+          const baseC = sceneKind === 'canyon' ? [48 - 22 * b.near * t + 210 * rim, 20 - 9 * b.near * t + 108 * rim, 18 - 8 * b.near * t + 54 * rim] : sceneKind === 'cathedral' ? [12 - 6 * b.near * t + 90 * rim, 24 - 12 * b.near * t + 190 * rim, 38 - 18 * b.near * t + 180 * rim] : [14 - 9 * b.near * t + 170 * rim, 11 - 6 * b.near * t + 96 * rim, 30 - 16 * b.near * t + 62 * rim];
+          set(i, baseC);
+          // Feather depth near the silhouette edge so foreground banks blend smoothly into the relief mesh
+          const edgeBlend = Math.min(1, Math.max(0, (y / H - top) / 0.018));
+          dep[i] = dep[i] * (1 - edgeBlend) + b.d * (0.93 + 0.07 * t) * edgeBlend;
         }
       }
     }
     g.putImageData(img, 0, 0);
-    // Two passes of a 5-pixel box: real depth maps are smooth at this scale, and the tear behaves on smooth edges.
+    // Three passes of a 5-pixel box: real depth maps are smooth at this scale, and the tear behaves on smooth edges.
     const tmp = new Float32Array(W * H);
-    for (let pass = 0; pass < 2; pass++) {
+    for (let pass = 0; pass < 3; pass++) {
       for (let y = 0; y < H; y++) { let a = 0; for (let x = -2; x < W; x++) { a += dep[Math.min(W - 1, x + 2) + y * W]; if (x >= 3) a -= dep[x - 3 + y * W]; if (x >= 0) tmp[x + y * W] = a / (Math.min(W - 1, x + 2) - Math.max(0, x - 2) + 1); } }
       for (let x = 0; x < W; x++) { let a = 0; for (let y = -2; y < H; y++) { a += tmp[x + Math.min(H - 1, y + 2) * W]; if (y >= 3) a -= tmp[x + (y - 3) * W]; if (y >= 0) dep[x + y * W] = a / (Math.min(H - 1, y + 2) - Math.max(0, y - 2) + 1); } }
     }
@@ -721,10 +823,13 @@ void main(){
   let paintedCache = null;
   function showPainted(cancelPending = true) {
     if (cancelPending) { pictureSeq++; pending = null; }
-    if (!paintedCache) paintedCache = paintScene(innerWidth < 800 ? 1080 : 1620, innerWidth < 800 ? 720 : 1080);
+    if (!paintedCache) paintedCache = paintScene(innerWidth < 800 ? 1080 : 1620, innerWidth < 800 ? 720 : 1080, S.picPreset || 'lake');
     setPicture(paintedCache.canvas, paintedCache.depth, paintedCache.w, paintedCache.h, 'painted', 'The painted scene');
     $('pic-status').innerHTML = '<b>The painted scene.</b> Drawn on this page by rules, with its depth drawn by the same rules. No model is involved.';
   }
+  if ($('pic-preset')) $('pic-preset').addEventListener('change', (e) => {
+    S.picPreset = e.target.value; paintedCache = null; showPainted(true);
+  });
 
   /* the model's visible state */
   const modelUI = (tone, state, why, opts) => {
@@ -847,13 +952,14 @@ void main(){
     let src = which === 'file' && Cast.file ? { ...Cast.file, atoms: Cast.file.atoms.slice(0, 420) } : builtInSound();
     if (which === 'builtin') { const st = Math.max(1, Math.floor(src.atoms.length / 420)); src = { ...src, atoms: src.atoms.filter((_, i) => i % st === 0).slice(0, 420).map((a) => ({ ...a, amp: Math.pow(a.amp, 2.2) })) }; }
     const label = which === 'file' ? Cast.file.name : 'the built-in sound';
-    Cast.busy = true; $('cast-go').disabled = true; $('cast-status').textContent = `Casting ${label}.`;
+    Cast.busy = true; $('cast-go').disabled = true; if ($('cast-cancel')) $('cast-cancel').hidden = false; $('cast-status').textContent = `Casting ${label}.`;
     try {
       const r = await cast.cast(src.atoms, src.dur, src.rate, G3, (p, msg) => { $('cast-status').textContent = `Casting ${label}: ${msg}, ${p}%.`; });
       loadMesh(r, label);
-    } catch (e) { $('cast-status').textContent = `The cast failed: ${e.message}`; }
-    Cast.busy = false; $('cast-go').disabled = false;
+    } catch (e) { $('cast-status').textContent = e && e.cancelled ? 'Cast cancelled.' : `The cast failed: ${e.message}`; }
+    Cast.busy = false; $('cast-go').disabled = false; if ($('cast-cancel')) $('cast-cancel').hidden = true;
   }
+  if ($('cast-cancel')) $('cast-cancel').addEventListener('click', () => { if (Cast.busy) cast.cancel(); });
   function loadMesh(r, label) {
     const nv = r.pos.length / 3; let mn = [1e9, 1e9, 1e9], mx = [-1e9, -1e9, -1e9];
     for (let i = 0; i < nv; i++) for (let k = 0; k < 3; k++) { const v = r.pos[i * 3 + k]; if (v < mn[k]) mn[k] = v; if (v > mx[k]) mx[k] = v; }
@@ -868,7 +974,7 @@ void main(){
     gl.enableVertexAttribArray(2); gl.vertexAttribPointer(2, 1, gl.FLOAT, false, 28, 24);
     gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, iboMesh); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idx, gl.STATIC_DRAW);
     gl.bindVertexArray(null);
-    $('cast-stl').disabled = false; $('cast-hear').disabled = false;
+    $('cast-stl').disabled = false; if ($('cast-ply')) $('cast-ply').disabled = false; if ($('cast-obj')) $('cast-obj').disabled = false; $('cast-hear').disabled = false;
     $('cast-stl').textContent = `Download STL (${mb(84 + (idx.length / 3) * 50)} MB)`;
     $('cast-status').innerHTML = `<b>${htmlText(label)}</b> · ${r.atoms} atoms · ${(idx.length / 3).toLocaleString()} faces · ${r.bodies} ${r.bodies === 1 ? 'body' : 'bodies'} · <b>${r.watertight ? 'watertight, checked on every edge' : `not watertight: ${r.openEdges} open edges`}</b> · ${Math.round(r.ms)} ms`;
     updateSource();
@@ -886,9 +992,36 @@ void main(){
     }
     return new Blob([buf], { type: 'model/stl' });
   }
+  function plyBlob() {
+    const nv = M.nv, nf = M.count / 3, p = M.pos, vb = M.vb, idx = M.idx;
+    const hdr = new TextEncoder().encode(`ply\nformat binary_little_endian 1.0\ncomment Enter sculpture of ${M.label}\nelement vertex ${nv}\nproperty float x\nproperty float y\nproperty float z\nproperty uchar red\nproperty uchar green\nproperty uchar blue\nelement face ${nf}\nproperty list uchar int vertex_indices\nend_header\n`);
+    const buf = new ArrayBuffer(hdr.length + nv * 15 + nf * 13), dv = new DataView(buf);
+    new Uint8Array(buf).set(hdr); let o = hdr.length;
+    for (let i = 0; i < nv; i++) {
+      dv.setFloat32(o, p[i * 3], true); dv.setFloat32(o + 4, -p[i * 3 + 2], true); dv.setFloat32(o + 8, p[i * 3 + 1], true); o += 12;
+      const h = clamp(vb[i * 7 + 1] * 0.5 + 0.5, 0, 1), ao = clamp(vb[i * 7 + 6], 0.35, 1);
+      dv.setUint8(o++, Math.round((224 - 100 * h) * ao)); dv.setUint8(o++, Math.round((164 + 40 * h) * ao)); dv.setUint8(o++, Math.round((74 + 160 * h) * ao));
+    }
+    for (let t = 0; t < idx.length; t += 3) {
+      dv.setUint8(o++, 3); dv.setInt32(o, idx[t], true); dv.setInt32(o + 4, idx[t + 1], true); dv.setInt32(o + 8, idx[t + 2], true); o += 12;
+    }
+    return new Blob([buf], { type: 'application/octet-stream' });
+  }
+  function objBlob() {
+    const nv = M.nv, p = M.pos, vb = M.vb, idx = M.idx, lines = [`# Enter sculpture of ${M.label}`, '# Stated Gabor-atom mapping, no model'];
+    for (let i = 0; i < nv; i++) lines.push(`v ${p[i * 3].toFixed(4)} ${(-p[i * 3 + 2]).toFixed(4)} ${p[i * 3 + 1].toFixed(4)}`);
+    for (let i = 0; i < nv; i++) lines.push(`vn ${vb[i * 7 + 3].toFixed(4)} ${(-vb[i * 7 + 5]).toFixed(4)} ${vb[i * 7 + 4].toFixed(4)}`);
+    for (let t = 0; t < idx.length; t += 3) {
+      const a = idx[t] + 1, b = idx[t + 1] + 1, c = idx[t + 2] + 1;
+      lines.push(`f ${a}//${a} ${b}//${b} ${c}//${c}`);
+    }
+    return new Blob([lines.join('\n') + '\n'], { type: 'text/plain' });
+  }
   const save = (blob, name) => { const u = URL.createObjectURL(blob), a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(u), 4000); };
   $('cast-go').addEventListener('click', castNow);
   $('cast-stl').addEventListener('click', () => { if (M) save(stlBlob(), `enter-sculpture-${M.G}.stl`); });
+  if ($('cast-ply')) $('cast-ply').addEventListener('click', () => { if (M) save(plyBlob(), `enter-sculpture-${M.G}.ply`); });
+  if ($('cast-obj')) $('cast-obj').addEventListener('click', () => { if (M) save(objBlob(), `enter-sculpture-${M.G}.obj`); });
   let hearCtx = null, hearSrc = null;
   function hearSculpture() {
     if (!M) return;
@@ -938,7 +1071,7 @@ void main(){
     const draw = (prog, t, withMap) => {
       G.into(rgbaT); gl.enable(gl.DEPTH_TEST); gl.clearColor(0, 0, 0, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       G.bindTex(0, tDepth); if (withMap) { G.bindTex(1, tMap); G.bindTex(2, tSpec); }
-      G.use(prog, { uDmap: 0, uMap: 1, uSpec: 2, uDsize: [P.w, P.h], uPlane: [P.planeW, P.planeH], uDscale: S.depth / 16, uCamZ: P.camZ, uTearT: t, uSeg: S.seg, uVP: VP, uW: new Float32Array(32), uSpecK: 0, uT: 0, uHat: 0, uHatOpen: 0, uRide: 0, uCrash: 0 });
+      G.use(prog, { uDmap: 0, uMap: 1, uSpec: 2, uDsize: [P.w, P.h], uPlane: [P.planeW, P.planeH], uDscale: S.depth / 16, uCamZ: P.camZ, uTearT: t, uSeg: S.seg, uVP: VP, uW: new Float32Array(32), uSpecK: 0, uT: 0, uHat: 0, uHatOpen: 0, uRide: 0, uCrash: 0, uStyle: S.reliefStyle || 0 });
       gl.drawArrays(gl.TRIANGLES, 0, 6 * S.seg * S.seg); gl.disable(gl.DEPTH_TEST);
       return read();
     };
@@ -965,6 +1098,8 @@ void main(){
   $('k-inv').addEventListener('change', (e) => { S.inv = e.target.checked; });
   $('k-free').addEventListener('change', (e) => { S.free = e.target.checked; });
   $('k-drift').addEventListener('change', (e) => { S.drift = e.target.checked; });
+  if ($('k-flight')) $('k-flight').addEventListener('change', (e) => { S.flight = e.target.value || 'drift'; });
+  if ($('pic-style')) $('pic-style').addEventListener('change', (e) => { S.reliefStyle = +e.target.value || 0; picLim.fresh = true; });
   const tearT = () => (S.tear <= 0 ? 0 : 0.3 - 0.28 * (S.tear / 200));
 
   /* ---------- world switch and labels ---------- */
@@ -1115,7 +1250,7 @@ void main(){
     gl.enable(gl.DEPTH_TEST);
     G.bindTex(0, tDepth); G.bindTex(1, tMap); G.bindTex(2, tSpec);
     const swell = 1 + (RM.matches ? 0 : env.kick * 0.05 * S.react);
-    G.use(pRelief, { uDmap: 0, uMap: 1, uSpec: 2, uDsize: [P.w, P.h], uPlane: [P.planeW, P.planeH], uDscale: (S.depth / 16) * swell, uCamZ: P.camZ, uTearT: tearT(), uSeg: S.seg, uVP: cam.VP, uW: frontU, uSpecK: S.react, uT: t, uHat: env.hat * S.react, uHatOpen: env.hatOpen, uRide: env.ride * S.react, uCrash: env.crash * S.react });
+    G.use(pRelief, { uDmap: 0, uMap: 1, uSpec: 2, uDsize: [P.w, P.h], uPlane: [P.planeW, P.planeH], uDscale: (S.depth / 16) * swell, uCamZ: P.camZ, uTearT: tearT(), uSeg: S.seg, uVP: cam.VP, uW: frontU, uSpecK: S.react, uT: t, uHat: env.hat * S.react, uHatOpen: env.hatOpen, uRide: env.ride * S.react, uCrash: env.crash * S.react, uStyle: S.reliefStyle || 0 });
     gl.drawArrays(gl.TRIANGLES, 0, 6 * S.seg * S.seg);
     gl.disable(gl.DEPTH_TEST);
     resolveMSAA();
@@ -1268,7 +1403,7 @@ void main(){
   window.__app = {
     S, Sound, Cast, cams, depth, recordLuma,
     get P() { return P; }, get M() { return M; }, get fileN() { return fileN; },
-    reliefPoint, builtInSound, stlBlob, bakeAngle,
+    reliefPoint, builtInSound, stlBlob, objBlob, bakeAngle,
     pixel() {
       const c = document.createElement('canvas'); c.width = 32; c.height = 18;
       const g = c.getContext('2d');

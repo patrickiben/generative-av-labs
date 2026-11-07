@@ -143,7 +143,7 @@
     for (const [name, lane] of Object.entries(s.lanes || {})) {
       if (!Array.isArray(lane)) invalid();
       ordered(lane, p => p[0], p => Array.isArray(p) && p.length === 2 &&
-        (name === 'shape' ? p[1] === 0 || p[1] === 1 : name === 'mode' ? ['field', 'form'].includes(p[1]) : true));
+        (name === 'shape' ? p[1] === 0 || p[1] === 1 || p[1] === 2 || p[1] === 3 : name === 'mode' ? ['field', 'form'].includes(p[1]) : true));
     }
     if (typeof s.spectrumBase64 !== 'string') invalid();
     let bin;
@@ -547,6 +547,36 @@ registerProcessor('kit-onset',KitOnset);`;
     }
     function demoStep(D, s, t) {
       const fire = (pad, vel) => { demoVoice(pad, vel, t, D); D.timers.push(setTimeout(() => { if (demo === D) hit(pad, vel, 'demo'); }, Math.max(0, (t - ctx.currentTime) * 1000))); };
+      const style = kit.demoStyle || 'pocket';
+      if (style === 'breakbeat') {
+        if (s === 0 && D.bar % 4 === 0) fire('crash', 0.88);
+        if (s === 0 || s === 2 || s === 10) fire('kick', s === 0 ? 1 : 0.86);
+        if (s === 4 || s === 12) fire('snare', 0.95);
+        if (s === 7 || s === 9 || s === 15) fire('snare', s === 9 ? 0.65 : 0.34);
+        if (D.bar % 4 === 3 && s >= 12) { fire(s === 12 ? 'tomH' : s === 14 ? 'tomM' : 'tomL', 0.84); return; }
+        pedal(s === 6 || s === 14 ? 30 : 127, 'demo');
+        fire(D.bar % 2 === 1 && s % 2 === 0 ? 'ride' : 'hat', s % 2 === 0 ? 0.72 : 0.44);
+        return;
+      }
+      if (style === 'techno') {
+        if (s === 0 && D.bar % 8 === 0 && D.bar > 0) fire('crash', 0.9);
+        if (s % 4 === 0) fire('kick', 0.98);
+        if (s === 4 || s === 12) fire('snare', 0.88);
+        if (s % 4 === 2) { pedal(22, 'demo'); fire('hat', 0.82); }
+        else if (s % 2 === 1) { pedal(127, 'demo'); fire('hat', 0.42); }
+        if (s === 3 || s === 7 || s === 11 || s === 14) fire(s === 3 ? 'tomL' : s === 7 ? 'tomM' : 'tomH', 0.68);
+        if (D.bar % 2 === 1 && s % 4 === 0) fire('ride', 0.58);
+        return;
+      }
+      if (style === 'polymeter') {
+        if (s === 0 && D.bar % 4 === 0) fire('crash', 0.85);
+        if (s === 0 || s === 5 || s === 10) fire('kick', s === 0 ? 0.96 : 0.8);
+        if (s === 4 || s === 11) fire('snare', 0.9);
+        if (s === 2 || s === 7 || s === 9 || s === 13) fire(['tomL', 'tomM', 'tomH'][(s + D.bar) % 3], 0.76);
+        if (s % 2 === 0) fire('ride', s % 4 === 0 ? 0.74 : 0.5);
+        else { pedal(90, 'demo'); fire('hat', 0.45); }
+        return;
+      }
       const sec = Math.floor(D.bar / 8) % 3, fill = D.bar % 8 === 7 && s >= 8;
       if (s === 0 && D.bar % 8 === 0 && D.bar > 0) { fire('crash', 0.95); fire('kick', 1); }
       if (fill) {
@@ -566,11 +596,14 @@ registerProcessor('kit-onset',KitOnset);`;
       const D = demo;
       if (!D) return;
       D.timers = D.timers.filter((t) => t !== null).slice(-64);
-      const stepDur = () => 60 / [108, 96, 124][Math.floor(D.bar / 8) % 3] / 4;
+      const style = kit.demoStyle || 'pocket';
+      const bpm = style === 'breakbeat' ? 136 : style === 'techno' ? 128 : style === 'polymeter' ? 118 : [108, 96, 124][Math.floor(D.bar / 8) % 3];
+      const stepsPerBar = style === 'polymeter' ? 14 : 16;
+      const stepDur = () => 60 / bpm / 4;
       while (D.next < ctx.currentTime + 0.12) {
         demoStep(D, D.step, D.next);
         D.next += stepDur();
-        if (++D.step >= 16) { D.step = 0; D.bar++; }
+        if (++D.step >= stepsPerBar) { D.step = 0; D.bar++; }
       }
     }
     kit.startDemo = async () => {
@@ -602,7 +635,9 @@ registerProcessor('kit-onset',KitOnset);`;
       notifyState();
     };
     kit.demoAudible = false;
+    kit.demoStyle = 'pocket';
     kit.setDemoAudible = (b) => { kit.demoAudible = !!b; if (demo) demo.monitor.gain.value = b ? 0.7 : 0; };
+    kit.setDemoStyle = (st) => { kit.demoStyle = st || 'pocket'; if (demo) demo.step = 0; };
 
     /* ---------------- recording and replay ---------------- */
     kit.startRecording = (appName) => {

@@ -111,9 +111,10 @@
       <div id="toast" role="status"></div>
       <div id="sr-status" role="status" aria-live="polite" style="position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)"></div>
       <div class="dock-wrap">
+        ${cfg.stageBar ? `<div id="stage-bar" class="stage-bar chrome">${cfg.stageBar}</div>` : ''}
         <div id="hud" class="chrome">${cfg.hud || ''}</div>
-        ${useStrip ? `<div id="hit-strip" class="chrome" aria-hidden="true">
-          ${['kick', 'snare', 'hat', 'tom', 'crash', 'ride'].map((v) => `<div class="hitdot"><i id="dot-${v}"></i>${v[0].toUpperCase()}</div>`).join('')}
+        ${useStrip ? `<div id="hit-strip" class="chrome" aria-label="Drum pads">
+          ${[['kick', 'Kick (J)'], ['snare', 'Snare (K)'], ['hat', 'Hi-hat (L)'], ['tom', 'Tom (I)'], ['crash', 'Crash (P)'], ['ride', 'Ride (;)']].map(([v, tip]) => `<button type="button" class="hitdot" data-pad="${v === 'tom' ? 'tomM' : v}" title="Trigger ${tip}"><i id="dot-${v}"></i>${v[0].toUpperCase()}</button>`).join('')}
         </div>` : ''}
         <div class="badges">
           <button class="source-badge" id="source-badge" data-source="ambient" title="Open the input settings"><span class="dot" aria-hidden="true"></span><span id="source-label">${esc(cfg.idleLabel || 'Ambient · no input connected')}</span></button>
@@ -484,6 +485,12 @@ ${useSignal ? `      <dialog class="sheet wide" id="signal-sheet" aria-labelledb
     let lastText = 0, frames = 0, fps = 0, fpsT = performance.now();
     const VOICE_ENV = ['kick', 'snare', 'hat', 'tom', 'crash', 'ride'];
     const dots = useStrip ? Object.fromEntries(VOICE_ENV.map((v) => [v, $(`dot-${v}`)])) : {};
+    if (useStrip && $('hit-strip')) {
+      $('hit-strip').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-pad]');
+        if (b && kit && kit.pad) kit.pad(b.dataset.pad);
+      });
+    }
     const metrics = { hitToFrame: null, seenHit: null };
     function frame(now) {
       frames++;

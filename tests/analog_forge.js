@@ -67,4 +67,17 @@ check('long recordings are probed beyond a silent opening', () => {
   const cutoff = D.cutoffFromWelch(D.energyWelch([long], sr), sr);
   assert(cutoff > 3900 && cutoff < 4400, `cutoff ${cutoff}`);
 });
+check('all four Forge synthesis characters preserve low-band guard and antiphase stereo', () => {
+  const chars = ['balanced', 'harmonic', 'air', 'crystalline'];
+  const outs = chars.map((character) => {
+    const res = D.run([x], sr, { ...p, character });
+    assert.equal(res.info.character, character);
+    assert(res.info.guard_error_db < -70, `${character} guard leakage ${res.info.guard_error_db}`);
+    assert(res.info.added_energy_percent > 0.01);
+    const anti = D.run([x, x.map((v) => -v)], sr, { ...p, character });
+    assert(maxDiff(anti.out[0], anti.out[1].map((v) => -v)) < 1e-7);
+    return res.out[0];
+  });
+  for (let i = 1; i < outs.length; i++) assert(maxDiff(outs[0], outs[i]) > 1e-4, `character ${chars[i]} must differ from balanced`);
+});
 console.log(`${count} Forge integrity checks passed; example guard error ${r.info.guard_error_db.toFixed(1)} dB, added energy ${r.info.added_energy_percent.toFixed(3)}%.`);

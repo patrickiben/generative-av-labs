@@ -20,7 +20,7 @@ jobs:
       - name: Built pages match src
         run: |
           python3 build.py
-          git diff --exit-code -- nebula.html enter.html chimera.html analog.html displacer.html index.html field-guide.html
+          git diff --exit-code -- nebula.html biofeedback-nebula.html enter.html chimera.html analog.html displacer.html index.html field-guide.html
       - name: Analog matches the desktop app number for number
         run: |
           pip install numpy scipy

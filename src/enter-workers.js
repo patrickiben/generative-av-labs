@@ -242,11 +242,20 @@ onmessage=(e)=>{const m=e.data;try{
     let w = null, seq = 0; const pend = {};
     const ensure = () => {
       if (w) return;
-      w = new Worker(URL.createObjectURL(new Blob([CAST_SRC], { type: 'text/javascript' })));
+      const url = URL.createObjectURL(new Blob([CAST_SRC], { type: 'text/javascript' }));
+      w = new Worker(url); URL.revokeObjectURL(url);
       w.onmessage = (e) => { const p = pend[e.data.id]; if (!p) return; if (e.data.stage != null) { if (p.onStage) p.onStage(e.data.stage, e.data.msg); return; } delete pend[e.data.id]; if (e.data.error) p.rej(new Error(e.data.error)); else p.res(e.data.result); };
     };
+    const cancel = () => {
+      if (w) { w.terminate(); w = null; }
+      for (const k of Object.keys(pend)) {
+        const p = pend[k]; delete pend[k];
+        const err = new Error('Cast cancelled.'); err.cancelled = true;
+        p.rej(err);
+      }
+    };
     const send = (msg, onStage, tr) => new Promise((res, rej) => { ensure(); const id = ++seq; pend[id] = { res, rej, onStage }; w.postMessage({ ...msg, id }, tr || []); });
-    return { atoms: (data, rate, k) => send({ type: 'atoms', data, rate, k }), cast: (atoms, dur, rate, G, onStage) => send({ type: 'cast', atoms, dur, rate, G }, onStage) };
+    return { atoms: (data, rate, k) => send({ type: 'atoms', data, rate, k }), cast: (atoms, dur, rate, G, onStage) => send({ type: 'cast', atoms, dur, rate, G }, onStage), cancel };
   }
 
   /* ---------- pure math, testable from the page ---------- */

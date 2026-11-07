@@ -27,7 +27,7 @@ const chimeraHtml = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;
 
 /* ============================== STATE ============================== */
 const ST={ A:0, B:1, t:0, playing:false,
-  wubRate:3.2, wubDepth:0.55, oct:0, phase:0, subLvl:0.7, drive:0.35, ott:0.4, fizz:0.20,
+  wubRate:3.2, wubDepth:0.55, oct:0, formantShift:0, phase:0, subLvl:0.7, drive:0.35, ott:0.4, fizz:0.20,
   glide:0.04, env:{a:0.04,d:0.12,s:0.85,r:0.18},
   pad:false, corners:[0,6,2,1], uv:{u:0.5,v:0.5},   // NW=duck NE=hawk SW=whale SE=wolf
   noteSt:0,                                          // live keyboard/MIDI pitch offset (semitones)
@@ -36,7 +36,7 @@ const ST={ A:0, B:1, t:0, playing:false,
   // granular
   grainOn:false, grPos:0.3, grJit:0.15, grSize:90, grDens:24, grPitch:0, grPitchJit:0, grPan:0.6, grRev:0, grFreeze:false, grBufDur:0,
   // sequencer
-  seq:{on:false,bpm:140,steps:16,cur:-1,swing:0,gateLen:0.6,note:[],glitch:[]},
+  seq:{on:false,bpm:140,steps:16,cur:-1,swing:0,gateLen:0.6,scale:'chromatic',note:[],glitch:[]},
   // chaos (seeded)
   seed:1337, chaos:0, humanize:0,
   // polyphony (unison + chord) — sub stays SINGLE & anchored; only lead voices stack
@@ -118,7 +118,13 @@ function buildVoice(ac, p, spec, opts){
   // ---- FM core, OR a looped decoded audio buffer as the oscillator (sample-voice mode a) ----
   let carrier, mod=null, modGain=null, sampleSrc=null;
   if(opts.sampleBuf){
-    sampleSrc=ac.createBufferSource(); sampleSrc.buffer=opts.sampleBuf; sampleSrc.loop=true;
+    let sb=opts.sampleBuf;
+    if(sb&&typeof AudioBuffer!=='undefined'&&!(sb instanceof AudioBuffer)&&sb.getChannelData){
+      const ch0=sb.getChannelData(0), nb=ac.createBuffer(1,ch0.length,sb.sampleRate||44100);
+      nb.getChannelData(0).set(ch0); sb=nb;
+      if(ST.sampleBuf===opts.sampleBuf) ST.sampleBuf=nb;
+    }
+    sampleSrc=ac.createBufferSource(); sampleSrc.buffer=sb; sampleSrc.loop=true;
     sampleSrc.playbackRate.value=Math.pow(2,((ST.oct+ST.noteSt+(spec.semi||0)+(spec.cents||0)/100))/12);
     carrier=sampleSrc;
   } else {
@@ -128,10 +134,10 @@ function buildVoice(ac, p, spec, opts){
     mod.connect(modGain).connect(carrier.frequency);
   }
   // fixed-size formant bank (NF slots) so the morph can slide formant freqs live; unused slots muted
-  const formants=[];
+  const formants=[], fShift=ST.formantShift?Math.pow(2,ST.formantShift/12):1;
   for(let i=0;i<NF;i++){
     const f=p.F[i]||[1000,6,0];
-    const bp=ac.createBiquadFilter(); bp.type="bandpass"; bp.frequency.value=f[0]; bp.Q.value=f[1];
+    const bp=ac.createBiquadFilter(); bp.type="bandpass"; bp.frequency.value=ST.formantShift?Math.max(40,Math.min(16000,f[0]*fShift)):f[0]; bp.Q.value=f[1];
     const g=ac.createGain(); g.gain.value=(p.F[i]?f[2]:0)*0.9;
     carrier.connect(bp); bp.connect(g); g.connect(voice);
     formants.push({bp,g});
@@ -331,8 +337,9 @@ function applyLive(){
     V.lfoG.gain.setTargetAtTime(1200*ST.wubDepth,t,0.05);
     V.nG.gain.setTargetAtTime(p.noise*0.25,t,0.05);
     // live formant displacement (the OT morph you can hear) — same targets for every voice
+    const fShift=ST.formantShift?Math.pow(2,ST.formantShift/12):1;
     for(let i=0;i<NF;i++){ const f=p.F[i], fm=V.formants[i];
-      if(f){ fm.bp.frequency.setTargetAtTime(f[0],t,gl); fm.bp.Q.setTargetAtTime(f[1],t,0.05); fm.g.gain.setTargetAtTime(f[2]*0.9,t,0.05); }
+      if(f){ fm.bp.frequency.setTargetAtTime(ST.formantShift?Math.max(40,Math.min(16000,f[0]*fShift)):f[0],t,gl); fm.bp.Q.setTargetAtTime(f[1],t,0.05); fm.g.gain.setTargetAtTime(f[2]*0.9,t,0.05); }
       else fm.g.gain.setTargetAtTime(0,t,0.05); }
   });
   // ---- master power stack (single) ----
@@ -383,6 +390,7 @@ bind('morph',v=>{if(ST.genomeMode&&window.chimeraSetMode) chimeraSetMode('morph'
 bind('k-wub',v=>{ST.wubRate=v/10;document.getElementById('v-wub').textContent=ST.wubRate.toFixed(1)+" Hz";applyLive();});
 bind('k-wubd',v=>{ST.wubDepth=v/100;document.getElementById('v-wubd').textContent=v+" %";applyLive();});
 bind('k-oct',v=>{ST.oct=v;document.getElementById('v-oct').textContent=(v>0?"+":"")+v+" st";updateChips();applyLive();});
+bind('k-fshift',v=>{ST.formantShift=v;document.getElementById('v-fshift').textContent=(v>0?"+":"")+v+" st";applyLive();});
 bind('k-phase',v=>{ST.phase=v;document.getElementById('v-phase').textContent=v+"°";applyLive();});
 bind('k-sublvl',v=>{ST.subLvl=v/100;document.getElementById('v-sub').textContent=(v===0?"–∞":((v-100)/3).toFixed(0))+" dB";applyLive();});
 bind('k-drive',v=>{ST.drive=v/100;document.getElementById('v-drive').textContent=v+" %";applyLive();});
@@ -758,22 +766,79 @@ async function decodeFile(f){
   if(buf.length<2048) throw new Error(`“${f.name}” is too short to analyze. Use at least a twentieth of a second of sound.`);
   return buf;
 }
+function syncSampleBundleBtn(){
+  const b=document.getElementById('patch-save-bundle');
+  if(b) b.hidden=!ST.sampleBuf;
+}
+function makeMonoBuffer(pcm,sr){
+  if(AC) { const b=AC.createBuffer(1,pcm.length,sr); b.getChannelData(0).set(pcm); return b; }
+  if(typeof AudioBuffer==='function'){
+    try{ const b=new AudioBuffer({length:pcm.length,numberOfChannels:1,sampleRate:sr}); b.getChannelData(0).set(pcm); return b; }catch(e){}
+  }
+  return {sampleRate:sr,length:pcm.length,duration:pcm.length/sr,numberOfChannels:1,getChannelData:()=>pcm};
+}
+function synthTestSample(kind){
+  const sr=AC?AC.sampleRate:44100, dur=1.6, n=Math.floor(sr*dur), pcm=new Float32Array(n);
+  if(kind==='bell'){
+    const f0=330, partials=[[1,1,2.2],[2.756,0.65,3.5],[5.404,0.45,5.0],[8.933,0.28,6.8]];
+    for(let i=0;i<n;i++){
+      const t=i/sr, env=Math.min(1,t/0.004);
+      let s=0;
+      for(const [r,a,d] of partials) s+=a*Math.exp(-t*d)*Math.sin(2*Math.PI*f0*r*t+0.3*Math.sin(2*Math.PI*f0*r*2*t));
+      pcm[i]=Math.tanh(s*env*0.7);
+    }
+  } else if(kind==='choir'){
+    const f0=220, formants=[730,1090,2440];
+    for(let i=0;i<n;i++){
+      const t=i/sr, vib=1+0.004*Math.sin(2*Math.PI*5.2*t), f=f0*vib;
+      let s=0;
+      for(let h=1;h<=20;h++){
+        const hf=f*h; if(hf>sr*0.45) break;
+        let w=0.15/h;
+        for(const fc of formants){ const d=(hf-fc)/(fc*0.14); w+=0.85/(1+d*d); }
+        s+=(w/h)*Math.sin(2*Math.PI*hf*t+h*0.37);
+      }
+      const env=Math.sin(Math.PI*t/dur);
+      pcm[i]=Math.tanh(s*env*0.55);
+    }
+  } else {
+    const f0=110, formants=[550,1650,2750];
+    for(let i=0;i<n;i++){
+      const t=i/sr, f=f0*(1+0.003*Math.sin(2*Math.PI*3.4*t));
+      let s=0;
+      for(let h=1;h<=28;h++){
+        const hf=f*h; if(hf>sr*0.45) break;
+        let w=0.25/h;
+        for(const fc of formants){ const d=(hf-fc)/(fc*0.1); w+=1.1/(1+d*d); }
+        s+=(w/Math.sqrt(h))*Math.sin(2*Math.PI*hf*t);
+      }
+      pcm[i]=Math.tanh(s*0.42);
+    }
+  }
+  return makeMonoBuffer(pcm,sr);
+}
+function applySampleBuffer(buf,label){
+  ST.sampleBuf=buf; syncSampleBundleBtn();
+  const st=document.getElementById('samp-status');
+  if(ST.importMode==='osc'){
+    ST.sampleMode='osc';
+    st.textContent=(label||'Raw sample oscillator')+' · '+buf.duration.toFixed(1)+' s';
+    if(ST.playing) startGraph();
+  } else {
+    const entry=makeSampleAnimal(buf);
+    if(label) entry.nm=label.slice(0,22);
+    ensureSampleAnimal(entry);
+    ST.A=idx('sample'); setPadOff(); refreshMorphLabels(); renderAnimals();
+    st.textContent='Measured voice'+(label?' ('+label+')':'')+' · f₀ about '+entry.f0+' Hz';
+    if(ST.playing) startGraph(); else updateChips();
+  }
+  return true;
+}
 async function importSampleFile(f){
   const st=document.getElementById('samp-status');
   st.textContent='Decoding '+f.name+'…';
   let buf; try{ buf=await decodeFile(f); }catch(err){ st.textContent=err.message; toast(err.message); return false; }
-  ST.sampleBuf=buf;
-  if(ST.importMode==='osc'){
-    ST.sampleMode='osc';
-    st.textContent='Raw sample oscillator · '+buf.duration.toFixed(1)+' s';
-    if(ST.playing) startGraph();
-  } else {
-    const entry=makeSampleAnimal(buf); ensureSampleAnimal(entry);
-    ST.A=idx('sample'); setPadOff(); refreshMorphLabels(); renderAnimals();
-    st.textContent='Measured voice · f₀ about '+entry.f0+' Hz';
-    if(ST.playing) startGraph(); else updateChips();
-  }
-  return true;
+  return applySampleBuffer(buf,'Raw sample oscillator');
 }
 /* ============================== MIDI / KEYBOARD ============================== */
 const KEYMAP={'z':-12,'s':-11,'x':-10,'d':-9,'c':-8,'v':-6,'g':-5,'b':-4,'h':-3,'n':-2,'j':-1,'m':0,'q':0,'2':1,'w':2,'3':3,'e':4,'r':5,'5':6,'t':7,'6':8,'y':9,'7':10,'u':11,'i':12};
@@ -823,7 +888,12 @@ document.querySelectorAll('#chordseg button').forEach(b=>b.onclick=()=>{ ST.chor
 // sample import (audio-file voice)
 $('samp-load').onclick=()=>$('samp-file').click();
 $('samp-file').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) importSampleFile(f); e.target.value=''; });
-document.querySelectorAll('#sampseg button').forEach(b=>b.onclick=()=>{ ST.importMode=b.dataset.smode; document.querySelectorAll('#sampseg button').forEach(x=>x.classList.toggle('on',x===b)); if(b.dataset.smode==='formant'&&ST.sampleMode==='osc'){ST.sampleMode='off';if(ST.playing)startGraph();} });
+document.querySelectorAll('#sampseg button').forEach(b=>b.onclick=()=>{ ST.importMode=b.dataset.smode; document.querySelectorAll('#sampseg button').forEach(x=>x.classList.toggle('on',x===b)); if(b.dataset.smode==='formant'&&ST.sampleMode==='osc'){ST.sampleMode='off';if(ST.playing)startGraph();} else if(b.dataset.smode==='osc'&&ST.sampleBuf){ST.sampleMode='osc';$('samp-status').textContent='Raw sample oscillator · '+ST.sampleBuf.duration.toFixed(1)+' s';if(ST.playing)startGraph();} });
+document.querySelectorAll('#samp-presets button').forEach(b=>b.onclick=()=>{
+  const kind=b.dataset.sp, names={throat:'Throat drone',bell:'Bell strike',choir:'Vowel choir'};
+  document.querySelectorAll('#samp-presets button').forEach(x=>x.classList.toggle('on',x===b));
+  applySampleBuffer(synthTestSample(kind), names[kind]||'Test sample');
+});
 // granular
 $('gr-on').onclick=()=>setGrain(!ST.grainOn);
 $('gr-freeze').onclick=function(){ST.grFreeze=!ST.grFreeze;setSwitch('gr-freeze',ST.grFreeze);};
@@ -837,10 +907,45 @@ bind('gr-pjit',v=>{ST.grPitchJit=v;$('v-grpjit').textContent=v+' st';});
 bind('gr-pan',v=>{ST.grPan=v/100;$('v-grpan').textContent=v+' %';});
 bind('gr-rev',v=>{ST.grRev=v/100;$('v-grrev').textContent=v+' %';});
 // sequencer
+const SEQ_SCALES={chromatic:[0,1,2,3,4,5,6,7,8,9,10,11],pentatonic:[0,3,5,7,10],dorian:[0,2,3,5,7,9,10],phrygian:[0,1,3,5,7,8,10],fifths:[0,7]};
+function quantizePitch(semi,scaleKey){
+  const degs=SEQ_SCALES[scaleKey||'chromatic']||SEQ_SCALES.chromatic;
+  if(scaleKey==='chromatic'||!scaleKey) return Math.max(-24,Math.min(24,Math.round(semi)));
+  let best=0, bestDist=1e9;
+  for(let oct=-2;oct<=2;oct++){
+    for(const d of degs){
+      const cand=oct*12+d;
+      if(cand<-24||cand>24) continue;
+      const dist=Math.abs(cand-semi);
+      if(dist<bestDist){bestDist=dist;best=cand;}
+    }
+  }
+  return best;
+}
 $('seq-on').onclick=()=> ST.seq.on?seqStop():seqStart();
 bind('seq-bpm',v=>{ST.seq.bpm=v;$('v-bpm').textContent=v;});
 bind('seq-swing',v=>{ST.seq.swing=v/100;$('v-swing').textContent=v+' %';});
 bind('seq-gate',v=>{ST.seq.gateLen=v/100;$('v-gate').textContent=v+' %';});
+if($('seq-scale')) $('seq-scale').addEventListener('change',e=>{
+  ST.seq.scale=e.target.value;
+  ST.seq.note.forEach(c=>{ c.pitch=quantizePitch(c.pitch,ST.seq.scale); });
+  renderSeq();
+});
+if($('seq-melody')) $('seq-melody').onclick=()=>{
+  const sc=ST.seq.scale==='chromatic'?'pentatonic':(ST.seq.scale||'pentatonic');
+  const degs=SEQ_SCALES[sc]||SEQ_SCALES.pentatonic;
+  const k=Math.max(4,Math.min(12,+$('eu-k').value||7));
+  const pat=rotate(euclid(k,16),+$('eu-rot').value||0);
+  ST.seq.note.forEach((c,i)=>{
+    c.gate=pat[i]||(i===0);
+    if(c.gate){
+      const deg=degs[Math.floor(rng()*degs.length)];
+      const oct=i===0?0:(rng()<0.25?-12:(rng()<0.2?12:0));
+      c.pitch=Math.max(-24,Math.min(24,deg+oct));
+    } else c.pitch=0;
+  });
+  renderSeq();
+};
 $('eu-gen').onclick=()=>{ const pat=rotate(euclid(+$('eu-k').value,16),+$('eu-rot').value); ST.seq.note.forEach((c,i)=>c.gate=pat[i]); renderSeq(); };
 $('eu-glitch').onclick=()=>{ const pat=rotate(euclid(+$('eu-k').value,16),+$('eu-rot').value); ST.seq.glitch=pat.slice(); renderSeq(); };
 $('seq-clear').onclick=()=>{ ST.seq.note.forEach(c=>{c.gate=false;c.pitch=0;}); ST.seq.glitch=Array(16).fill(false); renderSeq(); };
@@ -852,7 +957,20 @@ function renderSeq(){
   _hiStep=ST.seq.cur;
 }
 function focusStep(id,i){ const b=$(id).querySelector(`[data-i="${i}"]`); if(b) b.focus({preventScroll:true}); }
-function nudgeStep(i,d){ const c=ST.seq.note[i]; c.pitch=Math.max(-24,Math.min(24,c.pitch+d)); c.gate=true; renderSeq(); focusStep('seqgrid',i); }
+function nudgeStep(i,d){
+  const c=ST.seq.note[i], sc=ST.seq.scale||'chromatic';
+  if(sc==='chromatic') c.pitch=Math.max(-24,Math.min(24,c.pitch+d));
+  else {
+    const degs=SEQ_SCALES[sc]||SEQ_SCALES.chromatic, pool=[];
+    for(let oct=-2;oct<=2;oct++) for(const deg of degs){ const v=oct*12+deg; if(v>=-24&&v<=24) pool.push(v); }
+    pool.sort((a,b)=>a-b);
+    let idx=pool.indexOf(quantizePitch(c.pitch,sc));
+    if(idx<0) idx=pool.indexOf(0);
+    idx=Math.max(0,Math.min(pool.length-1,idx+(d>0?1:-1)));
+    c.pitch=pool[idx];
+  }
+  c.gate=true; renderSeq(); focusStep('seqgrid',i);
+}
 $('seqgrid').addEventListener('click',e=>{ const b=e.target.closest('.step'); if(!b) return; const c=ST.seq.note[+b.dataset.i]; c.gate=!c.gate; renderSeq(); focusStep('seqgrid',b.dataset.i); });
 $('seqgrid').addEventListener('wheel',e=>{ const b=e.target.closest('.step'); if(!b) return; e.preventDefault(); nudgeStep(+b.dataset.i, e.deltaY<0?1:-1); },{passive:false});
 $('seqgrid').addEventListener('keydown',e=>{ const b=e.target.closest('.step'); if(!b) return; if(e.key==='ArrowUp'||e.key==='ArrowDown'){ e.preventDefault(); nudgeStep(+b.dataset.i, e.key==='ArrowUp'?1:-1); } });
@@ -891,23 +1009,24 @@ function serializePatch(){ const s=ST; return {v:3,app:'biobass',
   mode:s.genomeMode?'garden':'morph',
   garden:s.genomeMode?{genome:Array.from(GENOME||GARDEN.seed),amount:GARDEN.amount,temp:GARDEN.temp,perNote:!!GARDEN.perNote}:null,
   sampleRequired:s.sampleMode==='osc',
-  A:s.A,B:s.B,Akey:ANIMALS[s.A].key,Bkey:ANIMALS[s.B].key,cornerKeys:s.corners.map(i=>ANIMALS[i].key),t:s.t,oct:s.oct,phase:s.phase,subLvl:s.subLvl,drive:s.drive,ott:s.ott,fizz:s.fizz,wubRate:s.wubRate,wubDepth:s.wubDepth,glide:s.glide,
+  A:s.A,B:s.B,Akey:ANIMALS[s.A].key,Bkey:ANIMALS[s.B].key,cornerKeys:s.corners.map(i=>ANIMALS[i].key),t:s.t,oct:s.oct,formantShift:s.formantShift,phase:s.phase,subLvl:s.subLvl,drive:s.drive,ott:s.ott,fizz:s.fizz,wubRate:s.wubRate,wubDepth:s.wubDepth,glide:s.glide,
   env:{a:s.env.a,d:s.env.d,s:s.env.s,r:s.env.r},corners:s.corners.slice(),uv:{u:s.uv.u,v:s.uv.v},pad:s.pad,
   crushOn:s.crushOn,crushBits:s.crushBits,crushDown:s.crushDown,spaceWet:s.spaceWet,verbDecay:s.verbDecay,delayMs:s.delayMs,delayFB:s.delayFB,
   grPos:s.grPos,grJit:s.grJit,grSize:s.grSize,grDens:s.grDens,grPitch:s.grPitch,grPitchJit:s.grPitchJit,grPan:s.grPan,grRev:s.grRev,
-  seq:{bpm:s.seq.bpm,swing:s.seq.swing,gateLen:s.seq.gateLen,note:s.seq.note.map(c=>({gate:c.gate,pitch:c.pitch})),glitch:s.seq.glitch.slice()},
+  seq:{bpm:s.seq.bpm,swing:s.seq.swing,gateLen:s.seq.gateLen,scale:s.seq.scale||'chromatic',note:s.seq.note.map(c=>({gate:c.gate,pitch:c.pitch})),glitch:s.seq.glitch.slice()},
   voices:s.voices,detune:s.detune,spread:s.spread,chord:s.chord,
   sampleAnimal: s.sampleAnimal ? {nm:s.sampleAnimal.nm,f0:s.sampleAnimal.f0,wave:s.sampleAnimal.wave,ratio:s.sampleAnimal.ratio,fm:s.sampleAnimal.fm,noise:s.sampleAnimal.noise,hue:s.sampleAnimal.hue,F:s.sampleAnimal.F.map(x=>x.slice()),sample:true} : null,
   seed:s.seed,chaos:s.chaos,humanize:s.humanize}; }
 function syncUI(){
   const padWas=ST.pad, uvWas={...ST.uv};
   const d=(id,v)=>{const e=$(id); if(e){e.value=v; e.dispatchEvent(new Event('input'));}};
-  d('morph',ST.t*100); d('k-wub',ST.wubRate*10); d('k-wubd',ST.wubDepth*100); d('k-oct',ST.oct); d('k-glide',ST.glide*1000);
+  d('morph',ST.t*100); d('k-wub',ST.wubRate*10); d('k-wubd',ST.wubDepth*100); d('k-oct',ST.oct); d('k-fshift',ST.formantShift||0); d('k-glide',ST.glide*1000);
   d('k-phase',ST.phase); d('k-sublvl',ST.subLvl*100); d('k-drive',ST.drive*100); d('k-ott',ST.ott*100); d('k-fizz',ST.fizz*100);
   d('k-ea',ST.env.a*1000); d('k-ed',ST.env.d*1000); d('k-es',ST.env.s*100); d('k-er',ST.env.r*1000);
   d('crush-bits',ST.crushBits); d('crush-down',ST.crushDown); d('space-wet',ST.spaceWet*100); d('verb-decay',ST.verbDecay*10); d('delay-ms',ST.delayMs); d('delay-fb',ST.delayFB*100);
   d('gr-pos',ST.grPos*100); d('gr-jit',ST.grJit*100); d('gr-size',ST.grSize); d('gr-dens',ST.grDens); d('gr-pitch',ST.grPitch); d('gr-pjit',ST.grPitchJit); d('gr-pan',ST.grPan*100); d('gr-rev',ST.grRev*100);
   d('seq-bpm',ST.seq.bpm); d('seq-swing',ST.seq.swing*100); d('seq-gate',ST.seq.gateLen*100);
+  if($('seq-scale')) $('seq-scale').value=ST.seq.scale||'chromatic';
   d('ch-chaos',ST.chaos*100); d('ch-hum',ST.humanize*100);
   d('k-voices',ST.voices); d('k-detune',ST.detune); d('k-spread',ST.spread*100);
   document.querySelectorAll('#chordseg button').forEach(x=>x.classList.toggle('on',x.dataset.chord===ST.chord));
@@ -916,6 +1035,35 @@ function syncUI(){
   setSwitch('crush-on',ST.crushOn);
   updateGenome();
 }
+function encodeSampleBundleAudio(buf){
+  if(!buf||!buf.getChannelData) return null;
+  const sr=Math.max(8000,Math.min(96000,buf.sampleRate|0||44100));
+  const ch0=buf.getChannelData(0), maxLen=Math.min(ch0.length, sr*8);
+  const bytes=new Uint8Array(maxLen*2), dv=new DataView(bytes.buffer);
+  for(let i=0;i<maxLen;i++){
+    const s=Math.max(-1,Math.min(1,ch0[i]));
+    dv.setInt16(i*2, s<0?s*0x8000:s*0x7fff, true);
+  }
+  let bin='';
+  for(let i=0;i<bytes.length;i+=8192) bin+=String.fromCharCode.apply(null, bytes.subarray(i,i+8192));
+  return {sr, pcm16:btoa(bin)};
+}
+function decodeSampleBundleAudio(sa){
+  if(!sa||typeof sa.pcm16!=='string') return null;
+  const sr=clampv(sa.sr,8000,96000,44100)|0;
+  let bin; try{ bin=atob(sa.pcm16); }catch(e){ return null; }
+  const n=(bin.length>>1); if(n<64) return null;
+  const bytes=new Uint8Array(n*2);
+  for(let i=0;i<n*2;i++) bytes[i]=bin.charCodeAt(i);
+  const dv=new DataView(bytes.buffer), pcm=new Float32Array(n);
+  for(let i=0;i<n;i++) pcm[i]=dv.getInt16(i*2,true)/32768;
+  return makeMonoBuffer(pcm,sr);
+}
+function serializeBundle(){
+  const p=serializePatch();
+  if(ST.sampleBuf) p.sampleAudio=encodeSampleBundleAudio(ST.sampleBuf);
+  return p;
+}
 function applyPatch(p){
   if(!p||p.app!=='biobass') return false;
   const garden=p.mode==='garden'?p.garden:null;
@@ -923,7 +1071,20 @@ function applyPatch(p){
   const s=ST;
   // A saved oscillator reference cannot silently reuse an unrelated sample already open in this tab.
   s.sampleMode='off'; s.sampleBuf=null; s.genomeMode=false;
-  $('samp-status').textContent=p.sampleRequired?'This patch used a raw sample oscillator. Load its audio file again; patch files and links contain settings only.':'Patch uses synthesis. No raw sample oscillator is loaded.';
+  const bundledBuf=p.sampleAudio?decodeSampleBundleAudio(p.sampleAudio):null;
+  if(bundledBuf){
+    s.sampleBuf=bundledBuf;
+    if(p.sampleRequired){
+      s.sampleMode='osc'; s.importMode='osc';
+      document.querySelectorAll('#sampseg button').forEach(x=>x.classList.toggle('on',x.dataset.smode==='osc'));
+      $('samp-status').textContent='Raw sample oscillator restored from bundle · '+bundledBuf.duration.toFixed(1)+' s';
+    } else {
+      $('samp-status').textContent='Sample audio restored from bundle · '+bundledBuf.duration.toFixed(1)+' s';
+    }
+  } else {
+    $('samp-status').textContent=p.sampleRequired?'This patch used a raw sample oscillator. Load its audio file again; patch files and links contain settings only.':'Patch uses synthesis. No raw sample oscillator is loaded.';
+  }
+  syncSampleBundleBtn();
   // reconstruct an imported 'sample' animal from EXTRACTED params only (never audio) before clamping A/B
   if(p.sampleAnimal && Array.isArray(p.sampleAnimal.F)){ const sa=p.sampleAnimal;
     ensureSampleAnimal({key:'sample',nm:String(sa.nm||'Your Sample').slice(0,24),emoji:'🎤',
@@ -933,7 +1094,7 @@ function applyPatch(p){
   // by name when the patch has names; a desktop patch used index 7 for its sample voice
   const pick=(key,i,d)=>{ if(typeof key==='string'&&idx(key)>=0) return idx(key); if(i===7&&p.sampleAnimal&&!key) return idx('sample'); return clampv(i,0,ANIMALS.length-1,d)|0; };
   s.A=pick(p.Akey,p.A,0); s.B=pick(p.Bkey,p.B,1);
-  s.t=clampv(p.t,0,1,0); s.oct=clampv(p.oct,-24,12,0)|0; s.phase=clampv(p.phase,0,360,0);
+  s.t=clampv(p.t,0,1,0); s.oct=clampv(p.oct,-24,12,0)|0; s.formantShift=clampv(p.formantShift,-12,12,0)|0; s.phase=clampv(p.phase,0,360,0);
   s.subLvl=clampv(p.subLvl,0,1,0.7); s.drive=clampv(p.drive,0,1,0.35); s.ott=clampv(p.ott,0,1,0.4); s.fizz=clampv(p.fizz,0,1,0.2);
   s.wubRate=clampv(p.wubRate,0,12,3.2); s.wubDepth=clampv(p.wubDepth,0,1,0.55); s.glide=clampv(p.glide,0.002,0.3,0.04);
   if(p.env){s.env.a=clampv(p.env.a,0.002,0.8,0.04);s.env.d=clampv(p.env.d,0.005,1.2,0.12);s.env.s=clampv(p.env.s,0,1,0.85);s.env.r=clampv(p.env.r,0.01,2,0.18);}
@@ -944,6 +1105,7 @@ function applyPatch(p){
   s.grPos=clampv(p.grPos,0,1,0.3); s.grJit=clampv(p.grJit,0,1,0.15); s.grSize=clampv(p.grSize,10,300,90)|0; s.grDens=clampv(p.grDens,1,60,24)|0;
   s.grPitch=clampv(p.grPitch,-24,24,0)|0; s.grPitchJit=clampv(p.grPitchJit,0,12,0)|0; s.grPan=clampv(p.grPan,0,1,0.6); s.grRev=clampv(p.grRev,0,1,0);
   if(p.seq){ s.seq.bpm=clampv(p.seq.bpm,60,200,140)|0; s.seq.swing=clampv(p.seq.swing,0,0.6,0); s.seq.gateLen=clampv(p.seq.gateLen,0.1,1,0.6);
+    s.seq.scale=SEQ_SCALES[p.seq.scale]?p.seq.scale:'chromatic';
     if(Array.isArray(p.seq.note)) s.seq.note=Array.from({length:16},(_,i)=>({gate:!!(p.seq.note[i]&&p.seq.note[i].gate),pitch:clampv(p.seq.note[i]&&p.seq.note[i].pitch,-24,24,0)|0}));
     if(Array.isArray(p.seq.glitch)) s.seq.glitch=Array.from({length:16},(_,i)=>!!p.seq.glitch[i]); }
   s.seed=clampv(p.seed,1,1e9,1337)|0; s.chaos=clampv(p.chaos,0,1,0); s.humanize=clampv(p.humanize,0,1,0);
@@ -977,9 +1139,10 @@ function mutate(){ const j=(v,amt,a,b)=>Math.max(a,Math.min(b,v+(rng()*2-1)*amt)
   glitchBurst($('genome').closest('.card'),1);
 }
 $('patch-save').onclick=()=>dl('chimera_'+ANIMALS[ST.A].key+'-x-'+ANIMALS[ST.B].key+'.patch.json', JSON.stringify(serializePatch(),null,2),'application/json');
+const psb=$('patch-save-bundle'); if(psb) psb.onclick=()=>dl('chimera_'+ANIMALS[ST.A].key+'-x-'+ANIMALS[ST.B].key+'.bundle.json', JSON.stringify(serializeBundle(),null,2),'application/json');
 $('patch-load').onclick=()=>$('patch-file').click();
 $('patch-file').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ try{ if(!applyPatch(JSON.parse(r.result))) toast('That file is not a Chimera patch.'); else toast(patchLoadMessage()); }catch(err){ toast('Could not read that patch: '+err.message); } }; r.readAsText(f); e.target.value=''; });
-function patchLoadMessage(){ return ST.sampleMode==='off'&&$('samp-status').textContent.startsWith('This patch used')?'Patch settings loaded. Reload the raw sample audio to restore its oscillator.':'Patch loaded.'; }
+function patchLoadMessage(){ return ST.sampleMode==='osc'&&ST.sampleBuf?'Patch bundle loaded with embedded sample oscillator.':ST.sampleMode==='off'&&$('samp-status').textContent.startsWith('This patch used')?'Patch settings loaded. Reload the raw sample audio to restore its oscillator.':'Patch loaded.'; }
 function patchToBase64(p){ const bytes=new TextEncoder().encode(JSON.stringify(p)); let bin=''; for(const b of bytes)bin+=String.fromCharCode(b); return btoa(bin); }
 function patchFromBase64(value){ const bin=atob(value), bytes=Uint8Array.from(bin,c=>c.charCodeAt(0)); let text; try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch(e){text=bin;} return JSON.parse(text); }
 $('patch-link').onclick=()=>{ try{ history.replaceState(null,'','#p='+encodeURIComponent(patchToBase64(serializePatch())));
@@ -1318,10 +1481,11 @@ function analyzeSampleToGenome(buf){
     subLevel:0.6, drive:0.35, ott:0.4, fizz:0.2, space:0.0 });
 }
 
-let _deRunning=false;
+let _deRunning=false, _deCancel=false;
 async function genopatchGrow(buf){
-  if(_deRunning) return; _deRunning=true;
-  const st=document.getElementById('gp-status'); const bar=document.getElementById('gp-bar');
+  if(_deRunning) return; _deRunning=true; _deCancel=false;
+  const st=document.getElementById('gp-status'); const bar=document.getElementById('gp-bar'); const cancelBtn=document.getElementById('gp-cancel');
+  if(cancelBtn) cancelBtn.hidden=false;
   const setS=(m)=>{ if(st)st.textContent=m; }; if(bar) bar.style.width='0%';
   try{
     enterGenomeMode(true);
@@ -1335,17 +1499,27 @@ async function genopatchGrow(buf){
     for(let k=0;k<POP;k++){ const c=new Float32Array(GN);
       for(let i=0;i<GN;i++) c[i]=clamp01(seed[i] + (k===0?0:(r()*2-1)*0.25));
       pop.push(c); }
-    for(let k=0;k<POP;k++){ fit[k]=_specDist(await _renderGenomeSpectrum(pop[k],ref), ref.v);
+    for(let k=0;k<POP;k++){
+      if(_deCancel) break;
+      fit[k]=_specDist(await _renderGenomeSpectrum(pop[k],ref), ref.v);
       if(k%4===0){ setS(`Seeding the population, ${k+1} of ${POP}…`); await new Promise(z=>setTimeout(z,0)); } }
+    if(_deCancel){
+      plantSeed(seed, true);
+      setS('Stopped early · planted initial analyzed seed.');
+      return;
+    }
     let best=0; for(let k=1;k<POP;k++) if(fit[k]<fit[best]) best=k;
     for(let gen=0; gen<GENS; gen++){
+      if(_deCancel) break;
       for(let k=0;k<POP;k++){
+        if(_deCancel) break;
         let a,b,c; do{a=(r()*POP)|0;}while(a===k); do{b=(r()*POP)|0;}while(b===k||b===a); do{c=(r()*POP)|0;}while(c===k||c===a||c===b);
         const trial=new Float32Array(GN); const jr=(r()*GN)|0;
         for(let i=0;i<GN;i++){ trial[i] = (r()<CR||i===jr) ? clamp01(pop[a][i]+F*(pop[b][i]-pop[c][i])) : pop[k][i]; }
         const tf=_specDist(await _renderGenomeSpectrum(trial,ref), ref.v);
         if(tf<fit[k]){ pop[k]=trial; fit[k]=tf; if(tf<fit[best]) best=k; }
       }
+      if(_deCancel) break;
       if(bar) bar.style.width = Math.round((gen+1)/GENS*100)+'%';
       setS(`Growing, generation ${gen+1} of ${GENS} · best fit ${fit[best].toFixed(3)}`);
       // audition the current best while it grows
@@ -1353,10 +1527,14 @@ async function genopatchGrow(buf){
       await new Promise(z=>setTimeout(z,0));
     }
     plantSeed(pop[best], true);
-    setS(`Grown: an approximation of the sample's spectral character, fit ${fit[best].toFixed(3)}, where lower is closer. Not the sample and not a clone.`);
-    if(bar) bar.style.width='100%';
+    if(_deCancel){
+      setS(`Stopped early · kept best seed so far (fit ${fit[best].toFixed(3)}).`);
+    } else {
+      setS(`Grown: an approximation of the sample's spectral character, fit ${fit[best].toFixed(3)}, where lower is closer. Not the sample and not a clone.`);
+      if(bar) bar.style.width='100%';
+    }
   }catch(err){ setS('Growing failed: '+err.message); }
-  finally{ _deRunning=false; }
+  finally{ _deRunning=false; _deCancel=false; if(cancelBtn) cancelBtn.hidden=true; }
 }
 
 /* ---- self-test hook (headless): decode(encode(x)) round-trips ---- */
@@ -1401,6 +1579,12 @@ function initGarden(){
   $('g-random').onclick=()=>{ const r=mul32((ST.seed|0)+Date.now()%99999); const c=new Float32Array(GN); for(let i=0;i<GN;i++)c[i]=r(); plantSeed(c,true); ensureLiveGenome(); };
   const gpf=$('gp-file'); $('gp-load').onclick=()=>gpf.click();
   gpf.onchange=e=>{ const f=e.target.files[0]; e.target.value=''; if(f) growFromFile(f); };
+  const gpc=$('gp-cancel'); if(gpc) gpc.onclick=()=>{ _deCancel=true; };
+  document.querySelectorAll('#gp-presets button').forEach(b=>b.onclick=()=>{
+    const kind=b.dataset.gp;
+    document.querySelectorAll('#gp-presets button').forEach(x=>x.classList.toggle('on',x===b));
+    ensureAudio(); enterGenomeMode(true); genopatchGrow(synthTestSample(kind));
+  });
   document.addEventListener('keydown', e=>{ if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='z'&&ST.genomeMode&&!typingInto(document.activeElement)){ e.preventDefault(); undoSeed(); } });
   lineageAdd(GARDEN.seed);
   requestAnimationFrame(growTick);
