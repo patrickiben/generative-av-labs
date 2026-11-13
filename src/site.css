@@ -13,20 +13,21 @@ body.site { overflow: auto; background: radial-gradient(1400px 800px at 72% -10%
 .hero-title .eyebrow { margin-bottom: 14px; }
 .hero-title h1 { font-family: var(--serif); font-weight: 400; font-size: clamp(36px, 5vw, 64px); letter-spacing: -1.5px; line-height: 1.1; margin: 0; text-wrap: balance; }
 .hero-title h1 span { white-space: nowrap; }   /* break between the phrases, never inside one */
+.home .hero-title h1 { font-family: var(--sans); max-width: 900px; margin: 0 auto; }   /* home page headings use the interface sans-serif, as on Body Signal Labs; the cap keeps the serif version's line breaks */
 .hero-title p:last-child { color: var(--muted); font-size: 15px; margin: 14px auto 0; max-width: 560px; line-height: 1.55; }
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 18px; }
 .app-card { display: flex; flex-direction: column; overflow: hidden; border: 1px solid var(--line); border-radius: 24px; background: var(--glass); backdrop-filter: blur(14px); text-decoration: none; color: inherit; box-shadow: 0 18px 70px var(--shadow); transition: transform 0.35s ease, border-color 0.35s ease; }
 .app-card:hover { transform: translateY(-4px); border-color: var(--accent); }
 .app-card img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; background: #0b0f1c; }
 .app-card .body { padding: 20px 22px 22px; }
-.app-card h2 { font-family: var(--serif); font-weight: 400; font-size: 27px; letter-spacing: -0.6px; margin: 0 0 7px; }
+.app-card h2 { font-family: var(--sans); font-weight: 400; font-size: 27px; letter-spacing: -0.6px; margin: 0 0 7px; }
 .app-card p { font-size: 13px; line-height: 1.6; color: var(--muted); margin: 0 0 14px; }
 .app-card .go { font-size: 12px; color: var(--accent); }
 .tile a { color: var(--accent); }
 .strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 18px; }
 .tile { border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; background: rgba(24, 28, 46, 0.55); }
 .tile .k { font-size: 9px; letter-spacing: 1.8px; text-transform: uppercase; color: var(--muted); }
-.tile b { display: block; font-family: var(--serif); font-weight: 400; font-size: 20px; letter-spacing: -0.3px; margin: 7px 0 5px; }
+.tile b { display: block; font-family: var(--sans); font-weight: 400; font-size: 20px; letter-spacing: -0.3px; margin: 7px 0 5px; }
 .tile span.d { font-size: 12px; color: var(--muted); line-height: 1.55; }
 .site-foot { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); line-height: 1.7; display: flex; flex-wrap: wrap; gap: 6px 22px; justify-content: space-between; }
 .guide { max-width: 860px; margin: 0 auto; }
