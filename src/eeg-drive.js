@@ -34,7 +34,7 @@
     const fetcher = options.fetch || (global.fetch && global.fetch.bind(global));
     const Events = options.EventSource || global.EventSource;
     const initialMessage = available ? 'Connect Muse, then keep your eyes open for a personal EEG reference.' :
-      'Open the cockpit from the optional Mac EEG bridge to connect Muse.';
+      'A Muse S cannot connect to this page. Use the labeled synthetic preview.';
     let sensorMode = SENSOR_MODES.includes(options.sensorMode) ? options.sensorMode : 'eeg';
     const emptyAux = () => ({
       fnirs: {valid: false, phase: 'waiting', od: null, drift: null, channels: [], progress: 0, baseline: null, score: null, drive: 0, reason: 'Waiting for >=2 eligible forehead optical channels (64 Hz).', receivedAt: null},

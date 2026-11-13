@@ -225,7 +225,7 @@
     <label class="field"><div class="row"><span>From A to B</span><b id="t2-val">0.50</b></div><input type="range" id="t2" min="0" max="1000" value="500"></label>
     <div class="field" id="disp-bio-field"><span>Headband / biofeedback mod-wheel</span>
       <div class="row-actions" id="disp-bio-row" style="margin-top:4px;flex-wrap:wrap">
-        <button class="pill" id="disp-bio-toggle" aria-pressed="false" title="Drive the optimal-transport blend position t from Muse S / Athena headband sensors">Bio mod: off</button>
+        <button class="pill" id="disp-bio-toggle" aria-pressed="false" title="Drive the optimal-transport blend position t from the synthetic Muse S / Athena preview; a real headset cannot connect to this page">Bio mod: off</button>
         <button class="pill" id="disp-bio-demo" aria-pressed="false" title="Run a labeled synthetic EEG + fNIRS + PRV + Stillness preview">Synthetic preview: off</button>
         <button class="pill on" data-athena="eeg" aria-pressed="true">EEG</button>
         <button class="pill" data-athena="fnirs" aria-pressed="false">fNIRS</button>
@@ -233,7 +233,7 @@
         <button class="pill" data-athena="stillness" aria-pressed="false">Stillness</button>
         <button class="pill" data-athena="fusion" aria-pressed="false">Fusion</button>
       </div>
-      <p class="note" id="disp-bio-status" style="margin-top:6px">Modulate t hands-free with your Muse S / Athena headband (EEG balance, fNIRS optical, optical PRV, IMU stillness, or 4-sensor fusion) or try the synthetic preview.</p>
+      <p class="note" id="disp-bio-status" style="margin-top:6px">A real Muse S cannot connect to this page, so these modes run only as a labeled synthetic preview. The preview moves t by EEG balance, fNIRS optical, optical PRV, IMU stillness, or fusion.</p>
     </div>
     <div class="sig-title"><span>Transport scope · the map, drawn</span><span id="scope-means"></span></div>
     <canvas class="sig-canvas" id="scope-big" width="1400" height="440" role="img" aria-label="Distributions of A, B and the blend, with the transport map"></canvas>
@@ -1378,7 +1378,7 @@ void main(){
       ];
       $('disp-bio-status').textContent = S.bioAuto
         ? `${S.bioDemo ? 'Synthetic preview' : 'Muse S Athena'} · ${q.activeLabel || sm.toUpperCase()} driving t = ${S.t.toFixed(2)} · ${parts.join(' · ')}`
-        : 'Modulate t hands-free with your Muse S / Athena headband (EEG balance, fNIRS optical, optical PRV, IMU stillness, or 4-sensor fusion) or try the synthetic preview.';
+        : 'A real Muse S cannot connect to this page, so these modes run only as a labeled synthetic preview. The preview moves t by EEG balance, fNIRS optical, optical PRV, IMU stillness, or fusion.';
     }
   }
   $('swap').addEventListener('click', () => {

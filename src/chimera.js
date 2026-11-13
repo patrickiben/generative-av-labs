@@ -507,7 +507,7 @@ void main(){
       ];
       $('chimera-bio-status').textContent = bioAuto
         ? `${bioDemo ? 'Synthetic preview' : 'Muse S Athena'} · ${bioMode === 'pad2d' ? '2D Pad (EEG X × fNIRS Y)' : (q.activeLabel || bioMode.toUpperCase())} active · ${parts.join(' · ')}`
-        : 'Modulate the 4-corner animal Morph pad or Garden macro hands-free using Muse S / Athena EEG, fNIRS optical, PRV, IMU stillness, or synthetic preview.';
+        : 'A real Muse S cannot connect to this page, so these modes run only as a labeled synthetic preview. The preview moves the animal Morph pad or the Garden macro.';
     }
   }
   if ($('chimera-bio-toggle')) $('chimera-bio-toggle').addEventListener('click', () => {

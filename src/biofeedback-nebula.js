@@ -349,7 +349,7 @@ void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){v
         <div class="stat"><span class="k">Optical PRV</span><span class="v" id="ath-prv">-</span><span class="n" id="ath-prv-n">forehead RMSSD</span></div>
         <div class="stat"><span class="k">IMU stillness</span><span class="v" id="ath-still">-</span><span class="n" id="ath-still-n">52 Hz · 3-axis g</span></div>
       </div>
-      <p class="note" id="eeg-setup">Muse S uses the optional private relay. The synthetic preview works in Demo without hardware.</p>
+      <p class="note" id="eeg-setup">A Muse S cannot connect to this page: the Mac relay that reads the headband does not serve it. The synthetic preview runs in Demo.</p>
       <div class="row-actions"><button class="pill" id="eeg-start">Find Muse S</button><button class="pill" id="eeg-scan">Scan again</button><button class="pill" id="eeg-disconnect">Disconnect</button></div>
       <label class="field">Headset<select id="eeg-device"><option value="">No Muse found yet</option></select></label>
       <div class="row-actions"><button class="pill primary" id="eeg-pair">Pair selected headset</button><button class="pill" id="eeg-calibrate">New personal reference</button></div>
@@ -420,7 +420,7 @@ void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){v
         <button class="pill" id="form-wav">Save audio (.wav)</button>
         <button class="pill" id="form-ply">Save cloud (.ply)</button>
       </div>
-      <p class="note">Bio morph lets your Muse S / Athena headband sensor (EEG, fNIRS, PRV, stillness, or fusion) or heart-rate arousal move the cloud between picture and sound.</p>
+      <p class="note">Bio morph lets heart-rate arousal, or the synthetic Muse S / Athena preview (EEG, fNIRS, PRV, stillness, or fusion), move the cloud between picture and sound.</p>
     </div>
     <details id="load-controls" open><summary>Biofeedback thresholds</summary><div class="controls-grid" style="padding:10px 0 0">
       <label class="field"><div class="row"><span>Full field-load at this far above baseline HR</span><b id="full-over-v">+60 bpm</b></div><input type="range" id="full-over" min="20" max="100" step="5" value="60"></label>
@@ -459,10 +459,10 @@ void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){v
     <table class="maptable"><tbody>
       <tr><th>Watch (Inferred arousal)</th><td>Autonomic Telemetry's <code>multivariate-1</code> engine scores your shift from a 120-second personal reference. A higher index warms and widens the nebula gas, shifts the core toward crimson-amber, and stirs the curl field. <span class="ep ep-inferred">Inferred</span></td></tr>
       <tr><th>Field · Drums</th><td>The last twelve seconds of drum hits and audio spectrum wind outward along the Galaxy, River, or Vortex arms, while heart rate above baseline adds warm field tension. <span class="ep ep-measured">Measured</span> + <span class="ep ep-inferred">Inferred</span></td></tr>
-      <tr><th>Field · Brainwaves &amp; Athena</th><td>Choose EEG α/β balance, fNIRS slow optical density (&lt;0.18 Hz), forehead optical PRV, 3-axis IMU stillness, or 4-sensor fusion. Calibrated 0–100 control calms particle scatter into a coherent spiral while fNIRS optical shifts add deep-infrared aurora warmth. <span class="ep ep-proxy">Proxy</span></td></tr>
+      <tr><th>Field · Brainwaves &amp; Athena</th><td>Synthetic preview only: a real Muse S cannot connect to this page. Choose EEG α/β balance, fNIRS slow optical density (&lt;0.18 Hz), forehead optical PRV, 3-axis IMU stillness, or 4-sensor fusion. Calibrated 0–100 control calms particle scatter into a coherent spiral while fNIRS optical shifts add deep-infrared aurora warmth. <span class="ep ep-proxy">Proxy</span></td></tr>
       <tr><th>Field · Heart</th><td>Each heartbeat sends a radial wave through the 2D fluid and pulses the core, while your 2-minute heart-rate history winds along the nebula arms. <span class="ep ep-measured">Measured</span></td></tr>
       <tr><th>Train (Swing at pace)</th><td>Follow the breathing ring (4.5–7 breaths/min). Heart-rate swing at the pacer's frequency increases Clarity (0–1), gathering turbulent dust into a coherent harmonic torus. Hold 60 seconds for a supernova dawn bloom. <span class="ep ep-proxy">Proxy</span></td></tr>
-      <tr><th>Form (Picture ↔ Sound)</th><td>Matches a 2D image and a sound by 6D sliced optimal transport. Slide manually, sweep slowly, or let your chosen Muse S Athena sensor / breathing clarity morph the cloud live. <span class="ep ep-proc">Optimal transport</span></td></tr>
+      <tr><th>Form (Picture ↔ Sound)</th><td>Matches a 2D image and a sound by 6D sliced optimal transport. Slide manually, sweep slowly, or let breathing clarity or the synthetic Muse S preview morph the cloud live. <span class="ep ep-proc">Optimal transport</span></td></tr>
     </tbody></table>
     <p class="note"><b>Not a medical device.</b> Diagnoses nothing, treats nothing, and all data stays in this browser.</p>`;
 
@@ -548,7 +548,7 @@ void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){v
     intro: {
       eyebrow: 'Biofeedback Nebula · body signals, brainwaves & sound in 3D',
       title: 'The nebula breathes with your signals.',
-      subtitle: 'Connect a heart-rate sensor, Muse S / Athena headset, or drum kit — or run the labeled demo.',
+      subtitle: 'Connect a heart-rate sensor or drum kit, or run the labeled demo. The Muse S modes are a synthetic preview here.',
     },
     stageBar, hud, chips,
     source: sourceView,
@@ -556,7 +556,7 @@ void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){v
     playing: () => bio.demoOn || kit.demoOn || bio.hr.connected || kit.audio.state === 'live' || kit.midi.state === 'live' || S.mode === 'train' || S.mode === 'form',
     connect: {
       title: 'Bring your signals and kit.',
-      intro: 'Heart rate shapes the nebula gas and clarity ring. Muse S / Athena brainwaves, fNIRS optical, PRV, and stillness drive spiral coherence. Audio and MIDI wind the last twelve seconds of playing outward.',
+      intro: 'Heart rate shapes the nebula gas and clarity ring. A synthetic preview of the Muse S / Athena modes drives spiral coherence. Audio and MIDI wind the last twelve seconds of playing outward.',
       html: connectHtml,
     },
     truth: 'Inferred arousal and clarity are personal heuristics and game proxies, never medical measurements. All signals stay in this browser.',
@@ -653,7 +653,7 @@ void main(){vec2 v=texture(uV,vUv).xy;vec2 p=(vUv-.5)*4.;for(int i=0;i<uN;i++){v
       $('ath-still-n').textContent = ss.rms != null ? `${ss.rms.toFixed(3)} g RMS` : '52 Hz · 3-axis g';
     }
     $('eeg-state').textContent = q.deviceName ? `${q.deviceName} · ${q.phase}` : `Muse S · ${q.phase}`;
-    $('eeg-why').textContent = q.message || 'Connect the optional private relay to look for Muse S.';
+    $('eeg-why').textContent = q.message || 'A Muse S cannot connect to this page.';
     const activeSensor = sens[sm];
     $('eeg-quality').textContent = (activeSensor && activeSensor.reason) || (q.quality && q.quality.reason) || 'No usable EEG data yet.';
     $('eeg-transport').textContent = `Relay · ${q.transport === true ? 'connected' : q.transport || 'disconnected'}`;
