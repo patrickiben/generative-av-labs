@@ -774,7 +774,7 @@ void main(){
     band.addColorStop(0, 'rgba(8,10,22,0)'); band.addColorStop(1, 'rgba(8,10,22,0.92)');
     x.fillStyle = band; x.fillRect(0, H * 0.55, W, H * 0.45);
     const p = morphedPatch();
-    x.fillStyle = '#eeedfb'; x.font = '400 60px Georgia, "Times New Roman", serif'; x.textBaseline = 'alphabetic';
+    x.fillStyle = '#eeedfb'; x.font = '400 60px Inter, ui-sans-serif, -apple-system, sans-serif'; x.textBaseline = 'alphabetic';
     x.fillText('Chimera Synth', 72, H - 170);
     x.fillStyle = '#b6b9cf'; x.font = '22px Inter, ui-sans-serif, -apple-system, sans-serif';
     x.fillText(ST.genomeMode ? `A seed from the garden · generation ${LINEAGE.nodes[LINEAGE.cur] ? LINEAGE.nodes[LINEAGE.cur].depth : 0}` : ST.pad ? 'Four animals on the pad' : `${ANIMALS[ST.A].nm} into ${ANIMALS[ST.B].nm} · t ${ST.t.toFixed(2)}`, 74, H - 128);
