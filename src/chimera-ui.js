@@ -124,7 +124,7 @@
         <p class="hint">Z to M is the lower octave and Q to U the upper, with the sharps on the row above. Last note <b id="kbnote">0 st</b>.</p>`)}
       ${card('Just exploring?', `<button class="pill primary wide" id="demo-sheet">Run demo</button>
         <p class="hint">The demo plays a riff through the garden by itself, and it is labeled on screen the whole time.</p>`)}
-      ${card('Muse S / Athena biofeedback timbre automation', `
+      ${card('Muse S / Athena timbre automation: synthetic preview', `
         <div class="row-actions" id="chimera-bio-row" style="margin-top:2px;flex-wrap:wrap">
           <button class="pill" id="chimera-bio-toggle" aria-pressed="false">Bio timbre: off</button>
           <button class="pill" id="chimera-bio-demo" aria-pressed="false">Synthetic preview: off</button>
@@ -137,7 +137,7 @@
           <button class="pill" data-cbio="stillness" aria-pressed="false">Head stillness</button>
           <button class="pill" data-cbio="fusion" aria-pressed="false">4-sensor fusion</button>
         </div>
-        <p class="hint" id="chimera-bio-status" style="margin-top:8px">Modulate the 4-corner animal Morph pad or Garden macro hands-free using Muse S / Athena EEG, fNIRS optical, PRV, IMU stillness, or synthetic preview.</p>`, { id: 'chimera-bio-card' })}
+        <p class="hint" id="chimera-bio-status" style="margin-top:8px">A real Muse S cannot connect to this page, so these modes run only as a labeled synthetic preview. The preview moves the animal Morph pad or the Garden macro.</p>`, { id: 'chimera-bio-card' })}
       ${card('Settings', row('Reconnect MIDI', 'When this page opens, if the browser already allows it', sw('reconnect', 'Reconnect MIDI when this page opens')))}
       ${dcard('Connecting a MIDI keyboard', `<ol>
           <li><b>Plug in.</b> A USB MIDI keyboard plugs straight into the computer. A keyboard with a 5-pin MIDI OUT needs a USB-MIDI interface. The browser lists the device's name.</li>

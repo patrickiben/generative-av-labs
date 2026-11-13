@@ -56,7 +56,7 @@ if __name__ == "__main__":
     if (SRC / "nebula.js").exists():
         page("nebula.html", "Nebula", "A particle nebula made from the last twelve seconds of live drums: time winds outward from the core and frequency sets the color.", ["nebula.js"])
     if (SRC / "biofeedback-nebula.js").exists():
-        page("biofeedback-nebula.html", "Biofeedback Nebula", "A 3D particle nebula driven by your heart rate, HRV, paced breathing, Muse S EEG brainwave balance, or live drum kit. Not a medical device.", ["vendor/autonomic/research-math.js", "vendor/autonomic/multivariate-engine.js", "bio.js", "eeg-drive.js", "biofeedback-nebula.js"], extra_css=(SRC / "biofeedback-nebula.css").read_text())
+        page("biofeedback-nebula.html", "Biofeedback Nebula", "A 3D particle nebula driven by your heart rate, HRV, paced breathing, or live drum kit; the Muse S modes are a labeled synthetic preview here. Not a medical device.", ["vendor/autonomic/research-math.js", "vendor/autonomic/multivariate-engine.js", "bio.js", "eeg-drive.js", "biofeedback-nebula.js"], extra_css=(SRC / "biofeedback-nebula.css").read_text())
     if (SRC / "enter.js").exists():
         page("enter.html", "Enter", "Walk into a picture and fly through a sound: a first-person depth relief, a synesthetic sound field and a printable sculpture of the sound.", ["enter-workers.js", "enter-chrome.js", "enter.js"], extra_css=(SRC / "enter.css").read_text(), base=("gl.js",))
     if (SRC / "chimera.js").exists():
