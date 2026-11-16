@@ -3978,7 +3978,8 @@ void main(){
     b.textContent = active ? `Stop ${playBlendT.toFixed(2)}` : auditionPending ? 'Cancel' : `Hear ${S.t.toFixed(2)}`;
     b.classList.toggle('on', active || auditionPending);
     b.title = active ? `Hearing blend ${playBlendT.toFixed(2)}. Slider changes update at the same playback position when rendered.` : 'Hear the current blend. Move the slider while listening to update the sound.';
-    b.setAttribute('aria-label', active ? `Stop playback. Hearing blend ${playBlendT.toFixed(2)}${playKey !== audioKey() ? ', updating to the current controls' : ''}` : auditionPending ? 'Cancel pending playback' : `Hear blend ${S.t.toFixed(2)}`);
+    // The spoken name starts with the visible label (WCAG 2.5.3, label in name), then says what the button does.
+    b.setAttribute('aria-label', active ? `Stop ${playBlendT.toFixed(2)}, stop hearing the blend${playKey !== audioKey() ? ', updating to the current controls' : ''}` : auditionPending ? 'Cancel pending playback' : `Hear ${S.t.toFixed(2)}, hear the blend at this position`);
   }
   $('hear').addEventListener('click', async () => {
     if ((playSrc && playKind === 'blend') || auditionPending) { stopAudio(); return; }

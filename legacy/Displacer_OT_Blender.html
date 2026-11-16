@@ -1328,9 +1328,9 @@ function exportSplatPLY(){
     const v=Math.min(1,vel/127), D=DRUMS;                   // GM percussion map
     if(note===35||note===36){ D.kick=Math.max(D.kick,v); D.last='kick'; }
     else if(note===38||note===40||note===37){ D.snare=Math.max(D.snare,v); D.last='snare'; }
-    else if(note===42||note===44||note===22){ D.hat=Math.max(D.hat,v*0.9); D.last=D.hatOpen>0.4?'open hat':'hat'; }   // 22 = Mimic closed-edge; openness lives on CC#4
+    else if(note===42||note===44||note===22){ D.hat=Math.max(D.hat,v*0.9); D.last=D.hatOpen>0.4?'open hat':'hat'; }   // 22 = closed hat edge; openness lives on CC#4
     else if(note===46){ D.hat=Math.max(D.hat,v); D.last='open hat'; }
-    else if(note===23){ D.snare=Math.max(D.snare,v*0.55); D.last='brush'; }   // Mimic brush sweep
+    else if(note===23){ D.snare=Math.max(D.snare,v*0.55); D.last='brush'; }   // brush sweep
     else if(note===41||note===43){ D.tom=Math.max(D.tom,v); D.tomPos=0.2; D.last='low tom'; }
     else if(note===45||note===47){ D.tom=Math.max(D.tom,v); D.tomPos=0.5; D.last='mid tom'; }
     else if(note===48||note===50){ D.tom=Math.max(D.tom,v); D.tomPos=0.8; D.last='high tom'; }

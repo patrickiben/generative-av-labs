@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""A short check for CI: each page boots, says it is ambient, runs the demo, and the demo really produces hits.
+"""A short check for CI: the home page's pictures and links exist, and each page boots, says it is ambient,
+runs the demo, and the demo really produces hits.
 Chimera is a synth, so its demo is checked by the riff steps it really played instead of drum hits.
 Displacer takes sound files, not a kit, so it is checked by the atom cloud it really built instead."""
 import http.server, sys, threading
@@ -14,7 +15,20 @@ srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Q)
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 bad = []
 with sync_playwright() as p:
-    for page in ('nebula.html', 'chimera.html', 'displacer.html'):
+    # The home page: every card picture and every page it links to is in the site (a card shipped without its picture on 2026-11-07)
+    b = p.chromium.launch(); pg = b.new_page(); pg.set_default_timeout(60000)
+    pg.goto(f'http://127.0.0.1:{srv.server_port}/index.html', timeout=60000)
+    refs = pg.evaluate("""() => [...document.images].map(i => i.getAttribute('src'))
+        .concat([...document.querySelectorAll('a[href]')].map(a => a.getAttribute('href')))
+        .filter(h => h && !/^(https?:|mailto:|data:|#|\\.\\.\\/)/.test(h))""")
+    def target(h):
+        q = h.split('#')[0].split('?')[0]
+        return None if not q else (ROOT / q / 'index.html' if q.endswith('/') else ROOT / q)
+    missing = sorted({h for h in refs if target(h) and not target(h).is_file()})
+    if missing: bad.append(f'index.html: points to files that are not in the site: {missing}')
+    print(f'index.html: {len(refs)} same-site pictures and links, {len(missing)} missing')
+    b.close()
+    for page in ('nebula.html', 'biofeedback-nebula.html', 'chimera.html', 'displacer.html'):
         # a browser of its own for each page: under software rendering, a page left running starves the next one,
         # and on Linux closing one page's GL context stalled the next page's
         b = p.chromium.launch(args=['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--autoplay-policy=no-user-gesture-required'])
@@ -26,6 +40,9 @@ with sync_playwright() as p:
             pg.wait_for_function('window.__app && __app.spaceN > 0', timeout=120000)
             n = pg.evaluate('__app.spaceN')
             if pg.is_visible('#demo-button'): bad.append(f'{page}: shows a drum demo')
+            # the play button's spoken name starts with its visible label (WCAG 2.5.3, label in name)
+            shown, spoken = pg.inner_text('#hear').strip(), pg.get_attribute('#hear', 'aria-label') or ''
+            if spoken and not spoken.startswith(shown): bad.append(f'{page}: the play button shows {shown!r} but is named {spoken!r}')
             if errors: bad.append(f'{page}: {errors[0]}')
             print(f'{page}: {n} atoms in the cloud, {len(errors)} page errors')
             b.close()
