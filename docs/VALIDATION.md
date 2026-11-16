@@ -157,7 +157,7 @@ Not tested: an outside listener, Safari itself, Edge, phone hardware, a file dro
 
 Checked on 2026-11-03 in Chrome on the same Mac. **No real MIDI controller and no outside visitor has used it yet.**
 
-Displacer is sound only since 2026-11-03: two sounds blend by optimal transport, opening on the blend’s labeled spectrogram, with Gabor atoms available under Atoms · 3D. The picture mode, its views, options and picture saves were removed; the desktop app keeps them. Displacer takes sound files and a MIDI controller, not a drum kit: the shell's signal view, pad keys and hit strip are switched off, its session recorder is removed, and its drum demo and audio input stay hidden. The mod wheel moves the blend, as in the desktop app, and a MIDI keyboard can play a grown patch.
+Displacer is sound only since 2026-11-03: two sounds blend by optimal transport, opening on the blend’s labeled spectrogram, with Gabor atoms available under Atoms · 3D. The picture mode, its views, options and picture saves were removed; the desktop app keeps them. Displacer takes sound files and a MIDI controller, not a drum kit: the shell's signal view, pad keys and hit strip are switched off, its session recorder is removed, and its drum demo and audio input stay hidden. The mod wheel moves the blend, as in the desktop app, and a MIDI keyboard can play a grown patch. In `legacy/`, two hardware comments were removed from the copy of the desktop page; nothing else in that copy changed.
 
 `tests/displacer_states.py` passed 57 of 57 in real Chrome after the audio-first update:
 
@@ -174,6 +174,8 @@ Displacer is sound only since 2026-11-03: two sounds blend by optimal transport,
 Flicker. With no drum input, the fast ways to change the stage are the slider and the view. The limit is 25% of a region flashing more than three times a second. Dragging the slider at five full swings a second measured 0% in Flat, where the spectrogram changes only when a render lands (also 0% with the slider slow enough for every render to land), and 12 to 18% in Space over five runs. Flipping between Flat and Space ten times a second measured 13 to 16% over two runs. The sound Space view had not been measured before this change: through the stage's single 0.15 second glide it measured 22 to 26%, at the limit. The stage now follows the slider through two 0.1 second glides, which feel the same on a hand's drag but move the atoms about half as far when scrubbed back and forth.
 
 `tests/smoke.py` checks Displacer by the atom cloud it builds, since it has no drum demo, and passes on all five pages under software rendering.
+
+On 2026-11-15, the play button's spoken name was changed to start with its visible label (WCAG 2.5.3, label in name): "Hear 0.50, hear the blend at this position", and "Stop 0.50, stop hearing the blend" while playing. `tests/smoke.py` now checks it. In Chrome, the accessibility tree gave those names at 375 and 1,024 pixels wide. No screen reader was used.
 
 ### Displacer audio-first update
 
